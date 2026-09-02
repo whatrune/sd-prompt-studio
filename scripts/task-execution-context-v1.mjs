@@ -212,7 +212,30 @@ export function admitParallelExecutionsV1(left, right, options = {}) {
   })
 }
 
-const immediateContinuationActionV1 = (terminalKind, owningWorker) => {
+const correctionContinuationKindsV1 = new Set([
+  'REVIEW_FINDING', 'CORRECTION_IMPLEMENTATION_COMPLETE', 'PREPUBLICATION_REVIEW_APPROVE',
+  'PUBLICATION_COMPLETE', 'CORRECTION_CHECKS_PASS', 'REVIEW_APPROVE',
+])
+
+const normalizeCorrectionContinuationContextV1 = (value) => {
+  if (value === null) return null
+  if (
+    value === null || typeof value !== 'object' || Array.isArray(value) ||
+    Object.keys(value).sort().join('\0') !== ['active_thread_ids', 'finding_cursor', 'finding_head'].sort().join('\0') ||
+    typeof value.finding_cursor !== 'string' || value.finding_cursor.length === 0 ||
+    !SHA_PATTERN.test(value.finding_head ?? '') || !Array.isArray(value.active_thread_ids) ||
+    value.active_thread_ids.length === 0 ||
+    !value.active_thread_ids.every((item) => typeof item === 'string' && item.length > 0) ||
+    new Set(value.active_thread_ids).size !== value.active_thread_ids.length
+  ) mismatch('correction_continuation_context')
+  return Object.freeze({
+    finding_cursor: value.finding_cursor,
+    finding_head: value.finding_head,
+    active_thread_ids: Object.freeze([...value.active_thread_ids].sort()),
+  })
+}
+
+const immediateContinuationActionV1 = (terminalKind, owningWorker, correctionContext) => {
   if (terminalKind === 'TASK_ADMITTED') {
     return Object.freeze({ type: 'CREATE_ASSIGNED_WORKTREE_AND_DISPATCH_IMPLEMENTATION' })
   }
@@ -233,7 +256,11 @@ const immediateContinuationActionV1 = (terminalKind, owningWorker) => {
       ? Object.freeze({ type: 'FOLLOW_UP_OWNING_WORKER', worker: owningWorker })
       : null
   }
-  if (terminalKind === 'REVIEW_APPROVE') return Object.freeze({ type: 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT' })
+  if (terminalKind === 'REVIEW_APPROVE') return Object.freeze({
+    type: correctionContext === null
+      ? 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT'
+      : 'RESOLVE_CORRECTED_THREADS_AND_ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT',
+  })
   return null
 }
 
@@ -245,7 +272,14 @@ export function projectAutomatedReviewToMergeReadyContinuationV1({
   observedAt,
   terminalCursor,
   consumedCursor = null,
+  correctionContext = null,
 }) {
+  const admittedCorrectionContext = normalizeCorrectionContinuationContextV1(correctionContext)
+  if (
+    admittedCorrectionContext === null && correctionContinuationKindsV1.has(terminalKind) &&
+    terminalKind !== 'REVIEW_FINDING' && terminalKind !== 'PREPUBLICATION_REVIEW_APPROVE' &&
+    terminalKind !== 'PUBLICATION_COMPLETE' && terminalKind !== 'REVIEW_APPROVE'
+  ) mismatch('correction_continuation_context')
   const cursorValid = typeof terminalCursor === 'string' && terminalCursor.length > 0
     && (consumedCursor === null || (typeof consumedCursor === 'string' && consumedCursor.length > 0))
   const noAdvance = () => Object.freeze({
@@ -266,12 +300,15 @@ export function projectAutomatedReviewToMergeReadyContinuationV1({
       consumed_cursor: terminalCursor,
     })
   }
-  const action = immediateContinuationActionV1(terminalKind, owningWorker)
+  const action = immediateContinuationActionV1(terminalKind, owningWorker, admittedCorrectionContext)
+  const boundAction = action === null || admittedCorrectionContext === null
+    ? action
+    : Object.freeze({ ...action, correction_context: admittedCorrectionContext })
   return Object.freeze({
-    outcome: action === null ? 'NO_ADVANCE' : 'CONTINUE',
-    actions: Object.freeze(action === null ? [] : [action]),
-    action_at: action === null ? null : observedAt,
-    consumed_cursor: action === null ? consumedCursor : terminalCursor,
+    outcome: boundAction === null ? 'NO_ADVANCE' : 'CONTINUE',
+    actions: Object.freeze(boundAction === null ? [] : [boundAction]),
+    action_at: boundAction === null ? null : observedAt,
+    consumed_cursor: boundAction === null ? consumedCursor : terminalCursor,
   })
 }
 
@@ -287,7 +324,7 @@ export function projectPreDecisionReviewFindingContinuationV1({
     'state', 'reason', 'continuation_kind', 'continuation_cursor', 'repository',
     'task_issue', 'pull_request', 'exact_head', 'expected_base', 'head_branch',
     'authorized_paths', 'active_thread_ids', 'assignment_materialization_mutation_count',
-    'publication_mutation_count',
+    'publication_mutation_count', 'thread_resolution_mutation_count',
   ]
   if (
     correction === null || typeof correction !== 'object' || Array.isArray(correction) ||
@@ -305,6 +342,8 @@ export function projectPreDecisionReviewFindingContinuationV1({
     !Number.isSafeInteger(correction.assignment_materialization_mutation_count) ||
     correction.assignment_materialization_mutation_count < 0 ||
     !Number.isSafeInteger(correction.publication_mutation_count) || correction.publication_mutation_count < 0
+    || !Number.isSafeInteger(correction.thread_resolution_mutation_count) ||
+    correction.thread_resolution_mutation_count < 0
   ) mismatch('review_correction_binding')
   const cursorInput = JSON.stringify({
     repository: correction.repository,
@@ -325,6 +364,11 @@ export function projectPreDecisionReviewFindingContinuationV1({
     observedAt,
     terminalCursor: correction.continuation_cursor,
     consumedCursor,
+    correctionContext: {
+      finding_cursor: correction.continuation_cursor,
+      finding_head: correction.exact_head,
+      active_thread_ids: correction.active_thread_ids,
+    },
   })
   if (projected.actions.length === 0) return projected
   return Object.freeze({
@@ -335,6 +379,7 @@ export function projectPreDecisionReviewFindingContinuationV1({
       pull_request: correction.pull_request,
       exact_head: correction.exact_head,
       active_thread_ids: Object.freeze([...correction.active_thread_ids]),
+      correction_context: projected.actions[0].correction_context,
     })]),
   })
 }

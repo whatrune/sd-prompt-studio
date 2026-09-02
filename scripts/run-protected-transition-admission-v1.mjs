@@ -32,6 +32,9 @@ const REVIEW_ROUTING_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'expected_base',
   'authorized_paths', 'review_input',
 ])
+const REVIEW_ROUTING_CORRECTION_REQUEST_FIELDS = Object.freeze([
+  ...REVIEW_ROUTING_REQUEST_FIELDS, 'correction_context',
+])
 const REVIEW_PUBLICATION_ASSIGNMENT_FIELDS = Object.freeze([
   'task_id', 'record_type', 'authoring_role', 'authority_source', 'canonical_record',
   'prior_record_url', 'cumulative_scope', 'supporting_records', 'requested_by',
@@ -67,20 +70,31 @@ const NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS = Object.freeze([
   'head_branch', 'worktree_path', 'expected_base', 'authorized_paths', 'authorized_actor',
   'execution_identity_contract', 'allowed_operations', 'fallback_allowed',
 ])
-const NORMAL_TASK_EXECUTION_OPERATION_FIELDS = Object.freeze([
+const NORMAL_TASK_EXECUTION_LEGACY_OPERATION_FIELDS = Object.freeze([
   'worktree_creation', 'validated_tree_commit', 'unchanged_publication',
+])
+const NORMAL_TASK_EXECUTION_OPERATION_FIELDS = Object.freeze([
+  'worktree_creation', 'validated_tree_commit', 'unchanged_publication', 'corrected_thread_resolution',
 ])
 const NORMAL_TASK_EXECUTION_WORKTREE_FIELDS = Object.freeze([
   'operation_count', 'exact_registered_path_required', 'fresh_remote_main_required',
 ])
-const NORMAL_TASK_EXECUTION_COMMIT_FIELDS = Object.freeze([
+const NORMAL_TASK_EXECUTION_LEGACY_COMMIT_FIELDS = Object.freeze([
   'activation', 'operation_count_per_execution_identity', 'exact_scope_required',
   'same_task_correction_allowed',
+])
+const NORMAL_TASK_EXECUTION_COMMIT_FIELDS = Object.freeze([
+  'activation', 'operation_count_per_execution_identity', 'initial_exact_scope_required',
+  'correction_delta_subset_allowed', 'same_task_correction_allowed',
 ])
 const NORMAL_TASK_EXECUTION_PUBLICATION_FIELDS = Object.freeze([
   'activation', 'initial_push_operation_count', 'correction_push_operation_count_per_execution_identity',
   'pull_request_creation_count_per_task', 'draft', 'exact_reviewed_commit_required',
   'direct_refetch_required',
+])
+const NORMAL_TASK_EXECUTION_THREAD_RESOLUTION_FIELDS = Object.freeze([
+  'activation', 'operation_count_per_thread', 'consumed_finding_cursor_required',
+  'replacement_fresh_review_required', 'exact_thread_identity_required', 'direct_refetch_required',
 ])
 const NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES = Object.freeze([
   'scope_expansion', 'rebase', 'amend', 'ready_mutation', 'merge', 'retry', 'issue_closure',
@@ -323,12 +337,22 @@ const resolveGitHubTokenV1 = (environment) => {
 
 export const createProductionHostV1 = (options = {}) => {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
+  const environment = options.environment ?? process.env
   const token = Object.hasOwn(options, 'token')
     ? options.token
-    : resolveGitHubTokenV1(options.environment ?? process.env)
+    : resolveGitHubTokenV1(environment)
   if (typeof token !== 'string' || token.length === 0) throw new Error('github_token_missing')
   return Object.freeze({
   api: (route) => request(`${API_ROOT}/${route}`, {}, { fetchImpl, token }),
+  refetchContinuationEvent: async ({ cursor }) => {
+    const file = environment.CODEX_CONTINUATION_EVENT_FILE
+    if (typeof file !== 'string' || !isAbsolute(file) || file.includes('\0')) {
+      throw new Error('continuation_event_transport_invalid')
+    }
+    const event = readJson(file)
+    if (event?.continuation_cursor !== cursor) throw new Error('continuation_event_transport_invalid')
+    return event
+  },
   createTaskIssue: async ({ repository, title, body }) => {
     if (
       !REPOSITORY.test(repository ?? '') || typeof title !== 'string' || title.length === 0 || title.length > 256 ||
@@ -391,6 +415,27 @@ export const createProductionHostV1 = (options = {}) => {
       { diagnosticOperation: 'REVIEW_ASSIGNMENT_MUTATION', fetchImpl, token },
     )
     return response.body
+  },
+  resolveReviewThread: async ({ threadId }) => {
+    if (typeof threadId !== 'string' || threadId.length === 0) {
+      throw new Error('review_thread_resolution_request_invalid')
+    }
+    const data = await request(`${API_ROOT}/graphql`, {
+      method: 'POST',
+      body: JSON.stringify({
+        query: 'mutation ResolveReviewThread($threadId: ID!) { resolveReviewThread(input: { threadId: $threadId }) { thread { id isResolved isOutdated } } }',
+        variables: { threadId },
+      }),
+    }, { diagnosticOperation: 'REVIEW_THREAD_RESOLUTION_MUTATION', fetchImpl, token })
+    const body = data.body
+    if (Array.isArray(body?.errors) && body.errors.length > 0) {
+      throw mutationDiagnosticError(mutationDiagnostic({
+        phase: 'REVIEW_THREAD_RESOLUTION_MUTATION_GRAPHQL_RESPONSE',
+        ...data.responseDiagnostic,
+        graphqlErrors: body.errors,
+      }))
+    }
+    return body?.data?.resolveReviewThread?.thread
   },
   mergePullRequest: async ({ repository, prNumber, exactHead }) => {
     if (
@@ -633,7 +678,8 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
         validated_tree_commit: Object.freeze({
           activation: 'VALIDATED_EXACT_SCOPE_TREE',
           operation_count_per_execution_identity: 1,
-          exact_scope_required: true,
+          initial_exact_scope_required: true,
+          correction_delta_subset_allowed: true,
           same_task_correction_allowed: true,
         }),
         unchanged_publication: Object.freeze({
@@ -643,6 +689,14 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
           pull_request_creation_count_per_task: 1,
           draft: false,
           exact_reviewed_commit_required: true,
+          direct_refetch_required: true,
+        }),
+        corrected_thread_resolution: Object.freeze({
+          activation: 'REPLACEMENT_FRESH_REVIEW_APPROVE',
+          operation_count_per_thread: 1,
+          consumed_finding_cursor_required: true,
+          replacement_fresh_review_required: true,
+          exact_thread_identity_required: true,
           direct_refetch_required: true,
         }),
       }),
@@ -671,10 +725,14 @@ const classifyNormalTaskExecutionPredelegationV1 = (body) => {
   if (
     !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
     !exactKeys(grant, NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS) ||
-    !exactKeys(operations, NORMAL_TASK_EXECUTION_OPERATION_FIELDS) ||
+    ![NORMAL_TASK_EXECUTION_LEGACY_OPERATION_FIELDS, NORMAL_TASK_EXECUTION_OPERATION_FIELDS]
+      .some((fields) => exactKeys(operations, fields)) ||
     !exactKeys(operations?.worktree_creation, NORMAL_TASK_EXECUTION_WORKTREE_FIELDS) ||
-    !exactKeys(operations?.validated_tree_commit, NORMAL_TASK_EXECUTION_COMMIT_FIELDS) ||
-    !exactKeys(operations?.unchanged_publication, NORMAL_TASK_EXECUTION_PUBLICATION_FIELDS)
+    ![NORMAL_TASK_EXECUTION_LEGACY_COMMIT_FIELDS, NORMAL_TASK_EXECUTION_COMMIT_FIELDS]
+      .some((fields) => exactKeys(operations?.validated_tree_commit, fields)) ||
+    !exactKeys(operations?.unchanged_publication, NORMAL_TASK_EXECUTION_PUBLICATION_FIELDS) ||
+    (operations?.corrected_thread_resolution !== undefined &&
+      !exactKeys(operations.corrected_thread_resolution, NORMAL_TASK_EXECUTION_THREAD_RESOLUTION_FIELDS))
   ) throw new Error('normal_task_execution_predelegation_invalid')
   return assignment
 }
@@ -751,8 +809,11 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
     normalOperations.worktree_creation.fresh_remote_main_required !== true ||
     normalOperations.validated_tree_commit.activation !== 'VALIDATED_EXACT_SCOPE_TREE' ||
     normalOperations.validated_tree_commit.operation_count_per_execution_identity !== 1 ||
-    normalOperations.validated_tree_commit.exact_scope_required !== true ||
     normalOperations.validated_tree_commit.same_task_correction_allowed !== true ||
+    (Object.hasOwn(normalOperations.validated_tree_commit, 'exact_scope_required')
+      ? normalOperations.validated_tree_commit.exact_scope_required !== true
+      : normalOperations.validated_tree_commit.initial_exact_scope_required !== true ||
+        normalOperations.validated_tree_commit.correction_delta_subset_allowed !== true) ||
     normalOperations.unchanged_publication.activation !== 'PREPUBLICATION_REVIEW_APPROVE' ||
     normalOperations.unchanged_publication.initial_push_operation_count !== 1 ||
     normalOperations.unchanged_publication.correction_push_operation_count_per_execution_identity !== 1 ||
@@ -760,6 +821,14 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
     normalOperations.unchanged_publication.draft !== false ||
     normalOperations.unchanged_publication.exact_reviewed_commit_required !== true ||
     normalOperations.unchanged_publication.direct_refetch_required !== true ||
+    (normalOperations.corrected_thread_resolution !== undefined && (
+      normalOperations.corrected_thread_resolution.activation !== 'REPLACEMENT_FRESH_REVIEW_APPROVE' ||
+      normalOperations.corrected_thread_resolution.operation_count_per_thread !== 1 ||
+      normalOperations.corrected_thread_resolution.consumed_finding_cursor_required !== true ||
+      normalOperations.corrected_thread_resolution.replacement_fresh_review_required !== true ||
+      normalOperations.corrected_thread_resolution.exact_thread_identity_required !== true ||
+      normalOperations.corrected_thread_resolution.direct_refetch_required !== true
+    )) ||
     normalGrant.fallback_allowed !== false ||
     normalExecutionPredelegation.forbidden_changes.join('\n') !== NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES.join('\n') ||
     normalGrant.head_branch !== profiles.predelegation.allowed_changes.head_branch ||
@@ -1345,7 +1414,8 @@ const acquireCurrentReviewAuthorities = async ({ host, request, pull, expectedBo
 
 const validateReviewRoutingRequest = (request) => {
   if (
-    !exactKeys(request, REVIEW_ROUTING_REQUEST_FIELDS) || !REPOSITORY.test(request.repository ?? '') ||
+    ![REVIEW_ROUTING_REQUEST_FIELDS, REVIEW_ROUTING_CORRECTION_REQUEST_FIELDS]
+      .some((fields) => exactKeys(request, fields)) || !REPOSITORY.test(request.repository ?? '') ||
     !Number.isSafeInteger(request.task_issue) || request.task_issue < 1 ||
     !Number.isSafeInteger(request.pull_request) || request.pull_request < 1 ||
     !FULL_SHA.test(request.exact_head ?? '') || !FULL_SHA.test(request.expected_base ?? '')
@@ -1357,10 +1427,90 @@ const validateReviewRoutingRequest = (request) => {
     review.task_issue !== request.task_issue || review.pull_request !== request.pull_request ||
     review.reviewed_head !== request.exact_head
   ) throw new Error('review_publication_binding_invalid')
-  return Object.freeze({ ...request, authorized_paths: authorizedPaths, review_body: reviewBody })
+  let correctionContext = null
+  if (Object.hasOwn(request, 'correction_context')) {
+    const value = request.correction_context
+    const fields = ['finding_cursor', 'finding_head', 'active_thread_ids']
+    if (
+      !exactKeys(value, fields) || typeof value.finding_cursor !== 'string' || value.finding_cursor.length === 0 ||
+      !FULL_SHA.test(value.finding_head ?? '') || !Array.isArray(value.active_thread_ids) ||
+      value.active_thread_ids.length === 0 ||
+      !value.active_thread_ids.every((item) => typeof item === 'string' && item.length > 0) ||
+      new Set(value.active_thread_ids).size !== value.active_thread_ids.length
+    ) throw new Error('review_correction_binding_invalid')
+    correctionContext = Object.freeze({
+      finding_cursor: value.finding_cursor,
+      finding_head: value.finding_head,
+      active_thread_ids: Object.freeze([...value.active_thread_ids].sort()),
+    })
+  }
+  return Object.freeze({
+    ...request,
+    authorized_paths: authorizedPaths,
+    review_body: reviewBody,
+    correction_context: correctionContext,
+  })
 }
 
-const projectReviewCorrectionRequiredV1 = ({ error, request, assignmentMutationCount, publicationMutationCount }) => {
+const assertRefetchedCorrectionFindingEventV1 = ({ event, request }) => {
+  if (request.correction_context === null) return null
+  const fields = [
+    'state', 'reason', 'continuation_kind', 'continuation_cursor', 'repository',
+    'task_issue', 'pull_request', 'exact_head', 'expected_base', 'head_branch',
+    'authorized_paths', 'active_thread_ids', 'assignment_materialization_mutation_count',
+    'publication_mutation_count', 'thread_resolution_mutation_count',
+  ]
+  const context = request.correction_context
+  if (
+    !exactKeys(event, fields) || event.state !== 'CORRECTION_REQUIRED' ||
+    event.reason !== 'blocking_review_threads_present' || event.continuation_kind !== 'REVIEW_FINDING' ||
+    event.continuation_cursor !== context.finding_cursor || event.repository !== request.repository ||
+    event.task_issue !== request.task_issue || event.pull_request !== request.pull_request ||
+    event.exact_head !== context.finding_head || event.expected_base !== request.expected_base ||
+    typeof event.head_branch !== 'string' || event.head_branch.length === 0 ||
+    !samePaths(event.authorized_paths, request.authorized_paths) ||
+    !samePaths(event.active_thread_ids, context.active_thread_ids) ||
+    !Number.isSafeInteger(event.assignment_materialization_mutation_count) ||
+    event.assignment_materialization_mutation_count < 0 ||
+    !Number.isSafeInteger(event.publication_mutation_count) || event.publication_mutation_count < 0 ||
+    !Number.isSafeInteger(event.thread_resolution_mutation_count) || event.thread_resolution_mutation_count < 0
+  ) throw new Error('review_correction_binding_invalid')
+  const cursorInput = JSON.stringify({
+    repository: event.repository,
+    task_issue: event.task_issue,
+    pull_request: event.pull_request,
+    exact_head: event.exact_head,
+    active_thread_ids: [...event.active_thread_ids].sort(),
+  })
+  if (event.continuation_cursor !== `review-finding-${createHash('sha256').update(cursorInput, 'utf8').digest('hex')}`) {
+    throw new Error('review_correction_binding_invalid')
+  }
+  return Object.freeze({ ...event, active_thread_ids: Object.freeze([...event.active_thread_ids].sort()) })
+}
+
+const assertCorrectedThreadResolutionAuthorityV1 = ({ live, request }) => {
+  if (request.correction_context === null) return null
+  let parsed
+  try { parsed = parseCanonicalTaskIssueBodyV1({ body: live.task_body, mode: 'BOUND_FINAL' }) } catch {
+    throw new Error('review_thread_resolution_authority_invalid')
+  }
+  const grant = parsed.normal_execution_predelegation?.allowed_changes
+  const operation = grant?.allowed_operations?.corrected_thread_resolution
+  if (
+    grant?.repository !== request.repository || grant?.task_issue !== request.task_issue ||
+    grant?.head_branch !== live.head_branch || !samePaths(grant?.authorized_paths, request.authorized_paths) ||
+    grant?.authorized_actor !== live.actor.login ||
+    operation?.activation !== 'REPLACEMENT_FRESH_REVIEW_APPROVE' ||
+    operation?.operation_count_per_thread !== 1 || operation?.consumed_finding_cursor_required !== true ||
+    operation?.replacement_fresh_review_required !== true || operation?.exact_thread_identity_required !== true ||
+    operation?.direct_refetch_required !== true
+  ) throw new Error('review_thread_resolution_authority_invalid')
+  return operation
+}
+
+const projectReviewCorrectionRequiredV1 = ({
+  error, request, assignmentMutationCount, publicationMutationCount, threadResolutionMutationCount = 0,
+}) => {
   if (error?.code !== 'blocking_review_threads_present') return null
   const correction = error.correction
   const fields = [
@@ -1400,6 +1550,7 @@ const projectReviewCorrectionRequiredV1 = ({ error, request, assignmentMutationC
     active_thread_ids: Object.freeze([...correction.active_thread_ids]),
     assignment_materialization_mutation_count: assignmentMutationCount,
     publication_mutation_count: publicationMutationCount,
+    thread_resolution_mutation_count: threadResolutionMutationCount,
   })
 }
 
@@ -1408,8 +1559,18 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
   if (
     host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
     typeof host.publishPullRequestReview !== 'function' || typeof host.publishTaskIssueComment !== 'function' ||
-    typeof host.publishTaskAssignmentComment !== 'function'
+    typeof host.publishTaskAssignmentComment !== 'function' ||
+    (request.correction_context !== null && (
+      typeof host.resolveReviewThread !== 'function' || typeof host.refetchContinuationEvent !== 'function'
+    ))
   ) throw new Error('review_publication_host_invalid')
+
+  if (request.correction_context !== null) {
+    assertRefetchedCorrectionFindingEventV1({
+      event: await host.refetchContinuationEvent({ cursor: request.correction_context.finding_cursor }),
+      request,
+    })
+  }
 
   const acquireLiveBinding = async () => {
     const [actor, snapshot] = await Promise.all([
@@ -1424,6 +1585,7 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
           authorized_paths: request.authorized_paths,
         },
         host,
+        expectedActiveThreadIds: request.correction_context?.active_thread_ids ?? null,
       }),
     ])
     if (typeof actor?.login !== 'string' || actor.login.length === 0) {
@@ -1463,6 +1625,7 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
 
   let assignmentMutationCount = 0
   let publicationMutationCount = 0
+  let threadResolutionMutationCount = 0
   let live
   try {
     live = await acquireLiveBinding()
@@ -1472,6 +1635,40 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
     })
     if (correction !== null) return correction
     throw error
+  }
+  if (request.correction_context !== null) {
+    let remaining = [...live.active_thread_ids]
+    if (remaining.length > 0) assertCorrectedThreadResolutionAuthorityV1({ live, request })
+    while (remaining.length > 0) {
+      const threadId = remaining[0]
+      threadResolutionMutationCount += 1
+      const resolved = await host.resolveReviewThread({ threadId })
+      if (resolved?.id !== threadId || resolved?.isResolved !== true) {
+        throw new Error('review_thread_resolution_response_invalid')
+      }
+      remaining = remaining.slice(1)
+      try {
+        live = await acquireSimplifiedReviewPublicationPreflightV2({
+          request: {
+            repository: request.repository,
+            task_issue: request.task_issue,
+            pull_request: request.pull_request,
+            exact_head: request.exact_head,
+            expected_base: request.expected_base,
+            authorized_paths: request.authorized_paths,
+          },
+          host,
+          expectedActiveThreadIds: remaining.length === 0 ? null : remaining,
+        }).then(async (snapshot) => Object.freeze({ actor: await host.api('user'), ...snapshot }))
+      } catch (error) {
+        const correction = projectReviewCorrectionRequiredV1({
+          error, request, assignmentMutationCount, publicationMutationCount, threadResolutionMutationCount,
+        })
+        if (correction !== null) return correction
+        throw error
+      }
+      if (remaining.length > 0) assertCorrectedThreadResolutionAuthorityV1({ live, request })
+    }
   }
   let publicationRoute = routeFor(live)
   const publicationActor = live.actor.login
@@ -1642,6 +1839,7 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
     assignment_materialization_mutation_count: assignmentMutationCount,
     logical_assignment_resource_count: publicationAuthority?.equivalent_resource_count ?? 0,
     publication_mutation_count: publicationMutationCount,
+    thread_resolution_mutation_count: threadResolutionMutationCount,
     review_kind: authority.review_kind,
     review_id: authority.review_id,
     review_url: authority.review_url,
