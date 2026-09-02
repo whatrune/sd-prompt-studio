@@ -1,0 +1,244 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-006-C",
+  "blind_condition_label": "COND-02",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "apparent_camera_vertical_position",
+    "apparent_viewing_direction",
+    "head_to_body_perspective",
+    "floor_support_geometry",
+    "full_body_visibility",
+    "angle_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-02: dominant visible vertical-angle pattern=above_subject in 6/6 panels.",
+      "Opaque condition COND-02: angle assessable=6/6.",
+      "Opaque condition COND-02: ambiguity/artifact=1/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, and visible pixels; prompts, seeds, requested angle, run mapping, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 62daabcad6bf3749064c53d6f118e91ccc748925b161288d2b0e0948bb37d624.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-angle alignment, matched-seed comparison, prerequisite handling, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "above_subject",
+        "downward",
+        "head_emphasized",
+        "top_surface_dominant",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The top of the head and shoulders are exposed against a dominant floor plane, with the feet diminished below."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "above_subject",
+        "downward",
+        "head_emphasized",
+        "top_surface_dominant",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible crown, downward floor view, and diminishing legs establish an elevated viewpoint."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "above_subject",
+        "downward",
+        "head_emphasized",
+        "top_surface_dominant",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Strong overhead view shows the crown and a broad tiled surface; the upper body appears larger than the feet."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "above_subject",
+        "downward",
+        "head_emphasized",
+        "top_surface_dominant",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The crown, shoulders, and floor tiles are viewed from above; the head and upper torso occupy more apparent area than the feet."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "above_subject",
+        "downward",
+        "head_emphasized",
+        "top_surface_dominant",
+        "visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Extensive tiled floor surrounds the figure and the crown is visible; the head is enlarged relative to the lower legs."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "above_subject",
+        "downward",
+        "head_emphasized",
+        "top_surface_dominant",
+        "partial",
+        "assessable",
+        "composition_artifact"
+      ],
+      "primary_morphology": "camera_angle_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Floor tiles dominate from above and the legs converge toward small feet; the top of the head is cut off by the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "apparent_camera_vertical_position": {
+        "above_subject": 6
+      },
+      "apparent_viewing_direction": {
+        "downward": 6
+      },
+      "head_to_body_perspective": {
+        "head_emphasized": 6
+      },
+      "floor_support_geometry": {
+        "top_surface_dominant": 6
+      },
+      "full_body_visibility": {
+        "visible": 5,
+        "partial": 1
+      },
+      "angle_assessability": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 5,
+        "composition_artifact": 1
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_angle_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 5,
+      "composition_artifact": 1
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
