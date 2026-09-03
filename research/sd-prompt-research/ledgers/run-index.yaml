@@ -630,3 +630,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-03T12:30:00+09:00'
   path: experiments/camera/CAM-013-C
+- run_id: CAM-014-A
+  domain: camera
+  title: CAM-014-A — small subject in frame
+  status: OBSERVED
+  updated_at: '2026-09-03T14:35:00+09:00'
+  path: experiments/camera/CAM-014-A
+- run_id: CAM-014-B
+  domain: camera
+  title: CAM-014-B — medium-sized subject in frame
+  status: OBSERVED
+  updated_at: '2026-09-03T14:35:00+09:00'
+  path: experiments/camera/CAM-014-B
+- run_id: CAM-014-C
+  domain: camera
+  title: CAM-014-C — large subject in frame
+  status: OBSERVED
+  updated_at: '2026-09-03T14:35:00+09:00'
+  path: experiments/camera/CAM-014-C

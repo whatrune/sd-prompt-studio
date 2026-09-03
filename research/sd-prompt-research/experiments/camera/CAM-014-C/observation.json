@@ -1,0 +1,258 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-014-C",
+  "blind_condition_label": "COND-M8",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "subject_frame_height_band",
+    "surrounding_margin",
+    "environment_dominance",
+    "face_head_scale",
+    "whole_subject_visibility",
+    "scale_assessability",
+    "unintended_pose_or_camera_change",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-M8: subject frame-height counts {\"large\":2,\"medium\":2,\"very_large\":2}.",
+      "Opaque condition COND-M8: assessable=6/6; whole subject visible=4/6; cropped=2/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested scale, run mapping, prompt, seed, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 075231e5879a5eabff626211d04e38faf0ef735175db5c3f5732c206c6e65b39.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "large",
+        "moderate",
+        "subject_dominant",
+        "medium",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_scale_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The whole standing subject is visible and occupies most of the frame height, with moderate background margin."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "large",
+        "moderate",
+        "subject_dominant",
+        "medium",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_scale_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The whole standing subject is visible and occupies most of the frame height, with moderate background margin."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "medium",
+        "ample",
+        "balanced",
+        "small",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_scale_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The whole subject is visible at a moderate frame-height occupancy with ample surrounding studio area."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "medium",
+        "moderate",
+        "balanced",
+        "medium",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_scale_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The whole subject remains visible at a moderate frame-height occupancy with clear surrounding floor and wall."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "very_large",
+        "minimal",
+        "subject_dominant",
+        "not_visible",
+        "cropped",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_scale_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The subject fills the frame and is cropped above the torso; the large occupancy is directly visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "very_large",
+        "minimal",
+        "subject_dominant",
+        "not_visible",
+        "cropped",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_scale_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The subject fills the frame and is cropped above the torso; the large occupancy is directly visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "subject_frame_height_band": {
+        "large": 2,
+        "medium": 2,
+        "very_large": 2
+      },
+      "surrounding_margin": {
+        "moderate": 3,
+        "ample": 1,
+        "minimal": 2
+      },
+      "environment_dominance": {
+        "subject_dominant": 4,
+        "balanced": 2
+      },
+      "face_head_scale": {
+        "medium": 3,
+        "small": 1,
+        "not_visible": 2
+      },
+      "whole_subject_visibility": {
+        "visible": 4,
+        "cropped": 2
+      },
+      "scale_assessability": {
+        "assessable": 6
+      },
+      "unintended_pose_or_camera_change": {
+        "none": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "subject_scale_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
