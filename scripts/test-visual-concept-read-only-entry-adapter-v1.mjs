@@ -45,6 +45,10 @@ try {
   deepEqual(Object.keys(bindingContract), ['record_type', 'version', 'graph_source', 'graph_schema_source', 'graph_schema_id', 'graph_schema_version', 'graph_version', 'bindings'], 'binding root field order must remain frozen')
   equal(bindingContract.graph_version, '0.2.1', 'binding provenance must identify the current Graph content revision')
   deepEqual(bindingContract.bindings, [
+    { prompt_tag_id: 'cam-close-up', concept_id: 'camera.framing.close_up' },
+    { prompt_tag_id: 'cam-cowboy-shot', concept_id: 'camera.framing.cowboy_shot' },
+    { prompt_tag_id: 'cam-full-body', concept_id: 'camera.framing.full_body' },
+    { prompt_tag_id: 'cam-upper-body', concept_id: 'camera.framing.upper_body' },
     { prompt_tag_id: 'hai-long-hair', concept_id: 'hair.long' },
     { prompt_tag_id: 'pos-lying', concept_id: 'body.state.lying' },
     { prompt_tag_id: 'pos-lying-on-back', concept_id: 'body.orientation.face_up' },

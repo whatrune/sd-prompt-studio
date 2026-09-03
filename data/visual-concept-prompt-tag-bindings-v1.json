@@ -8,6 +8,22 @@
   "graph_version": "0.2.1",
   "bindings": [
     {
+      "prompt_tag_id": "cam-close-up",
+      "concept_id": "camera.framing.close_up"
+    },
+    {
+      "prompt_tag_id": "cam-cowboy-shot",
+      "concept_id": "camera.framing.cowboy_shot"
+    },
+    {
+      "prompt_tag_id": "cam-full-body",
+      "concept_id": "camera.framing.full_body"
+    },
+    {
+      "prompt_tag_id": "cam-upper-body",
+      "concept_id": "camera.framing.upper_body"
+    },
+    {
       "prompt_tag_id": "hai-long-hair",
       "concept_id": "hair.long"
     },

@@ -10,6 +10,10 @@ import { createVisualConceptReadOnlyEntryAdapterV1 } from './visual-concept-read
 
 const RECORD_TYPE = 'visual_concept_production_advisory_catalog_v1'
 const APPROVED_MAPPINGS = Object.freeze([
+  Object.freeze({ prompt_tag_id: 'cam-close-up', concept_id: 'camera.framing.close_up' }),
+  Object.freeze({ prompt_tag_id: 'cam-cowboy-shot', concept_id: 'camera.framing.cowboy_shot' }),
+  Object.freeze({ prompt_tag_id: 'cam-full-body', concept_id: 'camera.framing.full_body' }),
+  Object.freeze({ prompt_tag_id: 'cam-upper-body', concept_id: 'camera.framing.upper_body' }),
   Object.freeze({ prompt_tag_id: 'hai-long-hair', concept_id: 'hair.long' }),
   Object.freeze({ prompt_tag_id: 'pos-lying', concept_id: 'body.state.lying' }),
   Object.freeze({ prompt_tag_id: 'pos-lying-on-back', concept_id: 'body.orientation.face_up' }),

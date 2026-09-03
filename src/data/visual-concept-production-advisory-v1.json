@@ -4,17 +4,49 @@
   "source_binding": {
     "binding_record_type": "visual_concept_prompt_tag_bindings_v1",
     "binding_version": 1,
-    "binding_sha256": "02d715e2e241452935e6bb5b2e81b4c979708fb331d9c4d0ab1b515a6e5aa319",
+    "binding_sha256": "8ac49f1b342b0e6984427545ae8680db605d4bffed31cea655093f9d2d5a21ec",
     "graph_schema_id": "https://local.sd-prompt-studio/visual-concept-graph-v0.2.schema.json",
     "graph_schema_version": "0.2.0",
     "registry_sha256": "aa4d5b70a31e64e081ce256831f013e18ee365f106cd5311574dd9d33336d8e8"
   },
   "coverage": {
     "active_prompt_tag_count": 2522,
-    "mapped_active_prompt_tag_count": 6,
-    "unmapped_active_prompt_tag_count": 2516
+    "mapped_active_prompt_tag_count": 10,
+    "unmapped_active_prompt_tag_count": 2512
   },
   "mappings": [
+    {
+      "prompt_tag_id": "cam-close-up",
+      "concept_id": "camera.framing.close_up",
+      "concept_label": "Close-up framing",
+      "concept_module": "camera",
+      "concept_type": "camera",
+      "concept_status": "provisional"
+    },
+    {
+      "prompt_tag_id": "cam-cowboy-shot",
+      "concept_id": "camera.framing.cowboy_shot",
+      "concept_label": "Cowboy-shot framing",
+      "concept_module": "camera",
+      "concept_type": "camera",
+      "concept_status": "provisional"
+    },
+    {
+      "prompt_tag_id": "cam-full-body",
+      "concept_id": "camera.framing.full_body",
+      "concept_label": "Full-body framing",
+      "concept_module": "camera",
+      "concept_type": "camera",
+      "concept_status": "provisional"
+    },
+    {
+      "prompt_tag_id": "cam-upper-body",
+      "concept_id": "camera.framing.upper_body",
+      "concept_label": "Upper-body framing",
+      "concept_module": "camera",
+      "concept_type": "camera",
+      "concept_status": "provisional"
+    },
     {
       "prompt_tag_id": "hai-long-hair",
       "concept_id": "hair.long",
