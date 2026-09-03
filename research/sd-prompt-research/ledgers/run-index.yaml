@@ -612,3 +612,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-03T08:00:00+09:00'
   path: experiments/camera/CAM-012-C
+- run_id: CAM-013-A
+  domain: camera
+  title: CAM-013-A — subject on the left side of the frame
+  status: OBSERVED
+  updated_at: '2026-09-03T12:30:00+09:00'
+  path: experiments/camera/CAM-013-A
+- run_id: CAM-013-B
+  domain: camera
+  title: CAM-013-B — subject centered in the frame
+  status: OBSERVED
+  updated_at: '2026-09-03T12:30:00+09:00'
+  path: experiments/camera/CAM-013-B
+- run_id: CAM-013-C
+  domain: camera
+  title: CAM-013-C — subject on the right side of the frame
+  status: OBSERVED
+  updated_at: '2026-09-03T12:30:00+09:00'
+  path: experiments/camera/CAM-013-C
