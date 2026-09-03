@@ -702,3 +702,33 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-03T18:29:02+09:00'
   path: experiments/camera/CAM-017-C
+- run_id: CAM-018-A
+  domain: camera
+  title: CAM-018-A — low-occlusion reference
+  status: OBSERVED
+  updated_at: '2026-09-03T19:16:54+09:00'
+  path: experiments/camera/CAM-018-A
+- run_id: CAM-018-B
+  domain: camera
+  title: CAM-018-B — framing-limited
+  status: OBSERVED
+  updated_at: '2026-09-03T19:16:54+09:00'
+  path: experiments/camera/CAM-018-B
+- run_id: CAM-018-C
+  domain: camera
+  title: CAM-018-C — pose/body-occlusion-limited
+  status: OBSERVED
+  updated_at: '2026-09-03T19:16:54+09:00'
+  path: experiments/camera/CAM-018-C
+- run_id: CAM-018-D
+  domain: camera
+  title: CAM-018-D — clothing-occlusion-limited
+  status: OBSERVED
+  updated_at: '2026-09-03T19:16:54+09:00'
+  path: experiments/camera/CAM-018-D
+- run_id: CAM-018-E
+  domain: camera
+  title: CAM-018-E — CAM-017 calibration
+  status: OBSERVED
+  updated_at: '2026-09-03T19:16:54+09:00'
+  path: experiments/camera/CAM-018-E

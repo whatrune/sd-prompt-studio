@@ -1,0 +1,290 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-018-D",
+  "blind_condition_label": "COND-01",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "left_hand_visibility",
+    "right_hand_visibility",
+    "left_hand_frame_boundary",
+    "right_hand_frame_boundary",
+    "left_hand_occlusion_source",
+    "right_hand_occlusion_source",
+    "arm_placement_observation",
+    "body_coverage",
+    "garment_hand_cover",
+    "hand_assessability",
+    "camera_angle_observation",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-01: left-hand counts {\"fully_visible\":6}; right-hand counts {\"fully_visible\":6}.",
+      "Opaque condition COND-01: arm placement {\"away_from_torso\":6}; assessable=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested boundary, run mapping, prompts, seeds, PromptTag IDs, and emitted phrases were withheld.",
+      "The 30-panel opaque observation record was frozen before mapping disclosure at SHA-256 68a8b9d930f84e0171761eaace03d633fcc1395496bf70c318d22a0fb5ed77e6.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen row or evidence note.",
+      "Boundary attribution, CAM-017 comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "away_from_torso",
+        "full_body",
+        "none",
+        "assessable",
+        "eye_level_like",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both open hands are completely visible beyond the ends of wide sleeves, with clear image margin around the fingertips."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "away_from_torso",
+        "full_body",
+        "none",
+        "assessable",
+        "eye_level_like",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hands and separated fingers extend beyond the dark sleeves and remain wholly inside the side boundaries."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "away_from_torso",
+        "full_body",
+        "none",
+        "assessable",
+        "eye_level_like",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hands project visibly from the sleeve openings, with complete finger outlines and ample side margin."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "away_from_torso",
+        "full_body",
+        "none",
+        "assessable",
+        "eye_level_like",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both upturned hands are fully shown beyond the sleeve cuffs without overlap or cropping."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "away_from_torso",
+        "full_body",
+        "none",
+        "assessable",
+        "eye_level_like",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both spread hands remain completely visible outside the loose sleeves and inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "away_from_torso",
+        "full_body",
+        "none",
+        "assessable",
+        "eye_level_like",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hands extend from the sleeves toward the doorway sides, and all visible hand contours remain within the image."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "left_hand_visibility": {
+        "fully_visible": 6
+      },
+      "right_hand_visibility": {
+        "fully_visible": 6
+      },
+      "left_hand_frame_boundary": {
+        "fully_inside_frame": 6
+      },
+      "right_hand_frame_boundary": {
+        "fully_inside_frame": 6
+      },
+      "left_hand_occlusion_source": {
+        "none": 6
+      },
+      "right_hand_occlusion_source": {
+        "none": 6
+      },
+      "arm_placement_observation": {
+        "away_from_torso": 6
+      },
+      "body_coverage": {
+        "full_body": 6
+      },
+      "garment_hand_cover": {
+        "none": 6
+      },
+      "hand_assessability": {
+        "assessable": 6
+      },
+      "camera_angle_observation": {
+        "eye_level_like": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "hand_visibility_boundary_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
