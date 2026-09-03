@@ -45,6 +45,7 @@ BUNDLE_NAMES = frozenset(
         "prompt_data",
         "application",
         "platform",
+        "documentation",
     }
 )
 
@@ -94,10 +95,10 @@ COMMANDS_BY_BUNDLE = {
     ),
     "application": ("pnpm test", "pnpm build"),
     "platform": (
-        "node scripts/test-role-execution-contracts.mjs",
         "node scripts/test-protected-transition-admission-v1.mjs",
         "node scripts/test-task-execution-context-v1.mjs",
     ),
+    "documentation": ("node scripts/test-role-execution-contracts.mjs",),
 }
 
 

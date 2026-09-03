@@ -13,7 +13,7 @@
     },
     "FULL_RESEARCH": {
       "runtime_deployable": true,
-      "bundles": ["full_research", "research_validators", "production_advisory", "prompt_data", "application", "platform"]
+      "bundles": ["full_research", "research_validators", "production_advisory", "prompt_data", "application", "platform", "documentation"]
     },
     "PRODUCTION_ADVISORY": {
       "runtime_deployable": true,
@@ -29,11 +29,11 @@
     },
     "PLATFORM": {
       "runtime_deployable": true,
-      "bundles": ["platform"]
+      "bundles": ["platform", "documentation"]
     },
     "DOCUMENTATION": {
       "runtime_deployable": false,
-      "bundles": []
+      "bundles": ["documentation"]
     }
   },
   "force_full": {

@@ -180,9 +180,12 @@ jobs:
         if: steps.profile.outputs.run_platform == 'true'
         shell: bash
         run: |
-          node scripts/test-role-execution-contracts.mjs
           node scripts/test-protected-transition-admission-v1.mjs
           node scripts/test-task-execution-context-v1.mjs
+
+      - name: Validate documentation contracts
+        if: steps.profile.outputs.run_documentation == 'true'
+        run: node scripts/test-role-execution-contracts.mjs
 
       - name: Validate immutable Python environment cache
         if: steps.profile.outputs.run_full_research == 'true'
