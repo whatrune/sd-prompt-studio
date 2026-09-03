@@ -666,3 +666,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-03T15:23:44+09:00'
   path: experiments/camera/CAM-015-C
+- run_id: CAM-016-A
+  domain: camera
+  title: CAM-016-A — full subject contained within frame
+  status: OBSERVED
+  updated_at: '2026-09-03T16:18:06+09:00'
+  path: experiments/camera/CAM-016-A
+- run_id: CAM-016-B
+  domain: camera
+  title: CAM-016-B — lower-body boundary cropped
+  status: OBSERVED
+  updated_at: '2026-09-03T16:18:06+09:00'
+  path: experiments/camera/CAM-016-B
+- run_id: CAM-016-C
+  domain: camera
+  title: CAM-016-C — upper-body boundary cropped
+  status: OBSERVED
+  updated_at: '2026-09-03T16:18:06+09:00'
+  path: experiments/camera/CAM-016-C

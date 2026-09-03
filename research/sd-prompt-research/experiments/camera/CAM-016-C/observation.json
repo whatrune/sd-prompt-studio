@@ -1,0 +1,271 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-016-C",
+  "blind_condition_label": "COND-03",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "upper_frame_boundary",
+    "lower_frame_boundary",
+    "head_visibility",
+    "upper_body_visibility",
+    "lower_body_visibility",
+    "feet_visibility",
+    "boundary_assessability",
+    "camera_angle_observation",
+    "body_pose_observation",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-03: upper-boundary counts {\"above_head\":6}.",
+      "Opaque condition COND-03: lower-boundary counts {\"below_feet\":6}; assessable=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested crop boundary, run mapping, prompt, seed, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 d6d8f5c28cee0ca2fe0e5dcc8de0641bf92904700e54202dc583c85dd5647417.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "both_visible",
+        "assessable",
+        "eye_level_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "camera_crop_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The full standing subject is contained with visible space above the head and below the feet."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "both_visible",
+        "assessable",
+        "high_angle_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "camera_crop_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "A high-angle view preserves the complete head, body, and both feet inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "both_visible",
+        "assessable",
+        "eye_level_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "camera_crop_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete subject remains visible from hair top through both feet."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "both_visible",
+        "assessable",
+        "eye_level_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "camera_crop_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The full figure is contained with clear upper and lower background boundaries."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "both_visible",
+        "assessable",
+        "high_angle_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "camera_crop_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "A high-angle view still shows the complete subject and both feet without frame intersection."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "both_visible",
+        "assessable",
+        "eye_level_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "camera_crop_boundary_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The entire standing subject remains inside the image boundary."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "upper_frame_boundary": {
+        "above_head": 6
+      },
+      "lower_frame_boundary": {
+        "below_feet": 6
+      },
+      "head_visibility": {
+        "fully_visible": 6
+      },
+      "upper_body_visibility": {
+        "fully_visible": 6
+      },
+      "lower_body_visibility": {
+        "fully_visible": 6
+      },
+      "feet_visibility": {
+        "both_visible": 6
+      },
+      "boundary_assessability": {
+        "assessable": 6
+      },
+      "camera_angle_observation": {
+        "eye_level_like": 4,
+        "high_angle_like": 2
+      },
+      "body_pose_observation": {
+        "standing": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_crop_boundary_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
