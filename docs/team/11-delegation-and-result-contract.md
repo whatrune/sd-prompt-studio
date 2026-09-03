@@ -89,6 +89,8 @@ This projection is not a new record schema, authority, Task-state, generation, o
 
 Result Handoffは共通identity fieldと次を含む。
 
+This section owns the general, human-facing Result Handoff contract. The protected `COMMIT_VALIDATED_TREE` terminal machine handoff is a closed executable subtype: `scripts/run-bootstrap-publication-operator-v1.mjs` is its sole shape owner and exports the canonical projector, serializer, and validator. An Implementer whose terminal result will be consumed by `COMMIT_VALIDATED_TREE` MUST emit that projector's object directly. It MUST NOT translate Role names, reconstruct fields from this general table, or wrap a narrative handoff as the protected machine record. The commit consumer validates the same exported owner and fails closed; this document deliberately does not duplicate that machine field list.
+
 | Field | Required meaning |
 | --- | --- |
 | `role` | 実行したPrimary Role |

@@ -29,6 +29,19 @@ const baselineContents = new Map(files.map((file) => [file, readFileSync(resolve
 const canonicalCleanupCommand = '<host-owned-bundled-pwsh-executable> -NoProfile -File scripts/remove-task-worktree-after-merge-v1.ps1 `';
 const cleanupHostContractFailure = 'worktree lifecycle must contain exactly one canonical bundled-pwsh cleanup command';
 
+const entryGuard = baselineContents.get('AGENTS.md');
+const handoffTemplate = baselineContents.get('docs/team/06-handoff-template.md');
+const delegationContract = baselineContents.get('docs/team/11-delegation-and-result-contract.md');
+if (!entryGuard.includes('canonical machine object projected by `scripts/run-bootstrap-publication-operator-v1.mjs`')) {
+  throw new Error('AGENTS.md: protected commit handoff producer must point to the canonical executable owner');
+}
+if (!handoffTemplate.includes('human-facing template is not the protected terminal machine handoff')) {
+  throw new Error('docs/team/06-handoff-template.md: human and protected machine handoffs must remain distinct');
+}
+if (!delegationContract.includes('sole shape owner and exports the canonical projector, serializer, and validator')) {
+  throw new Error('docs/team/11-delegation-and-result-contract.md: protected machine handoff must have one executable owner');
+}
+
 const expectedOwners = new Map(Object.entries({
   role_taxonomy: '00',
   precedence: '00',
