@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.5",
+  "graph_version": "0.2.6",
   "module_file_id": "physical-concepts",
   "module_family": "physical",
   "description": "Sparse physical, face, clothing, and visibility concepts used by the initial compiler foundation.",
