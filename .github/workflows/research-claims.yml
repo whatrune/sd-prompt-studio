@@ -170,7 +170,7 @@ jobs:
           node scripts/test-prompt-analyzer.mjs
 
       - name: Validate application
-        if: steps.profile.outputs.run_application == 'true'
+        if: steps.profile.outputs.run_application == 'true' && github.event_name != 'pull_request'
         shell: bash
         run: |
           pnpm test

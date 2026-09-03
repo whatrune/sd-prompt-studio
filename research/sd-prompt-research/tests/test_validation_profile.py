@@ -235,6 +235,23 @@ class ValidationProfileTests(unittest.TestCase):
         self.assertGreaterEqual(workflow.count("steps.profile.outputs.runtime_deployable == 'true'"), 6)
         self.assertIn("pnpm install --frozen-lockfile", workflow)
 
+    def test_pull_request_application_test_and_build_have_one_owner(self) -> None:
+        validate = (REPOSITORY_ROOT / ".github/workflows/research-claims.yml").read_text(encoding="utf-8")
+        preview = (REPOSITORY_ROOT / ".github/workflows/preview.yml").read_text(encoding="utf-8")
+
+        self.assertIn(
+            "if: steps.profile.outputs.run_application == 'true' && github.event_name != 'pull_request'",
+            validate,
+        )
+        self.assertEqual(1, validate.count("pnpm test"))
+        self.assertEqual(1, validate.count("pnpm run build"))
+        self.assertEqual(1, preview.count("run: pnpm test"))
+        self.assertEqual(1, preview.count("run: pnpm build"))
+        self.assertIn("pull_request:", validate)
+        self.assertIn("push:", validate)
+        self.assertIn("schedule:", validate)
+        self.assertIn("workflow_dispatch:", validate)
+
     def test_validate_owns_documentation_contracts(self) -> None:
         workflow = (REPOSITORY_ROOT / ".github/workflows/research-claims.yml").read_text(encoding="utf-8")
         self.assertIn("steps.profile.outputs.run_documentation == 'true'", workflow)
