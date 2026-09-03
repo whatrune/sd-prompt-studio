@@ -120,6 +120,47 @@ function Complete-LocalFullValidationStepV1 {
     }
 }
 
+function Test-LocalFullValidationPythonCacheMatrixV1 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Repository,
+
+        [Parameter(Mandatory = $true)]
+        [string]$ExactBaselineCommit,
+
+        [Parameter(Mandatory = $false)]
+        [string]$CatalogPath = (Join-Path (Split-Path -Parent $PSScriptRoot) 'data/validation-path-ownership-v1.json')
+    )
+
+    try {
+        $catalog = Get-Content -Raw -LiteralPath $CatalogPath | ConvertFrom-Json
+        $owners = @($catalog.python_cache_matrix.owning_exact)
+    }
+    catch {
+        throw 'local_full_validation_cache_matrix_catalog_invalid'
+    }
+    if (
+        $owners.Count -eq 0 -or
+        @($owners | Where-Object { $_ -isnot [string] -or [string]::IsNullOrEmpty($_) }).Count -ne 0 -or
+        @($owners | Sort-Object -Unique).Count -ne $owners.Count
+    ) {
+        throw 'local_full_validation_cache_matrix_catalog_invalid'
+    }
+
+    $gitExecutable = (Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+    foreach ($owner in $owners) {
+        $difference = Invoke-LocalFullValidationProcessV1 `
+            -Executable $gitExecutable `
+            -Arguments @('-C', $Repository, 'diff', '--quiet', '--no-ext-diff', $ExactBaselineCommit, '--', $owner)
+        if ($difference.ExitCode -eq 1) { return $true }
+        if ($difference.ExitCode -ne 0) {
+            throw 'local_full_validation_cache_matrix_diff_invalid'
+        }
+    }
+    return $false
+}
+
 function Invoke-LocalFullValidationV1 {
     [CmdletBinding()]
     param(
@@ -242,12 +283,19 @@ print(json.dumps(payload, sort_keys=True))
         Complete-LocalFullValidationStepV1 -Name "pnpm_$($arguments -join '_')" -Result $result
     }
 
-    $cacheTestArguments = @(
-        '-NoLogo', '-NoProfile', '-File', (Join-Path $PSScriptRoot 'test-python-validation-environment-v1.ps1'),
-        '-PythonExecutable', $BasePythonExecutable
-    )
-    $cacheTest = Invoke-LocalFullValidationProcessV1 -Executable $shellExecutable -Arguments $cacheTestArguments
-    Complete-LocalFullValidationStepV1 -Name 'python_validation_environment' -Result $cacheTest
+    $runPythonCacheMatrix = Test-LocalFullValidationPythonCacheMatrixV1 `
+        -Repository $repository `
+        -ExactBaselineCommit $ExactBaselineCommit
+    $pythonCacheMatrixResult = 'SKIPPED_OWNERS_UNCHANGED'
+    if ($runPythonCacheMatrix) {
+        $cacheTestArguments = @(
+            '-NoLogo', '-NoProfile', '-File', (Join-Path $PSScriptRoot 'test-python-validation-environment-v1.ps1'),
+            '-PythonExecutable', $BasePythonExecutable
+        )
+        $cacheTest = Invoke-LocalFullValidationProcessV1 -Executable $shellExecutable -Arguments $cacheTestArguments
+        Complete-LocalFullValidationStepV1 -Name 'python_validation_environment' -Result $cacheTest
+        $pythonCacheMatrixResult = 'PASS'
+    }
 
     [pscustomobject]@{
         runner = 'LOCAL_FULL_VALIDATION_V1'
@@ -256,6 +304,7 @@ print(json.dumps(payload, sort_keys=True))
         baseline_commit = $ExactBaselineCommit
         python_executable = $validationPython
         cache_state = [string]$acquisition.cache_state
+        python_cache_matrix = $pythonCacheMatrixResult
     } | ConvertTo-Json -Compress | Write-Output
 }
 

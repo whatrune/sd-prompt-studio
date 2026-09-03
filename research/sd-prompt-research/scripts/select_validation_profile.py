@@ -121,6 +121,8 @@ class ValidationCatalog:
     profiles: dict[str, CatalogProfile]
     force_full_exact: frozenset[str]
     force_full_prefixes: tuple[str, ...]
+    python_cache_matrix_exact: frozenset[str]
+    python_cache_matrix_force_full_reasons: frozenset[str]
     ownership: tuple[OwnershipRule, ...]
 
 
@@ -138,6 +140,7 @@ class ValidationSelection:
     bundles: tuple[str, ...]
     runtime_deployable: bool
     commands: tuple[str, ...]
+    run_python_cache_matrix: bool
 
     def runs(self, bundle: str) -> bool:
         return bundle in self.bundles
@@ -162,7 +165,10 @@ def load_catalog(path: Path = CATALOG_PATH) -> ValidationCatalog:
         raise ValueError("validation_catalog_invalid") from error
     if not _exact_keys(
         value,
-        {"catalog_id", "catalog_version", "full_profile", "profiles", "force_full", "ownership"},
+        {
+            "catalog_id", "catalog_version", "full_profile", "profiles", "force_full",
+            "python_cache_matrix", "ownership",
+        },
     ):
         raise ValueError("validation_catalog_invalid")
     if (
@@ -189,6 +195,20 @@ def load_catalog(path: Path = CATALOG_PATH) -> ValidationCatalog:
     force_exact = frozenset(_catalog_paths(force_full["exact"]))
     force_prefixes = _catalog_paths(force_full["prefixes"])
 
+    python_cache_matrix = value["python_cache_matrix"]
+    if not _exact_keys(python_cache_matrix, {"owning_exact", "force_full_reasons"}):
+        raise ValueError("validation_catalog_invalid")
+    python_cache_matrix_exact = frozenset(_catalog_paths(python_cache_matrix["owning_exact"]))
+    python_cache_matrix_force_full_reasons = frozenset(
+        _catalog_paths(python_cache_matrix["force_full_reasons"])
+    )
+    if (
+        not python_cache_matrix_exact
+        or not python_cache_matrix_exact.issubset(force_exact)
+        or any(not re.fullmatch(r"[a-z0-9_]+", reason) for reason in python_cache_matrix_force_full_reasons)
+    ):
+        raise ValueError("validation_catalog_invalid")
+
     ownership: list[OwnershipRule] = []
     seen_exact: set[str] = set()
     for rule in value["ownership"] if isinstance(value["ownership"], list) else ():
@@ -204,7 +224,15 @@ def load_catalog(path: Path = CATALOG_PATH) -> ValidationCatalog:
         ownership.append(OwnershipRule(rule["profile"], exact, prefixes))
     if not ownership:
         raise ValueError("validation_catalog_invalid")
-    return ValidationCatalog(FULL_RESEARCH, profiles, force_exact, force_prefixes, tuple(ownership))
+    return ValidationCatalog(
+        FULL_RESEARCH,
+        profiles,
+        force_exact,
+        force_prefixes,
+        python_cache_matrix_exact,
+        python_cache_matrix_force_full_reasons,
+        tuple(ownership),
+    )
 
 
 CATALOG = load_catalog()
@@ -251,7 +279,8 @@ def _commands(bundles: tuple[str, ...]) -> tuple[str, ...]:
 
 
 def _full_selection(
-    classified_paths: tuple[ClassifiedPath, ...], reason: str, catalog: ValidationCatalog = CATALOG
+    classified_paths: tuple[ClassifiedPath, ...], reason: str, catalog: ValidationCatalog = CATALOG,
+    *, run_python_cache_matrix: bool = False,
 ) -> ValidationSelection:
     profile = catalog.profiles[catalog.full_profile]
     return ValidationSelection(
@@ -261,21 +290,26 @@ def _full_selection(
         profile.bundles,
         profile.runtime_deployable,
         _commands(profile.bundles),
+        run_python_cache_matrix,
     )
 
 
 def classify_paths(paths: Iterable[object], catalog: ValidationCatalog = CATALOG) -> ValidationSelection:
     raw_paths = list(paths)
     if not raw_paths:
-        return _full_selection((), "empty_changed_path_set", catalog)
+        return _full_selection((), "empty_changed_path_set", catalog, run_python_cache_matrix=True)
     if any(_is_malformed_path(path) for path in raw_paths):
-        return _full_selection((), "malformed_changed_path", catalog)
+        return _full_selection((), "malformed_changed_path", catalog, run_python_cache_matrix=True)
     normalized = [str(path) for path in raw_paths]
+    run_python_cache_matrix = any(path in catalog.python_cache_matrix_exact for path in normalized)
     if len(set(normalized)) != len(normalized):
         classified = tuple(
             ClassifiedPath(path, classify_path(path, catalog)[0]) for path in sorted(set(normalized))
         )
-        return _full_selection(classified, "duplicate_changed_path", catalog)
+        return _full_selection(
+            classified, "duplicate_changed_path", catalog,
+            run_python_cache_matrix=run_python_cache_matrix,
+        )
 
     classified_items: list[ClassifiedPath] = []
     fallback_reasons: list[str] = []
@@ -286,11 +320,17 @@ def classify_paths(paths: Iterable[object], catalog: ValidationCatalog = CATALOG
             fallback_reasons.append(reason)
     classified = tuple(classified_items)
     if fallback_reasons:
-        return _full_selection(classified, fallback_reasons[0], catalog)
+        return _full_selection(
+            classified, fallback_reasons[0], catalog,
+            run_python_cache_matrix=run_python_cache_matrix,
+        )
 
     profiles = {item.path_class for item in classified}
     if len(profiles) != 1:
-        return _full_selection(classified, "mixed_ownership_classes", catalog)
+        return _full_selection(
+            classified, "mixed_ownership_classes", catalog,
+            run_python_cache_matrix=run_python_cache_matrix,
+        )
     profile_name = next(iter(profiles))
     profile = catalog.profiles[profile_name]
     return ValidationSelection(
@@ -300,6 +340,7 @@ def classify_paths(paths: Iterable[object], catalog: ValidationCatalog = CATALOG
         profile.bundles,
         profile.runtime_deployable,
         _commands(profile.bundles),
+        run_python_cache_matrix,
     )
 
 
@@ -319,8 +360,11 @@ def parse_nul_paths(data: bytes) -> tuple[list[str], str | None]:
 
 def forced_full_selection(reason: str) -> ValidationSelection:
     if not reason or len(reason) > 160 or not re.fullmatch(r"[a-z0-9_]+", reason):
-        return _full_selection((), "invalid_force_full_reason")
-    return _full_selection((), reason)
+        return _full_selection((), "invalid_force_full_reason", run_python_cache_matrix=True)
+    return _full_selection(
+        (), reason,
+        run_python_cache_matrix=reason in CATALOG.python_cache_matrix_force_full_reasons,
+    )
 
 
 def _output_values(selection: ValidationSelection) -> dict[str, str]:
@@ -328,6 +372,7 @@ def _output_values(selection: ValidationSelection) -> dict[str, str]:
         "selected_profile": selection.profile,
         "fallback_reason": selection.fallback_reason or "none",
         "runtime_deployable": str(selection.runtime_deployable).lower(),
+        "run_python_cache_matrix": str(selection.run_python_cache_matrix).lower(),
         "install_research_dependencies": str(
             any(selection.runs(bundle) for bundle in ("research_experiment", "concept_graph", "full_research", "research_validators"))
         ).lower(),
@@ -354,6 +399,7 @@ def _append_summary(path: Path, selection: ValidationSelection) -> None:
         f"- Selected profile: `{selection.profile}`",
         f"- Full fallback reason: `{selection.fallback_reason or 'none'}`",
         f"- Runtime/deployable: `{str(selection.runtime_deployable).lower()}`",
+        f"- Full Python cache matrix: `{str(selection.run_python_cache_matrix).lower()}`",
         "",
         "### Classified paths",
         "",
@@ -388,7 +434,10 @@ def main(argv: list[str] | None = None) -> int:
         selection = forced_full_selection(args.force_full_reason)
     else:
         paths, parse_error = parse_nul_paths(args.paths_file.read_bytes())
-        selection = _full_selection((), parse_error) if parse_error else classify_paths(paths)
+        selection = (
+            _full_selection((), parse_error, run_python_cache_matrix=True)
+            if parse_error else classify_paths(paths)
+        )
 
     if args.github_output:
         _append_outputs(args.github_output, selection)
@@ -401,6 +450,7 @@ def main(argv: list[str] | None = None) -> int:
         "fallback_reason": selection.fallback_reason or None,
         "profile": selection.profile,
         "runtime_deployable": selection.runtime_deployable,
+        "run_python_cache_matrix": selection.run_python_cache_matrix,
     }
     if args.format == "json":
         print(json.dumps(payload, sort_keys=True))

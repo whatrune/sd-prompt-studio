@@ -1144,6 +1144,7 @@ const pythonLock = readFileSync(new URL('../research/sd-prompt-research/requirem
 ok(validationWorkflow.includes('actions/cache@v4'))
 ok(validationWorkflow.includes('acquire-python-validation-environment-v1.ps1'))
 ok(validationWorkflow.includes('test-python-validation-environment-v1.ps1'))
+ok(validationWorkflow.includes("steps.profile.outputs.run_python_cache_matrix == 'true'"))
 ok(validationWorkflow.includes('"$VALIDATION_PYTHON" -B -E -s'))
 equal(validationWorkflow.includes('python -m pip install -r research/sd-prompt-research/requirements.txt'), false)
 ok(pythonCacheHelper.includes("Join-Path $gitCommonDirectory 'codex-cache/python-validation-v1'"))

@@ -188,7 +188,7 @@ jobs:
         run: node scripts/test-role-execution-contracts.mjs
 
       - name: Validate immutable Python environment cache
-        if: steps.profile.outputs.run_full_research == 'true'
+        if: steps.profile.outputs.run_python_cache_matrix == 'true'
         shell: pwsh
         run: >-
           ./scripts/test-python-validation-environment-v1.ps1
