@@ -148,7 +148,7 @@ The only additional Git lifecycle check is that an explicitly authorized operato
 8. PRがMERGED / CLOSEDであることを確認
 9. assigned Task worktreeに未コミット変更がないことを確認
 10. active executionまたはprocessがworktreeを使用していないことを確認
-11. remove-task-worktree-after-merge-v1.ps1をGit common-directoryへwrite/delete可能な同一host processで実行し、normal git worktree removeの直前にそのcapabilityを実測する
+11. hostが供給するexact bundled pwsh executableをPowerShell Core 7.6.4としてprobeし、その同一host processからremove-task-worktree-after-merge-v1.ps1を実行して、Git common-directoryへのwrite/delete capabilityをnormal git worktree removeの直前に実測する
 12. former Task worktree pathが残る場合、unregistered、別のregistered Task worktree配下ではないこと、.git markerなし、reparse/symlink ancestorまたはroot escapeなし、およびcaptured exact path一致を再確認する
 13. verified orphan residueだけをexact former Task worktree pathから削除し、path absenceとbranch/ref preservationを確認する
 14. DONE
@@ -158,7 +158,7 @@ The only additional Git lifecycle check is that an explicitly authorized operato
 
 ```powershell
 pwsh scripts/sync-local-main-after-merge-v1.ps1 -RepositoryPath <repository-root>
-pwsh scripts/remove-task-worktree-after-merge-v1.ps1 `
+<host-owned-bundled-pwsh-executable> -NoProfile -File scripts/remove-task-worktree-after-merge-v1.ps1 `
   -RepositoryPath <repository-root> `
   -TaskWorktreePath <task-worktree> `
   -ExpectedBranch <task-branch> `
@@ -166,6 +166,8 @@ pwsh scripts/remove-task-worktree-after-merge-v1.ps1 `
 ```
 
 `sync-local-main-after-merge-v1.ps1`はpost-Merge verification後のlocal housekeeping ownerである。fresh-fetchした`origin/main`をintegration authorityとして使い、rootが`main`をcheckoutしたroot worktreeであること、rootがcleanであること、`origin/main..main`のcommit数が0であること、および`main`が`origin/main`のancestorであることをrequireする。同期は既にequalならzero-mutation PASS、それ以外は`git merge --ff-only origin/main`だけを許し、最後に`main == origin/main`とclean rootをrequireする。rebase、merge commit、reset、force-update、およびbranch deletionは行わない。
+
+Terminal worktree cleanupのshell identityはcoordinatorが所有する。coordinatorはhost-owned bundled pwshのabsolute executable pathを明示的に渡し、同じopaque executableを`-NoProfile`でprobeして`PSEdition = Core`かつexact version `7.6.4`であることをrequireしてからhelperを1回だけ起動する。callerのPATHから`pwsh`を探索せず、Windows PowerShell 5.1、別shell、compatibility path、または失敗後のshell fallbackを使用しない。このinvocation bindingはhelper内部のregistration、identity、cleanliness、Git common-directory capability、residue、およびref-preservation semanticsを変更しない。
 
 fetch failure、dirty root、local-only commit、divergence、FF-only failure、またはfinal equality failureではlocal-main synchronizationをfail closedにする。そのfailureは確認済みMergeを無効化せず、local-main synchronization failureとして分離して報告する。Task worktree cleanupに実際の依存がなければ、上記の安全なcleanup確認を継続してよい。
 

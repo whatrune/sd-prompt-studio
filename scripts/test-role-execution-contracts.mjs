@@ -273,6 +273,29 @@ function validateDocumentContent(contents, failures) {
   for (const marker of ['Issue #163', 'Amendment 007', 'Amendment 002', 'external_blocker']) {
     if (!shared.includes(marker)) failures.push(`Issue #163 walkthrough is missing ${marker}`);
   }
+  const entryGuard = contents.get('AGENTS.md');
+  const worktreeRules = contents.get('docs/team/05-worktree-and-branch-rules.md');
+  for (const marker of [
+    'exact host-owned bundled `pwsh` executable',
+    'PowerShell Core `7.6.4`',
+    'Windows PowerShell 5.1',
+    'PATH-selected `pwsh`',
+    'The existing helper remains the sole cleanup-semantics owner.',
+  ]) {
+    if (!entryGuard.includes(marker)) failures.push(`AGENTS terminal cleanup host contract is missing ${marker}`);
+  }
+  for (const marker of [
+    '<host-owned-bundled-pwsh-executable> -NoProfile -File scripts/remove-task-worktree-after-merge-v1.ps1',
+    '`PSEdition = Core`',
+    'exact version `7.6.4`',
+    'callerのPATHから`pwsh`を探索せず',
+    'helper内部のregistration、identity、cleanliness、Git common-directory capability、residue、およびref-preservation semanticsを変更しない',
+  ]) {
+    if (!worktreeRules.includes(marker)) failures.push(`worktree lifecycle canonical pwsh contract is missing ${marker}`);
+  }
+  if (/^pwsh scripts\/remove-task-worktree-after-merge-v1\.ps1/m.test(worktreeRules)) {
+    failures.push('worktree lifecycle must not invoke cleanup through PATH-selected pwsh');
+  }
   if (readFileSync(resolve(root, 'package.json'), 'utf8').includes('test-role-execution-contracts')) failures.push('package.json must not register the documentation validation script');
   return matrixRows.size;
 }
