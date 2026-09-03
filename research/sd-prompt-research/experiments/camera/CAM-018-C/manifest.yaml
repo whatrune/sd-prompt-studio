@@ -1,0 +1,97 @@
+schema_version: '1.0'
+run_id: CAM-018-C
+domain: camera
+condition: pose/body-occlusion-limited
+title: CAM-018-C — pose/body-occlusion-limited
+status: OBSERVED
+created_at: '2026-09-03T19:05:14+09:00'
+updated_at: '2026-09-03T19:16:54+09:00'
+research:
+  target_phrase: hands visible
+  research_question: 'Which visible boundary most strongly limits reliable hand visibility
+    observed in CAM-017: framing, pose/body occlusion, or clothing occlusion?'
+  baseline_run_id: CAM-017-B
+  variant_label: pose/body-occlusion-limited
+  hypothesis_before_run: Matched one-factor-at-a-time comparisons may separate frame
+    cropping from body overlap and garment coverage as owners of lost bilateral hand
+    visibility.
+prompt:
+  positive: 1girl, solo, standing, neutral expression, plain fitted sleeveless top,
+    black shorts, barefoot, eye level, front view, empty seamless studio, plain floor,
+    hands visible, arms behind back, full body
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+    extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, airplane,
+    aircraft, vehicle, background objects, props, furniture
+  changed_phrases:
+  - arms behind back
+  fixed_phrases:
+  - 1girl
+  - solo
+  - standing
+  - neutral expression
+  - black shorts
+  - barefoot
+  - eye level
+  - front view
+  - empty seamless studio
+  - plain floor
+  - hands visible
+  - plain fitted sleeveless top
+  - full body
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+  - 285104763
+  - 517923846
+  - 846205317
+  - 1216384902
+  - 1684502791
+  - 2140736584
+source:
+  sheet_file: null
+  metadata_file: source/CAM-018-C_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: null
+outputs:
+  panels:
+  - panels/CAM-018-C_01.png
+  - panels/CAM-018-C_02.png
+  - panels/CAM-018-C_03.png
+  - panels/CAM-018-C_04.png
+  - panels/CAM-018-C_05.png
+  - panels/CAM-018-C_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: 'Generated directly through the verified A1111 txt2img API under Task #594.
+    Prompt-blind observation was frozen before condition mapping disclosure. Results
+    are research evidence only.'
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null
