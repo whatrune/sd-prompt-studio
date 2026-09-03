@@ -26,6 +26,8 @@ const teamDocs = Array.from({ length: 15 }, (_, index) => {
 });
 const files = ['AGENTS.md', ...teamDocs];
 const baselineContents = new Map(files.map((file) => [file, readFileSync(resolve(root, file), 'utf8')]));
+const canonicalCleanupCommand = '<host-owned-bundled-pwsh-executable> -NoProfile -File scripts/remove-task-worktree-after-merge-v1.ps1 `';
+const cleanupHostContractFailure = 'worktree lifecycle must contain exactly one canonical bundled-pwsh cleanup command';
 
 const expectedOwners = new Map(Object.entries({
   role_taxonomy: '00',
@@ -273,6 +275,34 @@ function validateDocumentContent(contents, failures) {
   for (const marker of ['Issue #163', 'Amendment 007', 'Amendment 002', 'external_blocker']) {
     if (!shared.includes(marker)) failures.push(`Issue #163 walkthrough is missing ${marker}`);
   }
+  const entryGuard = contents.get('AGENTS.md');
+  const worktreeRules = contents.get('docs/team/05-worktree-and-branch-rules.md');
+  for (const marker of [
+    'exact host-owned bundled `pwsh` executable',
+    'PowerShell Core `7.6.4`',
+    'Windows PowerShell 5.1',
+    'PATH-selected `pwsh`',
+    'The existing helper remains the sole cleanup-semantics owner.',
+  ]) {
+    if (!entryGuard.includes(marker)) failures.push(`AGENTS terminal cleanup host contract is missing ${marker}`);
+  }
+  for (const marker of [
+    '<host-owned-bundled-pwsh-executable> -NoProfile -File scripts/remove-task-worktree-after-merge-v1.ps1',
+    '`PSEdition = Core`',
+    'exact version `7.6.4`',
+    'callerのPATHから`pwsh`を探索せず',
+    'helper内部のregistration、identity、cleanliness、Git common-directory capability、residue、およびref-preservation semanticsを変更しない',
+  ]) {
+    if (!worktreeRules.includes(marker)) failures.push(`worktree lifecycle canonical pwsh contract is missing ${marker}`);
+  }
+  const powershellBlocks = [...worktreeRules.matchAll(/^```powershell\r?\n([\s\S]*?)^```$/gmu)]
+    .map((match) => match[1]);
+  const cleanupCommandLines = powershellBlocks
+    .flatMap((block) => block.split(/\r?\n/))
+    .filter((line) => line.includes('remove-task-worktree-after-merge-v1.ps1'));
+  if (cleanupCommandLines.length !== 1 || cleanupCommandLines[0].trim() !== canonicalCleanupCommand) {
+    failures.push(cleanupHostContractFailure);
+  }
   if (readFileSync(resolve(root, 'package.json'), 'utf8').includes('test-role-execution-contracts')) failures.push('package.json must not register the documentation validation script');
   return matrixRows.size;
 }
@@ -307,6 +337,24 @@ failures.push(...normative.failures);
 const literalEdges = validateLiteralLinks(baselineContents, failures);
 const matrixSize = validateDocumentContent(baselineContents, failures);
 
+const cleanupHostNegativeCases = [
+  'pwsh -NoProfile -File scripts/remove-task-worktree-after-merge-v1.ps1 `',
+  '  pwsh scripts/remove-task-worktree-after-merge-v1.ps1 `',
+  "& 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe' -NoProfile -File scripts/remove-task-worktree-after-merge-v1.ps1 `",
+];
+let cleanupHostNegativeCasesPassed = 0;
+for (const replacement of cleanupHostNegativeCases) {
+  const mutated = new Map(baselineContents);
+  mutated.set(
+    'docs/team/05-worktree-and-branch-rules.md',
+    mutated.get('docs/team/05-worktree-and-branch-rules.md').replace(canonicalCleanupCommand, replacement),
+  );
+  const caseFailures = [];
+  validateDocumentContent(mutated, caseFailures);
+  if (caseFailures.includes(cleanupHostContractFailure)) cleanupHostNegativeCasesPassed += 1;
+  else failures.push(`terminal cleanup host negative case unexpectedly passed: ${replacement}`);
+}
+
 const fixtures = JSON.parse(readFileSync(resolve(root, 'scripts/fixtures/role-execution-contracts-negative.json'), 'utf8'));
 let negativeFixturesPassed = 0;
 for (const fixture of fixtures) {
@@ -323,4 +371,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`Role execution contract validation passed: ${files.length} documents, ${normative.concernOwners.size} declared concerns, ${normative.edges.size} derived normative edges, 0 duplicate owners, 0 undeclared owner references, 0 reversed owners, 0 normative cycles, ${literalEdges} literal edges, 0 broken links, 0 literal cycles, ${matrixSize} scenarios, ${negativeFixturesPassed} negative fixtures.`);
+console.log(`Role execution contract validation passed: ${files.length} documents, ${normative.concernOwners.size} declared concerns, ${normative.edges.size} derived normative edges, 0 duplicate owners, 0 undeclared owner references, 0 reversed owners, 0 normative cycles, ${literalEdges} literal edges, 0 broken links, 0 literal cycles, ${matrixSize} scenarios, ${negativeFixturesPassed} negative fixtures, ${cleanupHostNegativeCasesPassed} terminal cleanup host negative cases.`);
