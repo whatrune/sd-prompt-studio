@@ -1,0 +1,297 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-017-C",
+  "blind_condition_label": "COND-03",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "head_visibility",
+    "left_hand_visibility",
+    "right_hand_visibility",
+    "left_foot_visibility",
+    "right_foot_visibility",
+    "upper_frame_boundary",
+    "lower_frame_boundary",
+    "body_coverage",
+    "region_assessability",
+    "camera_angle_observation",
+    "body_pose_observation",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-03: head={\"fully_visible\":6}; left_hand={\"fully_visible\":3,\"not_visible\":1,\"partially_visible\":2}; right_hand={\"fully_visible\":3,\"not_visible\":1,\"partially_visible\":2}.",
+      "Opaque condition COND-03: left_foot={\"fully_visible\":6}; right_foot={\"fully_visible\":6}; assessable=6/6; ambiguity/artifact=2/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested region, run mapping, prompt, seed, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 6d92d2432c0f0ffd82f36f74a371654464ca714464268919d0ebd8cc9945f687.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "above_head",
+        "below_feet",
+        "full_body",
+        "assessable",
+        "eye_level_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "body_region_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete standing figure is directly visible from hair to toes, with both open hands extended away from the torso."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "above_head",
+        "below_feet",
+        "full_body",
+        "assessable",
+        "eye_level_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "body_region_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The whole upright figure fits inside the frame; both hands are visible beside the shorts and both feet are fully outlined."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "above_head",
+        "below_feet",
+        "full_body",
+        "assessable",
+        "eye_level_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "body_region_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete tilted standing pose is visible, including both lowered hands and both bare feet, with margin beyond both vertical endpoints."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "fully_visible",
+        "partially_visible",
+        "partially_visible",
+        "fully_visible",
+        "fully_visible",
+        "above_head",
+        "below_feet",
+        "full_body",
+        "assessable",
+        "eye_level_like",
+        "standing",
+        "region_ambiguous"
+      ],
+      "primary_morphology": "body_region_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The full figure is framed, but the crossed forearms occlude portions of both hands and blend their boundaries into the arm overlap."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "region_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "fully_visible",
+        "fully_visible",
+        "above_head",
+        "below_feet",
+        "full_body",
+        "assessable",
+        "eye_level_like",
+        "standing",
+        "none"
+      ],
+      "primary_morphology": "body_region_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete head, legs, and feet are visible; both arms are positioned behind the torso and no hand pixels are directly shown."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "fully_visible",
+        "partially_visible",
+        "partially_visible",
+        "fully_visible",
+        "fully_visible",
+        "above_head",
+        "below_feet",
+        "full_body",
+        "assessable",
+        "high_angle_like",
+        "standing",
+        "region_ambiguous"
+      ],
+      "primary_morphology": "body_region_visibility_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The downward-looking frame contains the complete figure; both crossed hands are partly visible where they overlap the opposite upper arms, but portions are occluded."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "region_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "head_visibility": {
+        "fully_visible": 6
+      },
+      "left_hand_visibility": {
+        "fully_visible": 3,
+        "partially_visible": 2,
+        "not_visible": 1
+      },
+      "right_hand_visibility": {
+        "fully_visible": 3,
+        "partially_visible": 2,
+        "not_visible": 1
+      },
+      "left_foot_visibility": {
+        "fully_visible": 6
+      },
+      "right_foot_visibility": {
+        "fully_visible": 6
+      },
+      "upper_frame_boundary": {
+        "above_head": 6
+      },
+      "lower_frame_boundary": {
+        "below_feet": 6
+      },
+      "body_coverage": {
+        "full_body": 6
+      },
+      "region_assessability": {
+        "assessable": 6
+      },
+      "camera_angle_observation": {
+        "eye_level_like": 5,
+        "high_angle_like": 1
+      },
+      "body_pose_observation": {
+        "standing": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 4,
+        "region_ambiguous": 2
+      }
+    },
+    "primary_morphology_counts": {
+      "body_region_visibility_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 4,
+      "region_ambiguous": 2
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
