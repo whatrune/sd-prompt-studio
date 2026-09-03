@@ -684,3 +684,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-03T16:18:06+09:00'
   path: experiments/camera/CAM-016-C
+- run_id: CAM-017-A
+  domain: camera
+  title: CAM-017-A — head visible
+  status: OBSERVED
+  updated_at: '2026-09-03T18:29:02+09:00'
+  path: experiments/camera/CAM-017-A
+- run_id: CAM-017-B
+  domain: camera
+  title: CAM-017-B — hands visible
+  status: OBSERVED
+  updated_at: '2026-09-03T18:29:02+09:00'
+  path: experiments/camera/CAM-017-B
+- run_id: CAM-017-C
+  domain: camera
+  title: CAM-017-C — feet visible
+  status: OBSERVED
+  updated_at: '2026-09-03T18:29:02+09:00'
+  path: experiments/camera/CAM-017-C
