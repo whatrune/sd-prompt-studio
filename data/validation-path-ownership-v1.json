@@ -8,7 +8,7 @@
       "bundles": ["research_experiment", "research_validators"]
     },
     "CONCEPT_GRAPH": {
-      "runtime_deployable": true,
+      "runtime_deployable": false,
       "bundles": ["concept_graph", "research_validators", "production_advisory"]
     },
     "FULL_RESEARCH": {

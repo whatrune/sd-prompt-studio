@@ -50,7 +50,7 @@ The same binding is evaluated again immediately before mutation. The operator th
 | runtime/deployable class | `validate`, `build-preview`, `Cloudflare Pages` |
 | mixed, unknown, malformed, duplicate, empty, or control-plane input | all three checks; `validate` executes `FULL_RESEARCH` |
 
-Missing, pending, cancelled, ambiguous, or unsuccessful required checks stop before a protected mutation. The operator does not create or consume a check-evidence record.
+Artifact-only `RESEARCH_EXPERIMENT` and pure `CONCEPT_GRAPH` changes are non-runtime classes and require only `validate`. The production Compiler does not consume the generated prototype Concept Graph; its production-facing advisory is a separately owned checked-in artifact. If a Graph change also changes that advisory, the mixed scope fails closed to `FULL_RESEARCH` and requires all three checks. Missing, pending, cancelled, ambiguous, or unsuccessful required checks stop before a protected mutation. A check emitted by an external GitHub integration for a non-required profile does not enter the canonical preflight evidence. The operator does not create or consume a check-evidence record.
 
 `.github/workflows/research-claims.yml` produces one universal `validate` check for every pull request. It selects the profile from the complete exact base-to-HEAD NUL-delimited path set using `git diff --name-only -z --no-renames`; a rename is therefore classified as deletion plus addition. Exact ownership is required. Multiple ownership classes do not form an optimistic union and instead fall back to `FULL_RESEARCH`. Catalog, classifier, workflow-control, validator, schema, template, malformed, duplicate, empty, and unmatched inputs also fail closed to `FULL_RESEARCH`.
 
