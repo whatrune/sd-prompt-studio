@@ -26,6 +26,12 @@ const check = (condition, message) => { assertionCount += 1; assert(condition, m
 const equal = (actual, expected, message) => { assertionCount += 1; assert.equal(actual, expected, message) }
 const deepEqual = (actual, expected, message) => { assertionCount += 1; assert.deepEqual(actual, expected, message) }
 const errorMessage = callback => { try { callback(); return null } catch (error) { return error instanceof Error ? error.message : String(error) } }
+const framingBindings = [
+  ['cam-close-up', 'camera.framing.close_up', 'close-up', 'CAM-004-D'],
+  ['cam-cowboy-shot', 'camera.framing.cowboy_shot', 'cowboy shot', 'CAM-004-B'],
+  ['cam-full-body', 'camera.framing.full_body', 'full body', 'CAM-004-A'],
+  ['cam-upper-body', 'camera.framing.upper_body', 'upper body', 'CAM-004-C'],
+]
 
 const server = await createServer({ root: repoRoot, configFile: false, logLevel: 'silent', server: { middlewareMode: true }, appType: 'custom' })
 try {
@@ -43,8 +49,9 @@ try {
 
   equal(catalog.record_type, 'visual_concept_production_advisory_catalog_v1', 'promoted catalog record type must be exact')
   equal(catalog.version, 1, 'promoted catalog version must be exact')
-  equal(catalog.mappings.length, 6, 'promoter must emit exactly six approved mappings')
+  equal(catalog.mappings.length, 10, 'promoter must emit the existing six plus exactly four framing mappings')
   deepEqual(catalog.mappings.map(mapping => [mapping.prompt_tag_id, mapping.concept_id]), [
+    ...framingBindings.map(([tagId, conceptId]) => [tagId, conceptId]),
     ['hai-long-hair', 'hair.long'],
     ['pos-lying', 'body.state.lying'],
     ['pos-lying-on-back', 'body.orientation.face_up'],
@@ -53,7 +60,7 @@ try {
     ['v192-bent-knees', 'configuration.knee.bent'],
   ], 'promoted mapping slice must remain exact and ordered')
   deepEqual(catalog.relations, [], 'production V1 catalog must not promote relations')
-  deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 6, unmapped_active_prompt_tag_count: 2516 }, 'coverage must bind the exact active registry')
+  deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 10, unmapped_active_prompt_tag_count: 2512 }, 'coverage must bind the exact active registry')
   deepEqual(Object.keys(catalog.source_binding), ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'registry_sha256'], 'catalog source binding must use schema identity and production inputs without full-Graph revision or digest coupling')
   equal(serialized, serializeVisualConceptProductionAdvisoryCatalogV1(catalog), 'promoted output must be byte-stable')
   check(isVisualConceptProductionAdvisoryArtifactCurrentV1(`${JSON.stringify(checkedInCatalog, null, 2)}\n`, serialized), 'checked-in artifact must equal fresh promotion bytes')
@@ -77,6 +84,39 @@ try {
   mappedProductionChange.concepts.find(concept => concept.concept_id === 'hair.long').label = 'Changed production label'
   const mappedProductionCatalog = projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: mappedProductionChange, promptTagRegistry: registry })
   check(serializeVisualConceptProductionAdvisoryCatalogV1(mappedProductionCatalog) !== serialized, 'mapped production-relevant field change must stale the catalog')
+
+  for (const [tagId, conceptId, phrase, runId] of framingBindings) {
+    const tag = registry.find(candidate => candidate.id === tagId)
+    deepEqual([tag?.prompt, tag?.category, tag?.slot], [phrase, 'camera', 'camera_framing'], `${tagId} must preserve its exact production phrase and single-slot identity`)
+    const concept = graphContract.concepts.find(candidate => candidate.concept_id === conceptId)
+    deepEqual([concept?.module, concept?.concept_type, concept?.status], ['camera', 'camera', 'provisional'], `${conceptId} must remain an existing provisional camera concept`)
+    equal(concept.model_behaviors.length, 1, `${conceptId} must not generalize the admitted model context`)
+    const behavior = concept.model_behaviors[0]
+    deepEqual([behavior.model_profile_id, behavior.status], ['model.novaanimexl_ilv190', 'provisional'], `${conceptId} retains its bounded Research model identity`)
+    equal(behavior.evidence_refs.length, 1, `${conceptId} retains one exact CAM-004 reference`)
+    const evidence = behavior.evidence_refs[0]
+    const framing = conceptId.slice('camera.framing.'.length)
+    deepEqual([evidence.run_id, evidence.observation_path, evidence.metric, evidence.count, evidence.total], [runId, `experiments/camera/${runId}/observation.json`, `computed_aggregate.axis_counts.observed_framing.${framing}`, 6, 6], `${conceptId} preserves the exact 6/6 observation reference`)
+    const observation = readJson(`research/sd-prompt-research/${evidence.observation_path}`)
+    equal(evidence.metric.split('.').reduce((value, key) => value?.[key], observation), 6, `${conceptId} evidence must resolve to the tracked observation`)
+    const sceneSelection = [selected(tagId)]
+    const sceneSnapshot = clone(sceneSelection)
+    const projected = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: sceneSelection })
+    deepEqual(projected.mapped_entries.map(entry => [entry.prompt_tag_id, entry.concept_id, entry.concept_status, entry.owner_kind, entry.owner_id]), [[tagId, conceptId, 'provisional', 'SCENE', 'scene']], `${tagId} maps only the explicitly selected Scene identity`)
+    deepEqual(sceneSelection, sceneSnapshot, `${tagId} projection must not mutate selection or weight`)
+    equal(promptModule.buildPrompt([], sceneSelection), `[]\n\n[]\n\n[]\n\n[]\n\n[${phrase}]\n\nBREAK\n\n[]`, `${tagId} must preserve the baseline exact prompt bytes`)
+    equal(smartTagEngine.getConflictReason(tag, sceneSelection, registry), null, `${tagId} must not conflict with its own selection`)
+    for (const [otherId] of framingBindings.filter(([id]) => id !== tagId)) {
+      equal(smartTagEngine.getConflictReason(tag, [selected(otherId)], registry)?.level, 'hard', `${tagId} and ${otherId} retain existing framing conflicts in every selection direction`)
+    }
+  }
+
+  const unapprovedBinding = clone(bindingContract)
+  unapprovedBinding.bindings[0].concept_id = 'camera.framing.full_body'
+  equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract: unapprovedBinding, graphContract, promptTagRegistry: registry })), 'visual_concept_production_binding_scope_invalid', 'an existing concept paired to the wrong existing PromptTag must not be promoted')
+  const framingLabelChange = clone(graphContract)
+  framingLabelChange.concepts.find(concept => concept.concept_id === 'camera.framing.full_body').label = 'Changed framing label'
+  check(serializeVisualConceptProductionAdvisoryCatalogV1(projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: framingLabelChange, promptTagRegistry: registry })) !== serialized, 'mapped framing changes must be detected by canonical promotion freshness')
 
   const longHairTag = registry.find(tag => tag.id === 'hai-long-hair')
   const bobCutTag = registry.find(tag => tag.id === 'hai-bob-cut')
@@ -102,6 +142,36 @@ try {
   equal(promptFor(['hai-twintails', 'hai-long-hair']), promptEnvelope('twintails, long hair'), 'twintails and long hair must coexist in the existing main-hairstyle-before-length order')
   equal(promptFor(['hai-ponytail', 'hai-long-hair']), promptEnvelope('ponytail, long hair'), 'ponytail and long hair must coexist in the existing main-hairstyle-before-length order')
   equal(promptFor(['pos-standing', 'eye-blue-eyes']), '[]\n\n[]\n\n[blue eyes]\n\nBREAK\n\n[standing]\n\n[]\n\nBREAK\n\n[]', 'unrelated Prompt output must remain byte-identical')
+  const weighted = (id, weight) => ({ ...selected(id), weight })
+  const framingBlocks = [
+    { id: 'subject-a', name: 'A', tags: [weighted('cam-upper-body', 1.2), weighted('hai-long-hair', 1.3), selected('pos-standing')] },
+    { id: 'subject-b', name: 'B', tags: [weighted('cam-close-up', 0.8), selected('eye-blue-eyes')] },
+  ]
+  const framingScene = [weighted('cam-full-body', 1.4), selected('bac-forest')]
+  const framingInputBefore = clone({ blocks: framingBlocks, sceneTags: framingScene })
+  const framingPrompt = '[]\n\n[]\n\nLeft side:\n[(long hair:1.3)]\n\nBREAK\n\n[standing]\n\nBREAK\n\nRight side:\n[blue eyes]\n\nBREAK\n\n[]\n\n[(close-up:0.8), (upper body:1.2), (full body:1.4), forest]\n\nBREAK\n\n[]'
+  equal(promptModule.buildPrompt(framingBlocks, framingScene), framingPrompt, 'weighted multi-subject/Scene prompt must equal the pre-binding baseline, including order and BREAK')
+  const framingAdvisory = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: framingBlocks, sceneTags: framingScene })
+  deepEqual(framingAdvisory.mapped_entries.map(entry => [entry.owner_kind, entry.owner_id, entry.prompt_tag_id]), [
+    ['PROMPT_BLOCK', 'subject-a', 'cam-upper-body'],
+    ['PROMPT_BLOCK', 'subject-a', 'hai-long-hair'],
+    ['PROMPT_BLOCK', 'subject-b', 'cam-close-up'],
+    ['SCENE', 'scene', 'cam-full-body'],
+  ], 'advisory must preserve exact stored ownership even when compiler projects subject-owned camera tags to Scene')
+  deepEqual({ blocks: framingBlocks, sceneTags: framingScene }, framingInputBefore, 'advisory must not move, correct, insert, delete, or reweight existing selections')
+  equal(promptModule.buildPrompt(framingBlocks, framingScene), framingPrompt, 'advisory must not alter weighted multi-subject prompt bytes')
+  equal(promptModule.buildPromptWithStrategy(framingBlocks, framingScene, 'sdxl').prompt, framingPrompt.replace('Left side:\n', '').replace('Right side:\n', ''), 'other model preset rendering stays byte-identical; mapping makes no model reliability claim')
+  equal(promptModule.buildPromptWithStrategy(framingBlocks, framingScene, 'illustrious', 'CUSTOM BREAK').prompt, framingPrompt.replaceAll('BREAK', 'CUSTOM BREAK').replace(/CUSTOM BREAK(?=\n\n\[\]$)/, 'BREAK'), 'custom subject separators and the Scene BREAK must remain independent')
+  const forcedBlocks = [{ id: 'forced', name: 'Forced', tags: framingBindings.map(([id]) => selected(id)) }]
+  const forcedBefore = clone(forcedBlocks)
+  const forcedAdvisory = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: forcedBlocks, sceneTags: [] })
+  equal(forcedAdvisory.mapped_count, 4, 'forced/imported incompatible selections remain visible; advisory does not resolve conflicts')
+  deepEqual(forcedBlocks, forcedBefore, 'forced/imported combinations must never be silently deleted or corrected')
+  equal(promptModule.buildPrompt(forcedBlocks), '[]\n\n[]\n\n[]\n\n[]\n\n[close-up, upper body, cowboy shot, full body]\n\nBREAK\n\n[]', 'forced/imported framing prompt bytes must preserve every selected phrase in the original production order')
+  const aliasTags = framingBindings.map(([id, , phrase]) => ({ ...selected(id), id: `custom-${id}`, prompt: phrase }))
+  const aliasAdvisory = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: aliasTags })
+  equal(aliasAdvisory.mapped_count, 0, 'exact phrases under custom or alias IDs must not infer Graph bindings')
+  equal(aliasAdvisory.uncovered_selected_tag_count, 4, 'unapproved aliases must remain explicitly uncovered')
   const blocks = [
     { id: 'subject-1', name: 'Subject 1', tags: [selected('hai-long-hair'), selected('pos-lying'), selected('pos-lying-on-back'), { id: 'custom-tag', label: 'Custom', prompt: 'custom', category: 'pose', weight: 1 }] },
     { id: 'subject-2', name: 'Subject 2', tags: [selected('rin-pose-arm-support'), selected('rin-pose-reclining'), selected('v192-bent-knees')] },
@@ -149,6 +219,17 @@ try {
   const relationCatalog = clone(checkedInCatalog)
   relationCatalog.relations.push({ relation_id: 'not-admitted' })
   equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: relationCatalog, blocks, sceneTags }).advisory_status, 'UNAVAILABLE', 'relations must remain unsupported in production V1')
+  for (const mutate of [
+    value => { value.mappings[0].concept_id = 'camera.framing.full_body' },
+    value => { value.mappings[0].concept_status = 'draft' },
+    value => { value.mappings[0].model_guarantee = 'all-models' },
+    value => { value.mappings.splice(0, 1) },
+    value => { value.mappings[1] = clone(value.mappings[0]) },
+  ]) {
+    const malformedFramingCatalog = clone(checkedInCatalog)
+    mutate(malformedFramingCatalog)
+    equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: malformedFramingCatalog, blocks, sceneTags }).unavailable_reason, 'catalog_contract_invalid', 'malformed framing identity/status/shape/cardinality must fail closed without partial projection')
+  }
   const expandedCatalog = clone(checkedInCatalog)
   expandedCatalog.mappings.push({ ...expandedCatalog.mappings.at(-1), prompt_tag_id: 'zzz-unapproved', concept_id: 'body.state.lying' })
   expandedCatalog.coverage.mapped_active_prompt_tag_count += 1
