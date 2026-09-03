@@ -456,7 +456,7 @@ pip install -r requirements.txt
 
 Pull Requestの`validate` checkは、exact baseからexact HEADまでの完全な`git diff --name-only -z --no-renames`を`select_validation_profile.py`で分類します。通常実行でProfileを手動指定することはできません。
 
-- `RESEARCH_EXPERIMENT_ONLY`: Experiment/Ledger content向けのObservation、Schema、Evidence、Concept Graph、Research Claims、Explorer実Data、Run Registrationのfocused testsと3つのcurrent-state validator。
+- `RESEARCH_EXPERIMENT_ONLY`: Experiment/Ledger artifact向けのObservation、Prompt-blind provenance、Run Registrationと、Concept Graph、Research Claims、Explorer実Dataを読むfocused tests、および3つのcurrent-state validator。実artifactを読まない汎用Schema/Evidence unit testsはここでは重複実行せず、Validator/Test/Schema/Workflowなどowner変更時とdefault branch・定期回帰の`FULL_RESEARCH`が所有します。
 - `CONCEPT_GRAPH_CONTENT`: Concept Graph、Research Claims、Explorer実Dataのfocused testsと3つのcurrent-state validator。Experiment pathとの混在時はExperiment checksも合成します。
 - `PRODUCTION_ADAPTER`: 閉じたVisual Concept production adapter/catalog pathに対する既存focused Node tests/checks。独立して必須の`build-preview`が`pnpm test`と`pnpm build`を所有します。
 - `FULL_RESEARCH`: 全Research test discovery（既存suiteとselector focused tests）、3つのcurrent-state validator、closed production adapter tests/checks。ほかの全Profileを包含する安全側supersetです。

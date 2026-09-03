@@ -15,7 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from select_validation_profile import (  # noqa: E402
     APPLICATION, CATALOG_PATH, CONCEPT_GRAPH, DOCUMENTATION, FULL_RESEARCH,
     PLATFORM, PRODUCTION_ADVISORY, PROMPT_DATA, RESEARCH_EXPERIMENT,
-    CONCEPT_TEST_MODULES, EXPERIMENT_TEST_MODULES, classify_paths,
+    COMMANDS_BY_BUNDLE, CONCEPT_TEST_MODULES, EXPERIMENT_TEST_MODULES, classify_paths,
     forced_full_selection, load_catalog, main, parse_nul_paths,
 )
 
@@ -163,6 +163,43 @@ class ValidationProfileTests(unittest.TestCase):
         discovered = {f"tests.{path.stem}" for path in (ROOT / "tests").glob("test_*.py")}
         self.assertTrue(set(EXPERIMENT_TEST_MODULES).issubset(discovered))
         self.assertTrue(set(CONCEPT_TEST_MODULES).issubset(discovered))
+
+    def test_research_experiment_runs_only_artifact_relevant_tests(self) -> None:
+        artifact_relevant = (
+            "tests.test_concept_graph",
+            "tests.test_face_observation",
+            "tests.test_hair_observation",
+            "tests.test_observation_pipeline",
+            "tests.test_research_claims",
+            "tests.test_research_explorer_integration",
+            "tests.test_research_run_registration",
+        )
+        broad_unit_only = (
+            "tests.test_camera_visibility_metadata_schema",
+            "tests.test_evidence_evaluation",
+            "tests.test_image_observation_evidence_rule_schema",
+            "tests.test_prompt_provenance_schema",
+        )
+        self.assertEqual(artifact_relevant, EXPERIMENT_TEST_MODULES)
+        self.assertTrue(set(broad_unit_only).isdisjoint(EXPERIMENT_TEST_MODULES))
+
+        discovered = {f"tests.{path.stem}" for path in (ROOT / "tests").glob("test_*.py")}
+        self.assertTrue(set(broad_unit_only).issubset(discovered))
+        self.assertEqual(
+            ("python -m unittest discover -s tests -v",),
+            COMMANDS_BY_BUNDLE["full_research"],
+        )
+
+        workflow = (REPOSITORY_ROOT / ".github/workflows/research-claims.yml").read_text(encoding="utf-8")
+        experiment_step = workflow.split("- name: Run research experiment tests", 1)[1].split(
+            "- name: Run Concept Graph tests", 1
+        )[0]
+        for module in artifact_relevant:
+            with self.subTest(module=module):
+                self.assertIn(module, experiment_step)
+        for module in broad_unit_only:
+            with self.subTest(module=module):
+                self.assertNotIn(module, experiment_step)
 
     def test_python_cache_matrix_runs_only_for_owners_or_periodic_full(self) -> None:
         catalog = load_catalog()

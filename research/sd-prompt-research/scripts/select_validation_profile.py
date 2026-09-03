@@ -50,14 +50,10 @@ BUNDLE_NAMES = frozenset(
 )
 
 EXPERIMENT_TEST_MODULES = (
-    "tests.test_camera_visibility_metadata_schema",
     "tests.test_concept_graph",
-    "tests.test_evidence_evaluation",
     "tests.test_face_observation",
     "tests.test_hair_observation",
-    "tests.test_image_observation_evidence_rule_schema",
     "tests.test_observation_pipeline",
-    "tests.test_prompt_provenance_schema",
     "tests.test_research_claims",
     "tests.test_research_explorer_integration",
     "tests.test_research_run_registration",
