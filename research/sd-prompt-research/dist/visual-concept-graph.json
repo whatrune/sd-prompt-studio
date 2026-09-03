@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.5",
-  "generated_at": "2026-09-02T11:47:30Z",
+  "graph_version": "0.2.6",
+  "generated_at": "2026-09-03T11:15:12Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -1800,6 +1800,152 @@
       "notes": [
         "The cited Bridge metric establishes context, not the proposed facial effect."
       ]
+    },
+    {
+      "effect_id": "unmodeled.pose_body_overlap.hand_visibility",
+      "category": "model_specific",
+      "source_phrase": "arms behind back",
+      "target_module": "physical",
+      "target_region": "hands",
+      "observed_effect": "In the bounded CAM-018 prompt and model context, the arms-behind-back treatment coincided with both hands being hidden by the body in 6/6 panels while the matched low-occlusion reference retained complete bilateral hand visibility in 5/6 panels.",
+      "evidence_region": "hands",
+      "frequency": "6/6",
+      "confidence": "high",
+      "candidate_axis": "pose/body overlap risk for hand visibility requirements",
+      "model_profile": "model.novaanimexl_ilv190",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.cam018a.left_hand_fully_visible",
+          "run_id": "CAM-018-A",
+          "observation_path": "experiments/camera/CAM-018-A/observation.json",
+          "metric": "computed_aggregate.axis_counts.left_hand_visibility.fully_visible",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018a.right_hand_fully_visible",
+          "run_id": "CAM-018-A",
+          "observation_path": "experiments/camera/CAM-018-A/observation.json",
+          "metric": "computed_aggregate.axis_counts.right_hand_visibility.fully_visible",
+          "count": 5,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018b.left_hand_fully_visible",
+          "run_id": "CAM-018-B",
+          "observation_path": "experiments/camera/CAM-018-B/observation.json",
+          "metric": "computed_aggregate.axis_counts.left_hand_visibility.fully_visible",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018b.right_hand_fully_visible",
+          "run_id": "CAM-018-B",
+          "observation_path": "experiments/camera/CAM-018-B/observation.json",
+          "metric": "computed_aggregate.axis_counts.right_hand_visibility.fully_visible",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018c.left_hand_not_visible",
+          "run_id": "CAM-018-C",
+          "observation_path": "experiments/camera/CAM-018-C/observation.json",
+          "metric": "computed_aggregate.axis_counts.left_hand_visibility.not_visible",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018c.right_hand_not_visible",
+          "run_id": "CAM-018-C",
+          "observation_path": "experiments/camera/CAM-018-C/observation.json",
+          "metric": "computed_aggregate.axis_counts.right_hand_visibility.not_visible",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018c.left_hand_body_occlusion",
+          "run_id": "CAM-018-C",
+          "observation_path": "experiments/camera/CAM-018-C/observation.json",
+          "metric": "computed_aggregate.axis_counts.left_hand_occlusion_source.body",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018c.right_hand_body_occlusion",
+          "run_id": "CAM-018-C",
+          "observation_path": "experiments/camera/CAM-018-C/observation.json",
+          "metric": "computed_aggregate.axis_counts.right_hand_occlusion_source.body",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018c.arms_behind_torso",
+          "run_id": "CAM-018-C",
+          "observation_path": "experiments/camera/CAM-018-C/observation.json",
+          "metric": "computed_aggregate.axis_counts.arm_placement_observation.behind_torso",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018d.left_hand_fully_visible",
+          "run_id": "CAM-018-D",
+          "observation_path": "experiments/camera/CAM-018-D/observation.json",
+          "metric": "computed_aggregate.axis_counts.left_hand_visibility.fully_visible",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018d.right_hand_fully_visible",
+          "run_id": "CAM-018-D",
+          "observation_path": "experiments/camera/CAM-018-D/observation.json",
+          "metric": "computed_aggregate.axis_counts.right_hand_visibility.fully_visible",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam018d.garment_hand_cover_none",
+          "run_id": "CAM-018-D",
+          "observation_path": "experiments/camera/CAM-018-D/observation.json",
+          "metric": "computed_aggregate.axis_counts.garment_hand_cover.none",
+          "count": 6,
+          "total": 6,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "promotion_status": "observed",
+      "promotion_criteria": [
+        "replicated beyond the exact CAM-018 prompt and model context",
+        "pose/body overlap is bound to an appropriate canonical pose concept before resolver use",
+        "hand-visibility requirement ownership defines how the observed risk is consumed"
+      ],
+      "notes": [
+        "CAM-018 matched review records complete-bilateral-hand loss for the reference-to-pose/body arm in 5/6 seeds, versus 0/6 for both the framing and realized clothing arms.",
+        "The clothing control establishes only that the realized CAM-018 long-sleeve treatment did not limit hand visibility; it does not generalize to other garments or poses.",
+        "This evidence is available to future visibility-resolution design but creates no production rule or behavior."
+      ]
     }
   ],
   "model_profiles": [
@@ -2387,6 +2533,18 @@
         "camera.subject_orientation.facing_away",
         "camera.subject_orientation.facing_viewer",
         "camera.subject_orientation.profile_face"
+      ],
+      "CAM-018-A": [
+        "unmodeled.pose_body_overlap.hand_visibility"
+      ],
+      "CAM-018-B": [
+        "unmodeled.pose_body_overlap.hand_visibility"
+      ],
+      "CAM-018-C": [
+        "unmodeled.pose_body_overlap.hand_visibility"
+      ],
+      "CAM-018-D": [
+        "unmodeled.pose_body_overlap.hand_visibility"
       ],
       "CLOTHING-001-A": [
         "clothing.upper.oversized_white_tshirt",
