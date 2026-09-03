@@ -1,0 +1,250 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-013-A",
+  "blind_condition_label": "COND-Q7",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "subject_horizontal_band",
+    "left_edge_margin",
+    "right_edge_margin",
+    "whole_subject_visibility",
+    "support_boundary_visibility",
+    "placement_assessability",
+    "unintended_pose_or_camera_change",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-Q7: subject horizontal-band counts {\"center\":6}.",
+      "Opaque condition COND-Q7: assessable=6/6; whole subject visible=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested placement, run mapping, prompt, seed, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 cbd9304827a11445d0fc4ab737549c4accfa9f6dc88c8be4f27fd7217f678d50.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "center",
+        "ample",
+        "ample",
+        "visible",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_position_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete standing subject occupies the middle horizontal third with substantial visible background on both sides."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "center",
+        "ample",
+        "ample",
+        "visible",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_position_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete standing subject occupies the middle horizontal third with substantial visible background on both sides."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "center",
+        "ample",
+        "ample",
+        "visible",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_position_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete standing subject occupies the middle horizontal third with substantial visible background on both sides."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "center",
+        "ample",
+        "ample",
+        "visible",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_position_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete standing subject occupies the middle horizontal third with substantial visible background on both sides."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "center",
+        "ample",
+        "ample",
+        "visible",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_position_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete standing subject occupies the middle horizontal third with substantial visible background on both sides."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "center",
+        "ample",
+        "ample",
+        "visible",
+        "visible",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "subject_position_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete standing subject occupies the middle horizontal third with substantial visible background on both sides."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "subject_horizontal_band": {
+        "center": 6
+      },
+      "left_edge_margin": {
+        "ample": 6
+      },
+      "right_edge_margin": {
+        "ample": 6
+      },
+      "whole_subject_visibility": {
+        "visible": 6
+      },
+      "support_boundary_visibility": {
+        "visible": 6
+      },
+      "placement_assessability": {
+        "assessable": 6
+      },
+      "unintended_pose_or_camera_change": {
+        "none": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "subject_position_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
