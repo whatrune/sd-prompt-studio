@@ -1,0 +1,263 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-015-C",
+  "blind_condition_label": "COND-03",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "upper_canvas_margin_band",
+    "top_of_head_visibility",
+    "lower_canvas_margin_band",
+    "subject_frame_height_band",
+    "whole_subject_visibility",
+    "vertical_subject_position",
+    "headroom_assessability",
+    "scale_or_camera_variation",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-03: upper-canvas margin counts {\"minimal\":5,\"moderate\":1}.",
+      "Opaque condition COND-03: assessable=6/6; whole subject visible=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested headroom, run mapping, prompt, seed, PromptTag IDs, and emitted phrases were withheld.",
+      "The 18-panel opaque observation record was frozen before mapping disclosure at SHA-256 55b86980f0f09343ef37c96f4d58757a93eecced4f461eb12319e35614bba5c1.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-condition alignment, matched-seed comparison, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "minimal",
+        "visible",
+        "minimal",
+        "large",
+        "visible",
+        "center",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "headroom_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete subject is large in frame with the visible hair top close to the canvas boundary."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "minimal",
+        "visible",
+        "minimal",
+        "large",
+        "visible",
+        "center",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "headroom_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "A narrow upper margin remains above the unobscured head while the feet stay in frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "minimal",
+        "visible",
+        "minimal",
+        "large",
+        "visible",
+        "center",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "headroom_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The large full-body figure leaves a narrow band above the head and little lower clearance."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "minimal",
+        "visible",
+        "minimal",
+        "large",
+        "visible",
+        "center",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "headroom_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete figure remains large and centered with minimal upper clearance."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "moderate",
+        "visible",
+        "minimal",
+        "medium",
+        "visible",
+        "center",
+        "assessable",
+        "scale_shift",
+        "none"
+      ],
+      "primary_morphology": "headroom_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The subject is visibly smaller than the other panels, producing a moderate upper margin while retaining full-body visibility."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "minimal",
+        "visible",
+        "minimal",
+        "large",
+        "visible",
+        "center",
+        "assessable",
+        "none",
+        "none"
+      ],
+      "primary_morphology": "headroom_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The full subject occupies most of the frame and leaves a narrow upper margin."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "upper_canvas_margin_band": {
+        "minimal": 5,
+        "moderate": 1
+      },
+      "top_of_head_visibility": {
+        "visible": 6
+      },
+      "lower_canvas_margin_band": {
+        "minimal": 6
+      },
+      "subject_frame_height_band": {
+        "large": 5,
+        "medium": 1
+      },
+      "whole_subject_visibility": {
+        "visible": 6
+      },
+      "vertical_subject_position": {
+        "center": 6
+      },
+      "headroom_assessability": {
+        "assessable": 6
+      },
+      "scale_or_camera_variation": {
+        "none": 5,
+        "scale_shift": 1
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "headroom_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

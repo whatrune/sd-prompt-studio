@@ -648,3 +648,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-03T14:35:00+09:00'
   path: experiments/camera/CAM-014-C
+- run_id: CAM-015-A
+  domain: camera
+  title: CAM-015-A — low headroom
+  status: OBSERVED
+  updated_at: '2026-09-03T15:23:43+09:00'
+  path: experiments/camera/CAM-015-A
+- run_id: CAM-015-B
+  domain: camera
+  title: CAM-015-B — neutral headroom
+  status: OBSERVED
+  updated_at: '2026-09-03T15:23:43+09:00'
+  path: experiments/camera/CAM-015-B
+- run_id: CAM-015-C
+  domain: camera
+  title: CAM-015-C — high headroom
+  status: OBSERVED
+  updated_at: '2026-09-03T15:23:44+09:00'
+  path: experiments/camera/CAM-015-C
