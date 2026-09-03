@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.6",
+  "graph_version": "0.2.7",
   "module_file_id": "physical-concepts",
   "module_family": "physical",
   "description": "Sparse physical, face, clothing, and visibility concepts used by the initial compiler foundation.",
@@ -881,6 +881,133 @@
       "concept_type": "visibility",
       "human_meaning": "The pelvis and its boundary with the supporting surface are visible enough for direct assessment.",
       "scope": ["pelvis", "surface"],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "visibility.head",
+      "label": "Head visibility",
+      "module": "physical",
+      "concept_type": "visibility",
+      "human_meaning": "The complete head is visibly contained within the frame and directly assessable.",
+      "scope": ["head", "frame_boundary"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-017-A produced a fully visible head in 6/6 panels under the tested neutral full-subject context.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam017a.head_fully_visible",
+              "run_id": "CAM-017-A",
+              "observation_path": "experiments/camera/CAM-017-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.head_visibility.fully_visible",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            }
+          ]
+        }
+      ],
+      "status": "provisional"
+    },
+    {
+      "concept_id": "visibility.hands",
+      "label": "Bilateral hand visibility",
+      "module": "physical",
+      "concept_type": "visibility",
+      "human_meaning": "Both hands are visibly represented enough for direct completeness and occlusion assessment.",
+      "scope": ["left_hand", "right_hand"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-017-B produced fully visible left and right hands in 3/6 panels each under the tested neutral full-subject context; the result was weaker and context-dependent. CAM-018 separately identifies pose/body overlap as the dominant observed limiter in its bounded matched conditions.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam017b.left_hand_fully_visible",
+              "run_id": "CAM-017-B",
+              "observation_path": "experiments/camera/CAM-017-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.left_hand_visibility.fully_visible",
+              "count": 3,
+              "total": 6,
+              "confidence": "medium",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam017b.right_hand_fully_visible",
+              "run_id": "CAM-017-B",
+              "observation_path": "experiments/camera/CAM-017-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.right_hand_visibility.fully_visible",
+              "count": 3,
+              "total": 6,
+              "confidence": "medium",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam017b.region_ambiguity",
+              "run_id": "CAM-017-B",
+              "observation_path": "experiments/camera/CAM-017-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.ambiguity_or_artifact.region_ambiguous",
+              "count": 2,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local",
+              "notes": ["The ambiguity count is retained to prevent interpreting the hand-visible arm as stable support."]
+            }
+          ]
+        }
+      ],
+      "status": "provisional",
+      "notes": ["The existing unmodeled.pose_body_overlap.hand_visibility owner retains the bounded CAM-018 causal-attribution evidence; no universal hand-visibility rule is asserted."]
+    },
+    {
+      "concept_id": "visibility.feet",
+      "label": "Bilateral foot visibility",
+      "module": "physical",
+      "concept_type": "visibility",
+      "human_meaning": "Both feet are visibly contained within the frame and directly assessable.",
+      "scope": ["left_foot", "right_foot", "frame_boundary"],
+      "model_behaviors": [
+        {
+          "model_profile_id": "model.novaanimexl_ilv190",
+          "observed_behavior": "CAM-017-C produced fully visible left and right feet in 6/6 panels each under the tested neutral full-subject context, with region ambiguity recorded in 2/6 panels.",
+          "status": "provisional",
+          "evidence_refs": [
+            {
+              "evidence_ref_id": "evidence.cam017c.left_foot_fully_visible",
+              "run_id": "CAM-017-C",
+              "observation_path": "experiments/camera/CAM-017-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.left_foot_visibility.fully_visible",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam017c.right_foot_fully_visible",
+              "run_id": "CAM-017-C",
+              "observation_path": "experiments/camera/CAM-017-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.right_foot_visibility.fully_visible",
+              "count": 6,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam017c.region_ambiguity",
+              "run_id": "CAM-017-C",
+              "observation_path": "experiments/camera/CAM-017-C/observation.json",
+              "metric": "computed_aggregate.axis_counts.ambiguity_or_artifact.region_ambiguous",
+              "count": 2,
+              "total": 6,
+              "confidence": "high",
+              "storage": "local",
+              "notes": ["Strong foot-visibility support is bounded by the observed ambiguity and does not establish three-way body-region discrimination."]
+            }
+          ]
+        }
+      ],
       "status": "provisional"
     },
     {
