@@ -73,6 +73,8 @@ try {
     Assert-True (([regex]::Matches($acquisitionSlice, '''-PythonExecutable'', \$BasePythonExecutable')).Count -eq 1) 'admitted bootstrap executable is not passed unchanged exactly once to acquisition'
     Assert-True ($runnerSource -match '\$validationPython\s*=\s*\[string\]\$acquisition\.python_executable') 'runner does not consume the returned executable directly'
     Assert-True ($runnerSource -match "profile\s*=\s*'FULL_RESEARCH'") 'runner does not own the fixed FULL_RESEARCH profile'
+    Assert-True ($runnerSource -match 'Test-LocalFullValidationPythonCacheMatrixV1') 'runner does not classify cache-matrix ownership'
+    Assert-True ($runnerSource -match "SKIPPED_OWNERS_UNCHANGED") 'runner does not report an owner-unchanged matrix skip'
     foreach ($forbiddenPattern in @(
         'Invoke-Expression', 'Resolve-Path', 'GetFullPath', 'Get-ChildItem',
         'cache_root', 'environment[\\/]Scripts[\\/]python\.exe',
@@ -183,6 +185,18 @@ try {
     Invoke-GitChecked $seed @('config', 'user.name', 'Python Cache Contract Test') | Out-Null
     Invoke-GitChecked $seed @('add', 'research/sd-prompt-research/requirements.txt', 'research/sd-prompt-research/requirements.lock.txt') | Out-Null
     Invoke-GitChecked $seed @('commit', '-m', 'test dependency inputs') | Out-Null
+    $matrixBaseline = [string](@(Invoke-GitChecked $seed @('rev-parse', 'HEAD'))[0])
+    $matrixCatalog = Join-Path $tempRoot 'matrix-catalog.json'
+    [IO.File]::WriteAllText(
+        $matrixCatalog,
+        (([ordered]@{ python_cache_matrix = [ordered]@{ owning_exact = @('research/sd-prompt-research/requirements.txt') } } | ConvertTo-Json -Depth 4) + "`n"),
+        [Text.UTF8Encoding]::new($false)
+    )
+    Assert-True (-not (Test-LocalFullValidationPythonCacheMatrixV1 -Repository $seed -ExactBaselineCommit $matrixBaseline -CatalogPath $matrixCatalog)) 'unchanged cache owner unexpectedly selected the full matrix'
+    [IO.File]::AppendAllText((Join-Path $seed 'research/sd-prompt-research/requirements.txt'), "# matrix owner change`n")
+    Assert-True (Test-LocalFullValidationPythonCacheMatrixV1 -Repository $seed -ExactBaselineCommit $matrixBaseline -CatalogPath $matrixCatalog) 'changed cache owner did not select the full matrix'
+    Copy-Item -LiteralPath $sourceRequirements -Destination (Join-Path $seed 'research/sd-prompt-research/requirements.txt') -Force
+    Assert-True (-not (Test-LocalFullValidationPythonCacheMatrixV1 -Repository $seed -ExactBaselineCommit $matrixBaseline -CatalogPath $matrixCatalog)) 'restored cache owner did not return to the skip path'
     Invoke-GitChecked $seed @('worktree', 'add', '-b', 'task-a', $worktreeA, 'HEAD') | Out-Null
     Invoke-GitChecked $seed @('worktree', 'add', '-b', 'task-b', $worktreeB, 'HEAD') | Out-Null
 

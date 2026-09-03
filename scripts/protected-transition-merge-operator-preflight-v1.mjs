@@ -80,10 +80,11 @@ const loadValidationCatalogV1 = () => {
     throw new Error('validation_catalog_invalid')
   }
   if (
-    !exactKeys(value, ['catalog_id', 'catalog_version', 'full_profile', 'profiles', 'force_full', 'ownership']) ||
+    !exactKeys(value, ['catalog_id', 'catalog_version', 'full_profile', 'profiles', 'force_full', 'python_cache_matrix', 'ownership']) ||
     value.catalog_id !== 'validation_path_ownership_v1' || value.catalog_version !== 1 ||
     value.full_profile !== 'FULL_RESEARCH' || !exactKeys(value.profiles, VALIDATION_PROFILE_NAMES) ||
-    !exactKeys(value.force_full, ['exact', 'prefixes']) || !Array.isArray(value.ownership)
+    !exactKeys(value.force_full, ['exact', 'prefixes']) ||
+    !exactKeys(value.python_cache_matrix, ['owning_exact', 'force_full_reasons']) || !Array.isArray(value.ownership)
   ) throw new Error('validation_catalog_invalid')
   const validPathList = (paths, prefixes = false) => (
     Array.isArray(paths) && new Set(paths).size === paths.length && paths.every((path) => (
@@ -93,6 +94,15 @@ const loadValidationCatalogV1 = () => {
   if (!validPathList(value.force_full.exact) || !validPathList(value.force_full.prefixes, true)) {
     throw new Error('validation_catalog_invalid')
   }
+  if (
+    !validPathList(value.python_cache_matrix.owning_exact) ||
+    value.python_cache_matrix.owning_exact.length === 0 ||
+    !value.python_cache_matrix.owning_exact.every((path) => value.force_full.exact.includes(path)) ||
+    !Array.isArray(value.python_cache_matrix.force_full_reasons) ||
+    value.python_cache_matrix.force_full_reasons.length === 0 ||
+    new Set(value.python_cache_matrix.force_full_reasons).size !== value.python_cache_matrix.force_full_reasons.length ||
+    !value.python_cache_matrix.force_full_reasons.every((reason) => /^[a-z0-9_]+$/u.test(reason))
+  ) throw new Error('validation_catalog_invalid')
   for (const profile of VALIDATION_PROFILE_NAMES) {
     if (
       !exactKeys(value.profiles[profile], ['runtime_deployable', 'bundles']) ||

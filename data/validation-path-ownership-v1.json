@@ -59,6 +59,23 @@
       "research/sd-prompt-research/tests/"
     ]
   },
+  "python_cache_matrix": {
+    "owning_exact": [
+      ".github/workflows/research-claims.yml",
+      "data/validation-path-ownership-v1.json",
+      "research/sd-prompt-research/requirements.lock.txt",
+      "research/sd-prompt-research/requirements.txt",
+      "research/sd-prompt-research/scripts/select_validation_profile.py",
+      "scripts/acquire-python-validation-environment-v1.ps1",
+      "scripts/run-local-full-validation-v1.ps1",
+      "scripts/test-python-validation-environment-v1.ps1"
+    ],
+    "force_full_reasons": [
+      "default_branch_regression",
+      "explicit_full_regression",
+      "scheduled_periodic_regression"
+    ]
+  },
   "ownership": [
     {
       "profile": "RESEARCH_EXPERIMENT",
