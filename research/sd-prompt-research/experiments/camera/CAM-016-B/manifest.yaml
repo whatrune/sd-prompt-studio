@@ -5,7 +5,7 @@ condition: lower-body boundary cropped
 title: CAM-016-B — lower-body boundary cropped
 status: OBSERVED
 created_at: '2026-09-03T16:10:50+09:00'
-updated_at: '2026-09-03T16:10:50+09:00'
+updated_at: '2026-09-03T16:18:06+09:00'
 research:
   target_phrase: lower body cropped by frame
   research_question: Do direct subject crop/boundary instructions produce stable and
