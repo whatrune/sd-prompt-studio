@@ -1053,6 +1053,13 @@ export default function App() {
                     <small>{entry.concept_label}</small>
                     <dl><div><dt>TYPE</dt><dd>{entry.concept_module} / {entry.concept_type}</dd></div><div><dt>STATUS</dt><dd>{entry.concept_status}</dd></div><div><dt>OWNER</dt><dd>{entry.owner_kind} · {entry.owner_id}</dd></div></dl>
                   </article>)}</div>}
+                {visualConceptAdvisory.constraint_metadata.advisory_inspection.entries.length>0&&<div className="visual-concept-advisory-list" aria-label="Visual Concept risk advisories">
+                  {visualConceptAdvisory.constraint_metadata.advisory_inspection.entries.map(entry=><article className="visual-concept-advisory-entry" key={`${entry.advisory_type}-${entry.supporting_identity.effect_id}`}>
+                    <div><strong>{entry.advisory_type}</strong><code>{entry.supporting_identity.target_concept_id}</code></div>
+                    <small>{entry.supporting_identity.effect_id}</small>
+                    <dl><div><dt>STATUS</dt><dd>{entry.evidence.status}</dd></div><div><dt>CONFIDENCE</dt><dd>{entry.evidence.confidence}</dd></div><div><dt>CONTEXT</dt><dd>{entry.trigger_context.required_visible_region_concept_ids.join(', ')} · {entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(', ')}</dd></div></dl>
+                  </article>)}
+                </div>}
                 <div className="visual-concept-advisory-coverage" aria-label="Visual Concept coverage summary">
                   <span><small>MAPPED</small><strong>{visualConceptAdvisory.mapped_count}</strong></span>
                   <span><small>UNCOVERED</small><strong>{visualConceptAdvisory.uncovered_selected_tag_count}</strong></span>

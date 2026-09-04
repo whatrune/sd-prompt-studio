@@ -132,6 +132,11 @@ try {
     },
     observed_generated_visibility: null,
     advisory_effects: [],
+    advisory_inspection: {
+      record_type: 'visual_concept_compiler_advisory_inspection_v1',
+      version: 1,
+      entries: [],
+    },
   }, 'default compiler projection must preserve compatibility with explicit empty requested intent and no generated observation claim')
   const requestedConstraints = {
     record_type: 'visual_concept_compiler_constraint_intent_v1',
@@ -144,6 +149,24 @@ try {
   deepEqual(constraintProjection.constraint_metadata.requested, requestedConstraints, 'requested constraint identity must round-trip without becoming selected or observed state')
   equal(constraintProjection.constraint_metadata.observed_generated_visibility, null, 'compiler must not infer generated visibility from requested intent or selected framing')
   deepEqual(constraintProjection.constraint_metadata.advisory_effects, catalog.advisory_effects, 'hand intent plus the admitted behind-body context must expose only the bounded Graph-owned risk advisory')
+  deepEqual(constraintProjection.constraint_metadata.advisory_inspection, {
+    record_type: 'visual_concept_compiler_advisory_inspection_v1',
+    version: 1,
+    entries: [{
+      advisory_type: 'hand_visibility_risk',
+      trigger_context: {
+        required_visible_region_concept_ids: ['visibility.hands'],
+        trigger_prompt_tags: [{ prompt_tag_id: 'pos-hands-behind-back', prompt: 'hands behind back', category: 'pose', slot: 'hand_action' }],
+      },
+      supporting_identity: {
+        target_concept_id: 'visibility.hands',
+        effect_id: 'unmodeled.pose_body_overlap.hand_visibility',
+        model_profile: 'model.novaanimexl_ilv190',
+      },
+      evidence: { status: 'ADVISORY_ONLY', confidence: 'high' },
+      recommendation: null,
+    }],
+  }, 'triggered risk must expose one canonical structured inspection entry without inventing recommendation text')
   deepEqual(constraintProjection.mapped_entries.map(entry => entry.concept_id), ['camera.framing.upper_body'], 'selected framing identity must remain separate from requested minimum framing identity and an advisory trigger need not become a duplicate concept binding')
   deepEqual(requestedConstraints, requestedSnapshot, 'constraint projection must not mutate caller-owned intent')
   const constraintPrompt = promptModule.buildPromptWithStrategy([], [selected('cam-upper-body'), selected('pos-hands-behind-back')], 'illustrious', 'BREAK', requestedConstraints)
@@ -151,6 +174,7 @@ try {
   deepEqual(constraintPrompt.visualConceptAdvisory, constraintProjection, 'compiler must carry the canonical constraint projection unchanged')
   const headOnly = { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.head'], minimum_framing_concept_id: null }
   deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')], constraintIntent: headOnly }).constraint_metadata.advisory_effects, [], 'pose/body-overlap evidence must remain bounded to requested hand visibility')
+  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')], constraintIntent: headOnly }).constraint_metadata.advisory_inspection.entries, [], 'non-hand intent must expose no structured risk inspection entry')
   deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'hand intent without an admitted risk context must not expose a risk advisory')
   deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-head')], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'hands-behind-head must not inherit unsupported behind-body risk')
   deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-on-hips')], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'unrelated hand actions must not expose the bounded risk advisory')
@@ -160,6 +184,7 @@ try {
   deepEqual(riskOnlyProjection.constraint_metadata.advisory_effects, [], 'admitted risk context without requested hand visibility must remain advisory-silent')
   const collidingUserTag = { id: 'pos-hands-behind-back', prompt: 'holding a flower', label: 'Custom collision', category: 'pose', slot: 'hand_action', weight: 1 }
   deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [collidingUserTag], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'a caller-owned tag colliding only by ID must not impersonate the admitted production risk context')
+  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [collidingUserTag], constraintIntent: requestedConstraints }).constraint_metadata.advisory_inspection.entries, [], 'caller-owned ID collisions must remain absent from the canonical inspection surface')
   const malformedTrigger = clone(checkedInCatalog)
   malformedTrigger.advisory_effects[0].trigger_prompt_tags[0].prompt_tag_id = 'pos-hands-behind-head'
   equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: malformedTrigger, blocks: [], sceneTags: [], constraintIntent: requestedConstraints }).unavailable_reason, 'catalog_contract_invalid', 'runtime must reject an unapproved risk trigger')
@@ -350,6 +375,7 @@ try {
   check(visualSection > appSource.indexOf('className="selected-outline"') && visualSection < appSource.indexOf('className={`preview-section generation-context'), 'Visual Concepts must render after Prompt Context and before Generation Context')
   equal((appSource.match(/id="visual-concept-advisory-title"/g) ?? []).length, 1, 'Visual Concepts must appear only in the current Prompt Inspector')
   check(appSource.includes('Visual Concept advisory unavailable') && appSource.includes('No mapped concepts for this selection.'), 'Inspector must expose unavailable and no-mapped states')
+  check(appSource.includes('aria-label="Visual Concept risk advisories"') && appSource.includes('entry.advisory_type') && appSource.includes('entry.supporting_identity.effect_id') && appSource.includes('entry.evidence.confidence'), 'existing Prompt Inspector must render the canonical structured risk advisory without owning its semantics')
   check(appSource.includes('MAPPED') && appSource.includes('UNCOVERED') && appSource.includes('TOTAL'), 'Inspector must distinguish all three coverage counts')
   check(appSource.includes('Uncovered selected tags') && appSource.includes('entry.prompt_tag_id') && appSource.includes('entry.prompt_tag_label'), 'Inspector must expose uncovered tag identities in a secondary list')
   check(appSource.includes('<details className="visual-concept-advisory-uncovered">'), 'uncovered identities must remain collapsed by default using an accessible native disclosure')
