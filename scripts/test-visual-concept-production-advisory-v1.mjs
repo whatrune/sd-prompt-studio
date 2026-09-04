@@ -67,8 +67,10 @@ try {
     ['visibility.head', 'visibility', 'provisional'],
   ], 'promoter must admit exactly the three Graph-owned visibility constraint identities')
   deepEqual(catalog.advisory_effects, [{
+    advisory_id: 'hand_visibility_risk',
     effect_id: 'unmodeled.pose_body_overlap.hand_visibility',
     target_concept_id: 'visibility.hands',
+    trigger_prompt_tag_ids: ['pos-hands-behind-back'],
     advisory_status: 'ADVISORY_ONLY',
     confidence: 'high',
     model_profile: 'model.novaanimexl_ilv190',
@@ -133,17 +135,27 @@ try {
     minimum_framing_concept_id: 'camera.framing.full_body',
   }
   const requestedSnapshot = clone(requestedConstraints)
-  const constraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('cam-upper-body')], constraintIntent: requestedConstraints })
+  const constraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('cam-upper-body'), selected('pos-hands-behind-back')], constraintIntent: requestedConstraints })
   deepEqual(constraintProjection.constraint_metadata.requested, requestedConstraints, 'requested constraint identity must round-trip without becoming selected or observed state')
   equal(constraintProjection.constraint_metadata.observed_generated_visibility, null, 'compiler must not infer generated visibility from requested intent or selected framing')
-  deepEqual(constraintProjection.constraint_metadata.advisory_effects, catalog.advisory_effects, 'hand intent must expose only the bounded Graph-owned advisory effect')
-  deepEqual(constraintProjection.mapped_entries.map(entry => entry.concept_id), ['camera.framing.upper_body'], 'selected framing identity must remain separate from requested minimum framing identity')
+  deepEqual(constraintProjection.constraint_metadata.advisory_effects, catalog.advisory_effects, 'hand intent plus the admitted behind-body context must expose only the bounded Graph-owned risk advisory')
+  deepEqual(constraintProjection.mapped_entries.map(entry => entry.concept_id), ['camera.framing.upper_body'], 'selected framing identity must remain separate from requested minimum framing identity and an advisory trigger need not become a duplicate concept binding')
   deepEqual(requestedConstraints, requestedSnapshot, 'constraint projection must not mutate caller-owned intent')
-  const constraintPrompt = promptModule.buildPromptWithStrategy([], [selected('cam-upper-body')], 'illustrious', 'BREAK', requestedConstraints)
-  equal(constraintPrompt.prompt, promptModule.buildPrompt([], [selected('cam-upper-body')]), 'constraint metadata must leave exact prompt bytes unchanged')
+  const constraintPrompt = promptModule.buildPromptWithStrategy([], [selected('cam-upper-body'), selected('pos-hands-behind-back')], 'illustrious', 'BREAK', requestedConstraints)
+  equal(constraintPrompt.prompt, promptModule.buildPrompt([], [selected('cam-upper-body'), selected('pos-hands-behind-back')]), 'risk advisory metadata must leave exact prompt bytes unchanged')
   deepEqual(constraintPrompt.visualConceptAdvisory, constraintProjection, 'compiler must carry the canonical constraint projection unchanged')
   const headOnly = { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.head'], minimum_framing_concept_id: null }
-  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [], constraintIntent: headOnly }).constraint_metadata.advisory_effects, [], 'pose/body-overlap evidence must remain bounded to requested hand visibility')
+  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')], constraintIntent: headOnly }).constraint_metadata.advisory_effects, [], 'pose/body-overlap evidence must remain bounded to requested hand visibility')
+  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'hand intent without an admitted risk context must not expose a risk advisory')
+  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-head')], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'hands-behind-head must not inherit unsupported behind-body risk')
+  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-on-hips')], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'unrelated hand actions must not expose the bounded risk advisory')
+  const subjectRiskProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [{ id: 'subject-risk', name: 'Subject risk', tags: [selected('pos-hands-behind-back')] }], sceneTags: [], constraintIntent: requestedConstraints })
+  deepEqual(subjectRiskProjection.constraint_metadata.advisory_effects, catalog.advisory_effects, 'PromptBlock-selected admitted context must expose the same read-only risk advisory')
+  const riskOnlyProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')] })
+  deepEqual(riskOnlyProjection.constraint_metadata.advisory_effects, [], 'admitted risk context without requested hand visibility must remain advisory-silent')
+  const malformedTrigger = clone(checkedInCatalog)
+  malformedTrigger.advisory_effects[0].trigger_prompt_tag_ids = ['pos-hands-behind-head']
+  equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: malformedTrigger, blocks: [], sceneTags: [], constraintIntent: requestedConstraints }).unavailable_reason, 'catalog_contract_invalid', 'runtime must reject an unapproved risk trigger')
   for (const invalidIntent of [
     { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.hands', 'visibility.hands'] },
     { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.head', 'visibility.feet'] },

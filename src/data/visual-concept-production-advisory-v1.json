@@ -121,8 +121,12 @@
   ],
   "advisory_effects": [
     {
+      "advisory_id": "hand_visibility_risk",
       "effect_id": "unmodeled.pose_body_overlap.hand_visibility",
       "target_concept_id": "visibility.hands",
+      "trigger_prompt_tag_ids": [
+        "pos-hands-behind-back"
+      ],
       "advisory_status": "ADVISORY_ONLY",
       "confidence": "high",
       "model_profile": "model.novaanimexl_ilv190"
