@@ -292,7 +292,8 @@ function validateDocumentContent(contents, failures) {
   const worktreeRules = contents.get('docs/team/05-worktree-and-branch-rules.md');
   const previewOwnerMarkers = [
     'A Role execution that starts any Task-owned preview MUST retain the exact exec-session and spawned process-tree identity as execution-local ownership.',
-    'Before returning any terminal Role result, including `completed` or `APPROVE`, that same owning execution MUST stop the preview and verify that exact spawned process tree is absent; wrapper or PTY exit alone is not teardown evidence.',
+    'Before returning any successful terminal Role result, including `completed` or `APPROVE`, that same owning execution MUST stop the preview and verify that exact spawned process tree is absent; wrapper or PTY exit alone is not teardown evidence.',
+    'This failure handoff is permitted without verified teardown, but preview ownership remains bound to the same execution identity and MUST NOT transfer to Integrated Lead or terminal cleanup or be deferred to post-Merge worktree cleanup.',
   ];
   for (const [file, content] of [
     ['AGENTS.md', entryGuard],
