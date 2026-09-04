@@ -70,7 +70,12 @@ try {
     advisory_id: 'hand_visibility_risk',
     effect_id: 'unmodeled.pose_body_overlap.hand_visibility',
     target_concept_id: 'visibility.hands',
-    trigger_prompt_tag_ids: ['pos-hands-behind-back'],
+    trigger_prompt_tags: [{
+      prompt_tag_id: 'pos-hands-behind-back',
+      prompt: 'hands behind back',
+      category: 'pose',
+      slot: 'hand_action',
+    }],
     advisory_status: 'ADVISORY_ONLY',
     confidence: 'high',
     model_profile: 'model.novaanimexl_ilv190',
@@ -153,8 +158,10 @@ try {
   deepEqual(subjectRiskProjection.constraint_metadata.advisory_effects, catalog.advisory_effects, 'PromptBlock-selected admitted context must expose the same read-only risk advisory')
   const riskOnlyProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')] })
   deepEqual(riskOnlyProjection.constraint_metadata.advisory_effects, [], 'admitted risk context without requested hand visibility must remain advisory-silent')
+  const collidingUserTag = { id: 'pos-hands-behind-back', prompt: 'holding a flower', label: 'Custom collision', category: 'pose', slot: 'hand_action', weight: 1 }
+  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [collidingUserTag], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'a caller-owned tag colliding only by ID must not impersonate the admitted production risk context')
   const malformedTrigger = clone(checkedInCatalog)
-  malformedTrigger.advisory_effects[0].trigger_prompt_tag_ids = ['pos-hands-behind-head']
+  malformedTrigger.advisory_effects[0].trigger_prompt_tags[0].prompt_tag_id = 'pos-hands-behind-head'
   equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: malformedTrigger, blocks: [], sceneTags: [], constraintIntent: requestedConstraints }).unavailable_reason, 'catalog_contract_invalid', 'runtime must reject an unapproved risk trigger')
   for (const invalidIntent of [
     { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.hands', 'visibility.hands'] },

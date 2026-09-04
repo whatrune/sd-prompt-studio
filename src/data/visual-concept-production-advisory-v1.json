@@ -124,8 +124,13 @@
       "advisory_id": "hand_visibility_risk",
       "effect_id": "unmodeled.pose_body_overlap.hand_visibility",
       "target_concept_id": "visibility.hands",
-      "trigger_prompt_tag_ids": [
-        "pos-hands-behind-back"
+      "trigger_prompt_tags": [
+        {
+          "prompt_tag_id": "pos-hands-behind-back",
+          "prompt": "hands behind back",
+          "category": "pose",
+          "slot": "hand_action"
+        }
       ],
       "advisory_status": "ADVISORY_ONLY",
       "confidence": "high",
