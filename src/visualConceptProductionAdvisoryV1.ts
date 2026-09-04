@@ -65,6 +65,31 @@ export type VisualConceptCompilerConstraintMetadataV1 = {
   requested: VisualConceptCompilerConstraintIntentV1
   observed_generated_visibility: null
   advisory_effects: readonly CatalogAdvisoryEffect[]
+  advisory_inspection: VisualConceptCompilerAdvisoryInspectionV1
+}
+
+export type VisualConceptCompilerAdvisoryInspectionEntryV1 = {
+  advisory_type: typeof EXPECTED_ADVISORY_ID
+  trigger_context: {
+    required_visible_region_concept_ids: readonly ['visibility.hands']
+    trigger_prompt_tags: readonly CatalogAdvisoryTrigger[]
+  }
+  supporting_identity: {
+    target_concept_id: 'visibility.hands'
+    effect_id: typeof EXPECTED_ADVISORY_EFFECT_ID
+    model_profile: 'model.novaanimexl_ilv190'
+  }
+  evidence: {
+    status: 'ADVISORY_ONLY'
+    confidence: 'high'
+  }
+  recommendation: null
+}
+
+export type VisualConceptCompilerAdvisoryInspectionV1 = {
+  record_type: 'visual_concept_compiler_advisory_inspection_v1'
+  version: 1
+  entries: readonly VisualConceptCompilerAdvisoryInspectionEntryV1[]
 }
 
 export type VisualConceptProductionAdvisoryEntryV1 = CatalogMapping & {
@@ -117,6 +142,27 @@ const constraintMetadata = (
   requested,
   observed_generated_visibility: null,
   advisory_effects: Object.freeze([...advisoryEffects]),
+  advisory_inspection: Object.freeze({
+    record_type: 'visual_concept_compiler_advisory_inspection_v1',
+    version: 1,
+    entries: Object.freeze(advisoryEffects.map(effect => Object.freeze({
+      advisory_type: effect.advisory_id,
+      trigger_context: Object.freeze({
+        required_visible_region_concept_ids: Object.freeze(['visibility.hands'] as const),
+        trigger_prompt_tags: Object.freeze(effect.trigger_prompt_tags.map(trigger => Object.freeze({ ...trigger }))),
+      }),
+      supporting_identity: Object.freeze({
+        target_concept_id: effect.target_concept_id,
+        effect_id: effect.effect_id,
+        model_profile: effect.model_profile,
+      }),
+      evidence: Object.freeze({
+        status: effect.advisory_status,
+        confidence: effect.confidence,
+      }),
+      recommendation: null,
+    }))),
+  }),
 })
 
 function unavailable(reason: 'catalog_contract_invalid' | 'projection_input_invalid'): VisualConceptProductionAdvisoryV1 {
