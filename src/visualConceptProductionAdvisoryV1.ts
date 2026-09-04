@@ -149,7 +149,7 @@ const constraintMetadata = (
       advisory_type: effect.advisory_id,
       trigger_context: Object.freeze({
         required_visible_region_concept_ids: Object.freeze(['visibility.hands'] as const),
-        trigger_prompt_tags: Object.freeze([...effect.trigger_prompt_tags]),
+        trigger_prompt_tags: Object.freeze(effect.trigger_prompt_tags.map(trigger => Object.freeze({ ...trigger }))),
       }),
       supporting_identity: Object.freeze({
         target_concept_id: effect.target_concept_id,

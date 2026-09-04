@@ -167,6 +167,11 @@ try {
       recommendation: null,
     }],
   }, 'triggered risk must expose one canonical structured inspection entry without inventing recommendation text')
+  const callerOwnedCatalog = clone(checkedInCatalog)
+  const immutableInspection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: callerOwnedCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')], constraintIntent: requestedConstraints }).constraint_metadata.advisory_inspection
+  callerOwnedCatalog.advisory_effects[0].trigger_prompt_tags[0].prompt = 'mutated after projection'
+  equal(immutableInspection.entries[0].trigger_context.trigger_prompt_tags[0].prompt, 'hands behind back', 'canonical inspection must not retain mutable caller-owned trigger records')
+  check(Object.isFrozen(immutableInspection.entries[0].trigger_context.trigger_prompt_tags[0]), 'projected trigger records must be frozen with the rest of the read-only inspection snapshot')
   deepEqual(constraintProjection.mapped_entries.map(entry => entry.concept_id), ['camera.framing.upper_body'], 'selected framing identity must remain separate from requested minimum framing identity and an advisory trigger need not become a duplicate concept binding')
   deepEqual(requestedConstraints, requestedSnapshot, 'constraint projection must not mutate caller-owned intent')
   const constraintPrompt = promptModule.buildPromptWithStrategy([], [selected('cam-upper-body'), selected('pos-hands-behind-back')], 'illustrious', 'BREAK', requestedConstraints)
