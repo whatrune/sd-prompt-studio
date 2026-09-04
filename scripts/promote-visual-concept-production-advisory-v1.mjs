@@ -83,7 +83,7 @@ export function projectVisualConceptProductionAdvisoryCatalogV1({ bindingContrac
     if (!concept
       || concept.concept_type !== 'visibility'
       || typeof concept.label !== 'string' || !concept.label
-      || typeof concept.module !== 'string' || !concept.module
+      || concept.module !== 'physical'
       || (concept.status !== 'provisional' && concept.status !== 'confirmed')) {
       throw new Error('visual_concept_production_constraint_contract_invalid')
     }

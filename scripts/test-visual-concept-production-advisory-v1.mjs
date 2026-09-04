@@ -103,6 +103,12 @@ try {
   const invalidVisibilityConcept = clone(graphContract)
   invalidVisibilityConcept.concepts.find(concept => concept.concept_id === 'visibility.feet').concept_type = 'camera'
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: invalidVisibilityConcept, promptTagRegistry: registry })), 'visual_concept_production_constraint_contract_invalid', 'invalid visibility constraint owner must fail promotion closed')
+  const invalidVisibilityModule = clone(graphContract)
+  invalidVisibilityModule.concepts.find(concept => concept.concept_id === 'visibility.hands').module = 'camera'
+  equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: invalidVisibilityModule, promptTagRegistry: registry })), 'visual_concept_production_constraint_contract_invalid', 'non-physical visibility owner must fail promotion closed')
+  const runtimeInvalidVisibilityModule = clone(checkedInCatalog)
+  runtimeInvalidVisibilityModule.constraint_concepts.find(concept => concept.concept_id === 'visibility.hands').concept_module = 'camera'
+  equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: runtimeInvalidVisibilityModule, blocks: [], sceneTags: [] }).unavailable_reason, 'catalog_contract_invalid', 'promotion and runtime must reject the same non-physical visibility owner')
   const weakenedEffect = clone(graphContract)
   weakenedEffect.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').confidence = 'medium'
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: weakenedEffect, promptTagRegistry: registry })), 'visual_concept_production_advisory_effect_contract_invalid', 'changed advisory evidence owner must fail promotion closed')
