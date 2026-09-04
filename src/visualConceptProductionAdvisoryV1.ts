@@ -5,7 +5,8 @@ const SOURCE_KEYS = ['binding_record_type', 'binding_version', 'binding_sha256',
 const COVERAGE_KEYS = ['active_prompt_tag_count', 'mapped_active_prompt_tag_count', 'unmapped_active_prompt_tag_count']
 const MAPPING_KEYS = ['prompt_tag_id', 'concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
 const CONSTRAINT_CONCEPT_KEYS = ['concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
-const ADVISORY_EFFECT_KEYS = ['effect_id', 'target_concept_id', 'advisory_status', 'confidence', 'model_profile']
+const ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'trigger_prompt_tags', 'advisory_status', 'confidence', 'model_profile']
+const ADVISORY_TRIGGER_KEYS = ['prompt_tag_id', 'prompt', 'category', 'slot']
 const SHA256 = /^[0-9a-f]{64}$/
 const EXPECTED_MAPPINGS = [
   ['cam-close-up', 'camera.framing.close_up'],
@@ -22,6 +23,13 @@ const EXPECTED_MAPPINGS = [
 const EXPECTED_CONSTRAINT_CONCEPT_IDS = ['visibility.feet', 'visibility.hands', 'visibility.head'] as const
 const EXPECTED_FRAMING_CONCEPT_IDS = ['camera.framing.close_up', 'camera.framing.cowboy_shot', 'camera.framing.full_body', 'camera.framing.upper_body'] as const
 const EXPECTED_ADVISORY_EFFECT_ID = 'unmodeled.pose_body_overlap.hand_visibility' as const
+const EXPECTED_ADVISORY_ID = 'hand_visibility_risk' as const
+const EXPECTED_ADVISORY_TRIGGER = Object.freeze({
+  prompt_tag_id: 'pos-hands-behind-back',
+  prompt: 'hands behind back',
+  category: 'pose',
+  slot: 'hand_action',
+})
 
 type CatalogMapping = {
   prompt_tag_id: string
@@ -33,9 +41,12 @@ type CatalogMapping = {
 }
 
 type CatalogConstraintConcept = Omit<CatalogMapping, 'prompt_tag_id'>
+type CatalogAdvisoryTrigger = typeof EXPECTED_ADVISORY_TRIGGER
 type CatalogAdvisoryEffect = {
+  advisory_id: typeof EXPECTED_ADVISORY_ID
   effect_id: typeof EXPECTED_ADVISORY_EFFECT_ID
   target_concept_id: 'visibility.hands'
+  trigger_prompt_tags: readonly CatalogAdvisoryTrigger[]
   advisory_status: 'ADVISORY_ONLY'
   confidence: 'high'
   model_profile: 'model.novaanimexl_ilv190'
@@ -172,8 +183,17 @@ function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping
   }
   const effect = value.advisory_effects[0]
   if (!isRecord(effect) || !exactKeys(effect, ADVISORY_EFFECT_KEYS)
+    || effect.advisory_id !== EXPECTED_ADVISORY_ID
     || effect.effect_id !== EXPECTED_ADVISORY_EFFECT_ID
     || effect.target_concept_id !== 'visibility.hands'
+    || !Array.isArray(effect.trigger_prompt_tags)
+    || effect.trigger_prompt_tags.length !== 1
+    || !effect.trigger_prompt_tags.every(trigger => isRecord(trigger)
+      && exactKeys(trigger, ADVISORY_TRIGGER_KEYS)
+      && trigger.prompt_tag_id === EXPECTED_ADVISORY_TRIGGER.prompt_tag_id
+      && trigger.prompt === EXPECTED_ADVISORY_TRIGGER.prompt
+      && trigger.category === EXPECTED_ADVISORY_TRIGGER.category
+      && trigger.slot === EXPECTED_ADVISORY_TRIGGER.slot)
     || effect.advisory_status !== 'ADVISORY_ONLY'
     || effect.confidence !== 'high'
     || effect.model_profile !== 'model.novaanimexl_ilv190') return null
@@ -228,9 +248,11 @@ export function projectVisualConceptProductionAdvisoryV1({ catalog, blocks, scen
 
   const mappedEntries: VisualConceptProductionAdvisoryEntryV1[] = []
   const uncoveredEntries: VisualConceptProductionAdvisoryUncoveredEntryV1[] = []
+  const selectedTags: SelectedTag[] = []
   let selectedTagCount = 0
   const append = (ownerKind: 'PROMPT_BLOCK' | 'SCENE', ownerId: string, tag: SelectedTag) => {
     selectedTagCount += 1
+    selectedTags.push(tag)
     const mapping = mappings.get(tag.id)
     if (!mapping) {
       uncoveredEntries.push(Object.freeze({
@@ -263,7 +285,15 @@ export function projectVisualConceptProductionAdvisoryV1({ catalog, blocks, scen
     uncovered_entries: Object.freeze(uncoveredEntries),
     constraint_metadata: constraintMetadata(
       requested,
-      requested.required_visible_region_concept_ids.includes('visibility.hands') ? [advisoryEffect] : [],
+      requested.required_visible_region_concept_ids.includes('visibility.hands')
+        && advisoryEffect.trigger_prompt_tags.some(trigger => selectedTags.some(tag => (
+          tag.id === trigger.prompt_tag_id
+          && tag.prompt === trigger.prompt
+          && tag.category === trigger.category
+          && tag.slot === trigger.slot
+        )))
+        ? [advisoryEffect]
+        : [],
     ),
   })
 }

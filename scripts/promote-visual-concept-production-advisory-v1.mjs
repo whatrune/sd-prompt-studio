@@ -27,8 +27,15 @@ const APPROVED_CONSTRAINT_CONCEPT_IDS = Object.freeze([
   'visibility.head',
 ])
 const APPROVED_ADVISORY_EFFECT = Object.freeze({
+  advisory_id: 'hand_visibility_risk',
   effect_id: 'unmodeled.pose_body_overlap.hand_visibility',
   target_concept_id: 'visibility.hands',
+  trigger_prompt_tags: Object.freeze([Object.freeze({
+    prompt_tag_id: 'pos-hands-behind-back',
+    prompt: 'hands behind back',
+    category: 'pose',
+    slot: 'hand_action',
+  })]),
 })
 
 const sha256 = value => createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex')
@@ -104,9 +111,18 @@ export function projectVisualConceptProductionAdvisoryCatalogV1({ bindingContrac
     || sourceEffect.model_profile !== 'model.novaanimexl_ilv190') {
     throw new Error('visual_concept_production_advisory_effect_contract_invalid')
   }
+  const triggerPromptTags = APPROVED_ADVISORY_EFFECT.trigger_prompt_tags.map(trigger => selectedById.get(trigger.prompt_tag_id))
+  if (triggerPromptTags.some((tag, index) => !tag
+    || tag.prompt !== APPROVED_ADVISORY_EFFECT.trigger_prompt_tags[index].prompt
+    || tag.category !== APPROVED_ADVISORY_EFFECT.trigger_prompt_tags[index].category
+    || tag.slot !== APPROVED_ADVISORY_EFFECT.trigger_prompt_tags[index].slot)) {
+    throw new Error('visual_concept_production_advisory_trigger_contract_invalid')
+  }
   const advisoryEffects = Object.freeze([Object.freeze({
+    advisory_id: APPROVED_ADVISORY_EFFECT.advisory_id,
     effect_id: sourceEffect.effect_id,
     target_concept_id: APPROVED_ADVISORY_EFFECT.target_concept_id,
+    trigger_prompt_tags: APPROVED_ADVISORY_EFFECT.trigger_prompt_tags,
     advisory_status: 'ADVISORY_ONLY',
     confidence: sourceEffect.confidence,
     model_profile: sourceEffect.model_profile,
