@@ -21,6 +21,7 @@ const appSource = fs.readFileSync(path.join(repoRoot, 'src', 'App.tsx'), 'utf8')
 const promptSource = fs.readFileSync(path.join(repoRoot, 'src', 'prompt.ts'), 'utf8')
 const stylesSource = fs.readFileSync(path.join(repoRoot, 'src', 'styles.css'), 'utf8')
 const runtimeSource = fs.readFileSync(path.join(repoRoot, 'src', 'visualConceptProductionAdvisoryV1.ts'), 'utf8')
+const intentOwnerSource = fs.readFileSync(path.join(repoRoot, 'src', 'visualConceptCompilerConstraintIntentV1.ts'), 'utf8')
 const clone = value => structuredClone(value)
 let assertionCount = 0
 const check = (condition, message) => { assertionCount += 1; assert(condition, message) }
@@ -36,12 +37,13 @@ const framingBindings = [
 
 const server = await createServer({ root: repoRoot, configFile: false, logLevel: 'silent', server: { middlewareMode: true }, appType: 'custom' })
 try {
-  const [{ tags }, { adultTags }, runtime, promptModule, smartTagEngine] = await Promise.all([
+  const [{ tags }, { adultTags }, runtime, promptModule, smartTagEngine, intentOwner] = await Promise.all([
     server.ssrLoadModule('/src/data/tags.ts'),
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/visualConceptProductionAdvisoryV1.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/engine/smartTagEngine.ts'),
+    server.ssrLoadModule('/src/visualConceptCompilerConstraintIntentV1.ts'),
   ])
   const registry = [...tags, ...adultTags]
   const catalog = projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract, promptTagRegistry: registry })
@@ -145,6 +147,15 @@ try {
     minimum_framing_concept_id: 'camera.framing.full_body',
   }
   const requestedSnapshot = clone(requestedConstraints)
+  const admittedIntent = intentOwner.admitVisualConceptCompilerConstraintIntentV1(requestedConstraints)
+  deepEqual(admittedIntent, requestedConstraints, 'the canonical Compiler input owner must admit the exact Graph visibility and framing identities')
+  check(admittedIntent !== requestedConstraints && Object.isFrozen(admittedIntent) && Object.isFrozen(admittedIntent.required_visible_region_concept_ids), 'the canonical Compiler input owner must return an immutable snapshot without retaining caller ownership')
+  deepEqual(intentOwner.admitVisualConceptCompilerConstraintIntentV1(undefined), {
+    record_type: 'visual_concept_compiler_constraint_intent_v1',
+    version: 1,
+    required_visible_region_concept_ids: [],
+    minimum_framing_concept_id: null,
+  }, 'omitted visibility intent must resolve to the canonical empty Compiler input')
   const constraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('cam-upper-body'), selected('pos-hands-behind-back')], constraintIntent: requestedConstraints })
   deepEqual(constraintProjection.constraint_metadata.requested, requestedConstraints, 'requested constraint identity must round-trip without becoming selected or observed state')
   equal(constraintProjection.constraint_metadata.observed_generated_visibility, null, 'compiler must not infer generated visibility from requested intent or selected framing')
@@ -200,6 +211,7 @@ try {
     { ...requestedConstraints, minimum_framing_concept_id: 'camera.framing.portrait' },
     { ...requestedConstraints, observed_generated_visibility: 'VISIBLE' },
   ]) {
+    equal(intentOwner.admitVisualConceptCompilerConstraintIntentV1(invalidIntent), null, 'the canonical input owner must reject malformed, duplicate, unordered, unknown, or observation-bearing intent')
     equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [], constraintIntent: invalidIntent }).unavailable_reason, 'projection_input_invalid', 'malformed, duplicate, unordered, unknown, or observation-bearing intent must fail closed')
   }
 
@@ -392,6 +404,8 @@ try {
   check(promptSource.includes('const expansion = expandPrompt(') && promptSource.indexOf('const expansion = expandPrompt(') < promptSource.indexOf('visualConceptAdvisory: projectVisualConceptProductionAdvisoryV1('), 'compiler must render through the existing expansion path before adding semantic identity metadata')
   check(stylesSource.includes('.visual-concept-advisory-entry') && stylesSource.includes('.visual-concept-advisory-coverage') && stylesSource.includes('.visual-concept-advisory-uncovered'), 'advisory must have deterministic Inspector-native visual treatment')
   check(!runtimeSource.includes('usePromptStore') && !runtimeSource.includes('buildPrompt') && !runtimeSource.includes('research/'), 'runtime owner must be pure and independent of store, compiler, and Research Repository')
+  check(runtimeSource.includes("from './visualConceptCompilerConstraintIntentV1'") && !runtimeSource.includes('function validateConstraintIntent'), 'advisory projection must consume the canonical Compiler input owner rather than duplicate its validation')
+  check(intentOwnerSource.includes('admitVisualConceptCompilerConstraintIntentV1') && !intentOwnerSource.includes('PromptBlock') && !intentOwnerSource.includes('SelectedTag'), 'canonical visibility intent ownership must remain independent of PromptTag selection and advisory projection')
 
   console.log(`Visual Concept production advisory tests passed: ${assertionCount} assertions`)
 } finally {

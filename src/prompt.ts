@@ -4,7 +4,8 @@ import type { PromptBlock, SelectedTag } from './store'
 import { expandPrompt } from './promptExpansion'
 import type { ModelPreset } from './store'
 import visualConceptProductionCatalogV1 from './data/visual-concept-production-advisory-v1.json'
-import { projectVisualConceptProductionAdvisoryV1, type VisualConceptCompilerConstraintIntentV1 } from './visualConceptProductionAdvisoryV1'
+import { projectVisualConceptProductionAdvisoryV1 } from './visualConceptProductionAdvisoryV1'
+import type { VisualConceptCompilerConstraintIntentV1 } from './visualConceptCompilerConstraintIntentV1'
 
 const legacyClothingSubcategoryOrder = ['トップス', 'アウター', 'ボトムス', 'ワンピース・ドレス', 'カジュアル', 'フォーマル', 'ゴシック・ロリータ', '制服・学校', '制服・職業', 'ミリタリー・ワーク', 'スポーツ・ダンス', '舞台・アイドル', 'コスチューム', 'ファンタジー・SF', '民族・歴史', '和装', 'ルームウェア', '水着・下着', 'センシティブ衣装', 'デザイン・ディテール', '素材・質感', '柄・装飾', 'レッグウェア', '靴', '衣装（アダルト）']
 const legacyCharacterSubcategoryOrder = ['指定', '種族', '種族特徴', '職業', '属性']
