@@ -35,6 +35,48 @@ try {
   usePromptStore.getState().setNavigationCollapsed(false)
   usePromptStore.getState().setWorkspaceView('prompt')
 
+  const emptyVisibilityIntent = usePromptStore.getState().visualConceptConstraintIntent
+  assert.deepEqual(emptyVisibilityIntent.required_visible_region_concept_ids, [], 'visibility intent must start as the canonical empty snapshot')
+  const promptBeforeVisibilityIntent = buildPromptWithStrategy(usePromptStore.getState().blocks, usePromptStore.getState().sceneTags, usePromptStore.getState().modelPreset).prompt
+  usePromptStore.getState().setVisualConceptVisibleRegionRequired('visibility.hands', true)
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.hands'], 'store must persist explicit canonical hand-visibility intent')
+  const promptAfterVisibilityIntent = buildPromptWithStrategy(usePromptStore.getState().blocks, usePromptStore.getState().sceneTags, usePromptStore.getState().modelPreset, 'BREAK', usePromptStore.getState().visualConceptConstraintIntent).prompt
+  assert.equal(promptAfterVisibilityIntent, promptBeforeVisibilityIntent, 'visibility intent alone must not change prompt bytes')
+  const handsBehindTag = tags.find(tag => tag.id === 'pos-hands-behind-back')
+  assert(handsBehindTag, 'the exact admitted hand-visibility risk trigger must exist')
+  const handRiskExpansion = buildPromptWithStrategy(
+    [{ id: 'hand-risk-subject', name: 'Subject 1', tags: [{ ...handsBehindTag, weight: 1 }] }],
+    [],
+    'illustrious',
+    'BREAK',
+    usePromptStore.getState().visualConceptConstraintIntent,
+  )
+  assert.deepEqual(handRiskExpansion.visualConceptAdvisory.constraint_metadata.advisory_inspection.entries.map(entry => entry.advisory_type), ['hand_visibility_risk'], 'store-admitted hand intent must reach the existing Compiler advisory inspection for the exact supported pose context')
+  usePromptStore.getState().setVisualConceptVisibleRegionRequired('visibility.unknown', true)
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.hands'], 'unknown visibility identity must leave admitted store state unchanged')
+  const migratedVisibilityIntent = migratePersistedState({
+    blocks: [{ id: 'visibility-subject', name: 'Subject 1', tags: [] }],
+    visualConceptConstraintIntent: {
+      record_type: 'visual_concept_compiler_constraint_intent_v1',
+      version: 1,
+      required_visible_region_concept_ids: ['visibility.feet', 'visibility.head'],
+      minimum_framing_concept_id: null,
+    },
+  })
+  assert.deepEqual(migratedVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.feet', 'visibility.head'], 'valid persisted visibility intent must survive canonical migration')
+  const rejectedMigratedVisibilityIntent = migratePersistedState({
+    blocks: [{ id: 'invalid-visibility-subject', name: 'Subject 1', tags: [] }],
+    visualConceptConstraintIntent: {
+      record_type: 'visual_concept_compiler_constraint_intent_v1',
+      version: 1,
+      required_visible_region_concept_ids: ['visibility.unknown'],
+      minimum_framing_concept_id: null,
+    },
+  })
+  assert.deepEqual(rejectedMigratedVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'invalid persisted visibility intent must fail closed to the canonical empty snapshot')
+  usePromptStore.getState().clearAll()
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'clearing the prompt must clear requested visibility intent without touching semantic ownership')
+
   assert.equal(adultTags.length, 131, 'adult tag count must remain unchanged')
   assert.equal(new Set(adultTags.map(tag => tag.id)).size, 131, 'adult tag ids must remain unique')
   assert.equal(adultTags.some(tag => tag.category === 'adult'), false, 'adult must not be a major category')

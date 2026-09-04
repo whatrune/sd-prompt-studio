@@ -1,10 +1,12 @@
-const REQUIRED_VISIBLE_REGION_CONCEPT_IDS = ['visibility.feet', 'visibility.hands', 'visibility.head'] as const
+export const VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1 = Object.freeze(['visibility.feet', 'visibility.hands', 'visibility.head'] as const)
 const MINIMUM_FRAMING_CONCEPT_IDS = ['camera.framing.close_up', 'camera.framing.cowboy_shot', 'camera.framing.full_body', 'camera.framing.upper_body'] as const
+
+export type VisualConceptCompilerVisibleRegionConceptIdV1 = typeof VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1[number]
 
 export type VisualConceptCompilerConstraintIntentV1 = {
   record_type: 'visual_concept_compiler_constraint_intent_v1'
   version: 1
-  required_visible_region_concept_ids: readonly typeof REQUIRED_VISIBLE_REGION_CONCEPT_IDS[number][]
+  required_visible_region_concept_ids: readonly VisualConceptCompilerVisibleRegionConceptIdV1[]
   minimum_framing_concept_id: typeof MINIMUM_FRAMING_CONCEPT_IDS[number] | null
 }
 
@@ -32,13 +34,29 @@ export function admitVisualConceptCompilerConstraintIntentV1(value: unknown): Vi
       && (typeof value.minimum_framing_concept_id !== 'string'
         || !MINIMUM_FRAMING_CONCEPT_IDS.includes(value.minimum_framing_concept_id as typeof MINIMUM_FRAMING_CONCEPT_IDS[number])))) return null
   const requiredVisibleRegionConceptIds = [...value.required_visible_region_concept_ids]
-  if (!requiredVisibleRegionConceptIds.every(id => typeof id === 'string' && REQUIRED_VISIBLE_REGION_CONCEPT_IDS.includes(id as typeof REQUIRED_VISIBLE_REGION_CONCEPT_IDS[number]))
+  if (!requiredVisibleRegionConceptIds.every(id => typeof id === 'string' && VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1.includes(id as VisualConceptCompilerVisibleRegionConceptIdV1))
     || new Set(requiredVisibleRegionConceptIds).size !== requiredVisibleRegionConceptIds.length
     || requiredVisibleRegionConceptIds.some((id, index, values) => index > 0 && values[index - 1].localeCompare(id) >= 0)) return null
   return Object.freeze({
     record_type: value.record_type,
     version: value.version,
-    required_visible_region_concept_ids: Object.freeze(requiredVisibleRegionConceptIds) as readonly typeof REQUIRED_VISIBLE_REGION_CONCEPT_IDS[number][],
+    required_visible_region_concept_ids: Object.freeze(requiredVisibleRegionConceptIds) as readonly VisualConceptCompilerVisibleRegionConceptIdV1[],
     minimum_framing_concept_id: value.minimum_framing_concept_id as typeof MINIMUM_FRAMING_CONCEPT_IDS[number] | null,
+  })
+}
+
+export function setVisualConceptCompilerVisibleRegionRequirementV1(
+  intent: unknown,
+  conceptId: VisualConceptCompilerVisibleRegionConceptIdV1,
+  required: boolean,
+): VisualConceptCompilerConstraintIntentV1 | null {
+  const admitted = admitVisualConceptCompilerConstraintIntentV1(intent)
+  if (!admitted || !VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1.includes(conceptId) || typeof required !== 'boolean') return null
+  const requiredVisibleRegionConceptIds = new Set(admitted.required_visible_region_concept_ids)
+  if (required) requiredVisibleRegionConceptIds.add(conceptId)
+  else requiredVisibleRegionConceptIds.delete(conceptId)
+  return admitVisualConceptCompilerConstraintIntentV1({
+    ...admitted,
+    required_visible_region_concept_ids: [...requiredVisibleRegionConceptIds].sort(),
   })
 }
