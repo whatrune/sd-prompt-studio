@@ -1,6 +1,6 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.7",
+  "graph_version": "0.2.8",
   "module_file_id": "physical-concepts",
   "module_family": "physical",
   "description": "Sparse physical, face, clothing, and visibility concepts used by the initial compiler foundation.",
@@ -921,7 +921,7 @@
       "model_behaviors": [
         {
           "model_profile_id": "model.novaanimexl_ilv190",
-          "observed_behavior": "CAM-017-B produced fully visible left and right hands in 3/6 panels each under the tested neutral full-subject context; the result was weaker and context-dependent. CAM-018 separately identifies pose/body overlap as the dominant observed limiter in its bounded matched conditions.",
+          "observed_behavior": "CAM-017-B produced fully visible left and right hands in 3/6 panels each under the tested neutral full-subject context; the result was weaker and context-dependent. CAM-018 identifies pose/body overlap as the dominant observed limiter in its bounded matched conditions, and CAM-019 independently reproduces a matched 5/6 complete-bilateral visibility loss when the requested behind-body placement is visibly realized.",
           "status": "provisional",
           "evidence_refs": [
             {
@@ -959,7 +959,7 @@
         }
       ],
       "status": "provisional",
-      "notes": ["The existing unmodeled.pose_body_overlap.hand_visibility owner retains the bounded CAM-018 causal-attribution evidence; no universal hand-visibility rule is asserted."]
+      "notes": ["The existing unmodeled.pose_body_overlap.hand_visibility owner retains the bounded CAM-018 and CAM-019 attribution evidence; no universal hand-visibility rule is asserted."]
     },
     {
       "concept_id": "visibility.feet",
