@@ -732,3 +732,21 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-03T19:16:54+09:00'
   path: experiments/camera/CAM-018-E
+- run_id: CAM-019-A
+  domain: camera
+  title: CAM-019-A — arms relaxed at sides
+  status: OBSERVED
+  updated_at: '2026-09-04T05:25:04.874+00:00'
+  path: experiments/camera/CAM-019-A
+- run_id: CAM-019-B
+  domain: camera
+  title: CAM-019-B — hands in front of torso
+  status: OBSERVED
+  updated_at: '2026-09-04T05:25:04.874+00:00'
+  path: experiments/camera/CAM-019-B
+- run_id: CAM-019-C
+  domain: camera
+  title: CAM-019-C — hands behind body
+  status: OBSERVED
+  updated_at: '2026-09-04T05:25:04.874+00:00'
+  path: experiments/camera/CAM-019-C
