@@ -96,5 +96,37 @@
       "concept_status": "provisional"
     }
   ],
+  "constraint_concepts": [
+    {
+      "concept_id": "visibility.feet",
+      "concept_label": "Bilateral foot visibility",
+      "concept_module": "physical",
+      "concept_type": "visibility",
+      "concept_status": "provisional"
+    },
+    {
+      "concept_id": "visibility.hands",
+      "concept_label": "Bilateral hand visibility",
+      "concept_module": "physical",
+      "concept_type": "visibility",
+      "concept_status": "provisional"
+    },
+    {
+      "concept_id": "visibility.head",
+      "concept_label": "Head visibility",
+      "concept_module": "physical",
+      "concept_type": "visibility",
+      "concept_status": "provisional"
+    }
+  ],
+  "advisory_effects": [
+    {
+      "effect_id": "unmodeled.pose_body_overlap.hand_visibility",
+      "target_concept_id": "visibility.hands",
+      "advisory_status": "ADVISORY_ONLY",
+      "confidence": "high",
+      "model_profile": "model.novaanimexl_ilv190"
+    }
+  ],
   "relations": []
 }
