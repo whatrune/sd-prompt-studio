@@ -12,8 +12,6 @@ import { DEFAULT_LOCALE, getCategoryLabel, getTagLabel, t } from './i18n'
 import { buildColorModifiedTag, COLOR_MODIFIERS, findColorModifier, isColorModifiableCategory } from './modifiers/colorModifier'
 import { parsePromptAnalyzerInput } from './promptAnalyzer'
 import { formatUserDictionaryImportFailure, parseUserDictionaryImportText } from './userDictionaryImport'
-import visualConceptProductionCatalogV1 from './data/visual-concept-production-advisory-v1.json'
-import { projectVisualConceptProductionAdvisoryV1 } from './visualConceptProductionAdvisoryV1'
 
 
 
@@ -479,11 +477,7 @@ export default function App() {
   }, [category, favoritesOnly, filtered, locale, query, subcategory])
   const expansion = useMemo(() => buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset), [store.blocks, store.sceneTags, store.modelPreset])
   const prompt = expansion.prompt
-  const visualConceptAdvisory = useMemo(() => projectVisualConceptProductionAdvisoryV1({
-    catalog: visualConceptProductionCatalogV1,
-    blocks: store.blocks,
-    sceneTags: store.sceneTags,
-  }), [store.blocks, store.sceneTags])
+  const visualConceptAdvisory = expansion.visualConceptAdvisory
 
   const openSavePrompt = () => {
     setSavePromptName('')

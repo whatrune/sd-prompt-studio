@@ -18,6 +18,7 @@ const bindingContract = readJson('data/visual-concept-prompt-tag-bindings-v1.jso
 const graphContract = readJson('research/sd-prompt-research/dist/visual-concept-graph.json')
 const checkedInCatalog = readJson('src/data/visual-concept-production-advisory-v1.json')
 const appSource = fs.readFileSync(path.join(repoRoot, 'src', 'App.tsx'), 'utf8')
+const promptSource = fs.readFileSync(path.join(repoRoot, 'src', 'prompt.ts'), 'utf8')
 const stylesSource = fs.readFileSync(path.join(repoRoot, 'src', 'styles.css'), 'utf8')
 const runtimeSource = fs.readFileSync(path.join(repoRoot, 'src', 'visualConceptProductionAdvisoryV1.ts'), 'utf8')
 const clone = value => structuredClone(value)
@@ -103,6 +104,9 @@ try {
     const sceneSnapshot = clone(sceneSelection)
     const projected = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: sceneSelection })
     deepEqual(projected.mapped_entries.map(entry => [entry.prompt_tag_id, entry.concept_id, entry.concept_status, entry.owner_kind, entry.owner_id]), [[tagId, conceptId, 'provisional', 'SCENE', 'scene']], `${tagId} maps only the explicitly selected Scene identity`)
+    const compiled = promptModule.buildPromptWithStrategy([], sceneSelection)
+    deepEqual(compiled.visualConceptAdvisory, projected, `${tagId} compiler metadata must equal the existing semantic-owner projection`)
+    deepEqual(compiled.visualConceptAdvisory.mapped_entries.map(entry => [entry.prompt_tag_id, entry.concept_id, entry.concept_status, entry.owner_kind, entry.owner_id]), [[tagId, conceptId, 'provisional', 'SCENE', 'scene']], `${tagId} compiler metadata must expose its exact canonical Graph identity, status, and selected owner`)
     deepEqual(sceneSelection, sceneSnapshot, `${tagId} projection must not mutate selection or weight`)
     equal(promptModule.buildPrompt([], sceneSelection), `[]\n\n[]\n\n[]\n\n[]\n\n[${phrase}]\n\nBREAK\n\n[]`, `${tagId} must preserve the baseline exact prompt bytes`)
     equal(smartTagEngine.getConflictReason(tag, sceneSelection, registry), null, `${tagId} must not conflict with its own selection`)
@@ -150,8 +154,10 @@ try {
   const framingScene = [weighted('cam-full-body', 1.4), selected('bac-forest')]
   const framingInputBefore = clone({ blocks: framingBlocks, sceneTags: framingScene })
   const framingPrompt = '[]\n\n[]\n\nLeft side:\n[(long hair:1.3)]\n\nBREAK\n\n[standing]\n\nBREAK\n\nRight side:\n[blue eyes]\n\nBREAK\n\n[]\n\n[(close-up:0.8), (upper body:1.2), (full body:1.4), forest]\n\nBREAK\n\n[]'
-  equal(promptModule.buildPrompt(framingBlocks, framingScene), framingPrompt, 'weighted multi-subject/Scene prompt must equal the pre-binding baseline, including order and BREAK')
+  const framingExpansion = promptModule.buildPromptWithStrategy(framingBlocks, framingScene)
+  equal(framingExpansion.prompt, framingPrompt, 'weighted multi-subject/Scene prompt must equal the pre-binding baseline, including order and BREAK')
   const framingAdvisory = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: framingBlocks, sceneTags: framingScene })
+  deepEqual(framingExpansion.visualConceptAdvisory, framingAdvisory, 'compiler metadata must deep-equal the existing semantic owner for weighted multi-subject/Scene input')
   deepEqual(framingAdvisory.mapped_entries.map(entry => [entry.owner_kind, entry.owner_id, entry.prompt_tag_id]), [
     ['PROMPT_BLOCK', 'subject-a', 'cam-upper-body'],
     ['PROMPT_BLOCK', 'subject-a', 'hai-long-hair'],
@@ -160,16 +166,24 @@ try {
   ], 'advisory must preserve exact stored ownership even when compiler projects subject-owned camera tags to Scene')
   deepEqual({ blocks: framingBlocks, sceneTags: framingScene }, framingInputBefore, 'advisory must not move, correct, insert, delete, or reweight existing selections')
   equal(promptModule.buildPrompt(framingBlocks, framingScene), framingPrompt, 'advisory must not alter weighted multi-subject prompt bytes')
-  equal(promptModule.buildPromptWithStrategy(framingBlocks, framingScene, 'sdxl').prompt, framingPrompt.replace('Left side:\n', '').replace('Right side:\n', ''), 'other model preset rendering stays byte-identical; mapping makes no model reliability claim')
-  equal(promptModule.buildPromptWithStrategy(framingBlocks, framingScene, 'illustrious', 'CUSTOM BREAK').prompt, framingPrompt.replaceAll('BREAK', 'CUSTOM BREAK').replace(/CUSTOM BREAK(?=\n\n\[\]$)/, 'BREAK'), 'custom subject separators and the Scene BREAK must remain independent')
+  const sdxlExpansion = promptModule.buildPromptWithStrategy(framingBlocks, framingScene, 'sdxl')
+  equal(sdxlExpansion.prompt, framingPrompt.replace('Left side:\n', '').replace('Right side:\n', ''), 'other model preset rendering stays byte-identical; mapping makes no model reliability claim')
+  deepEqual(sdxlExpansion.visualConceptAdvisory, framingAdvisory, 'model strategy must not change compiler semantic identity metadata')
+  const customSeparatorExpansion = promptModule.buildPromptWithStrategy(framingBlocks, framingScene, 'illustrious', 'CUSTOM BREAK')
+  equal(customSeparatorExpansion.prompt, framingPrompt.replaceAll('BREAK', 'CUSTOM BREAK').replace(/CUSTOM BREAK(?=\n\n\[\]$)/, 'BREAK'), 'custom subject separators and the Scene BREAK must remain independent')
+  deepEqual(customSeparatorExpansion.visualConceptAdvisory, framingAdvisory, 'custom separators must not change compiler semantic identity metadata')
+  deepEqual({ blocks: framingBlocks, sceneTags: framingScene }, framingInputBefore, 'compiler prompt and metadata projection must not mutate source selection, ownership, or weights')
   const forcedBlocks = [{ id: 'forced', name: 'Forced', tags: framingBindings.map(([id]) => selected(id)) }]
   const forcedBefore = clone(forcedBlocks)
   const forcedAdvisory = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: forcedBlocks, sceneTags: [] })
+  const forcedExpansion = promptModule.buildPromptWithStrategy(forcedBlocks)
+  deepEqual(forcedExpansion.visualConceptAdvisory, forcedAdvisory, 'compiler metadata must retain every forced simultaneous framing identity without suppression')
   equal(forcedAdvisory.mapped_count, 4, 'forced/imported incompatible selections remain visible; advisory does not resolve conflicts')
   deepEqual(forcedBlocks, forcedBefore, 'forced/imported combinations must never be silently deleted or corrected')
   equal(promptModule.buildPrompt(forcedBlocks), '[]\n\n[]\n\n[]\n\n[]\n\n[close-up, upper body, cowboy shot, full body]\n\nBREAK\n\n[]', 'forced/imported framing prompt bytes must preserve every selected phrase in the original production order')
   const aliasTags = framingBindings.map(([id, , phrase]) => ({ ...selected(id), id: `custom-${id}`, prompt: phrase }))
   const aliasAdvisory = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: aliasTags })
+  deepEqual(promptModule.buildPromptWithStrategy([], aliasTags).visualConceptAdvisory, aliasAdvisory, 'compiler metadata must keep custom or alias IDs uncovered exactly as the semantic owner does')
   equal(aliasAdvisory.mapped_count, 0, 'exact phrases under custom or alias IDs must not infer Graph bindings')
   equal(aliasAdvisory.uncovered_selected_tag_count, 4, 'unapproved aliases must remain explicitly uncovered')
   const blocks = [
@@ -203,6 +217,7 @@ try {
   check(promptBefore.includes('long hair'), 'existing Prompt Compiler must continue to emit the exact long hair phrase')
   equal(promptModule.buildPromptWithStrategy(blocks, sceneTags, 'illustrious').prompt, promptBefore, 'advisory projection must leave Prompt Compiler output byte-identical')
   const emptySelection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [] })
+  deepEqual(promptModule.buildPromptWithStrategy([], []).visualConceptAdvisory, emptySelection, 'compiler metadata must preserve the existing empty-selection projection')
   equal(emptySelection.mapped_count, 0, 'empty selection must remain safe')
   deepEqual(emptySelection.uncovered_entries, [], 'empty selection must expose no uncovered identities')
   const noMapped = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [{ id: 'subject-1', name: 'Subject 1', tags: [selected('pos-standing')] }], sceneTags: [] })
@@ -236,6 +251,13 @@ try {
   expandedCatalog.coverage.unmapped_active_prompt_tag_count -= 1
   equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: expandedCatalog, blocks, sceneTags }).advisory_status, 'UNAVAILABLE', 'runtime must reject mapping scope expansion outside the promoted V1 slice')
   equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [{ id: 'duplicate', name: 'One', tags: [] }, { id: 'duplicate', name: 'Two', tags: [] }], sceneTags: [] }).unavailable_reason, 'projection_input_invalid', 'duplicate ownership must fail locally')
+  const duplicateOwnershipBlocks = [
+    { id: 'duplicate', name: 'One', tags: [selected('cam-upper-body')] },
+    { id: 'duplicate', name: 'Two', tags: [selected('cam-full-body')] },
+  ]
+  const unavailableExpansion = promptModule.buildPromptWithStrategy(duplicateOwnershipBlocks)
+  equal(unavailableExpansion.visualConceptAdvisory.unavailable_reason, 'projection_input_invalid', 'invalid metadata ownership must remain isolated as compiler advisory UNAVAILABLE')
+  equal(unavailableExpansion.prompt, '[]\n\n[]\n\n[]\n\n[]\n\n[upper body, full body]\n\nBREAK\n\n[]', 'advisory UNAVAILABLE must not suppress, rewrite, or otherwise change prompt compilation')
 
   const visualSection = appSource.indexOf('className={`preview-section visual-concept-advisory')
   check(visualSection > appSource.indexOf('className="selected-outline"') && visualSection < appSource.indexOf('className={`preview-section generation-context'), 'Visual Concepts must render after Prompt Context and before Generation Context')
@@ -246,6 +268,9 @@ try {
   check(appSource.includes('<details className="visual-concept-advisory-uncovered">'), 'uncovered identities must remain collapsed by default using an accessible native disclosure')
   check(appSource.includes('entry.owner_kind') && appSource.includes('entry.owner_id'), 'Inspector must show exact selected-tag ownership')
   check(!appSource.includes('visualConceptAdvisory.relations'), 'production V1 UI must not display relations')
+  check(appSource.includes('const visualConceptAdvisory = expansion.visualConceptAdvisory'), 'Prompt Inspector must consume the compiler-carried semantic identity field')
+  check(!appSource.includes("from './visualConceptProductionAdvisoryV1'") && !appSource.includes("from './data/visual-concept-production-advisory-v1.json'"), 'App must not create parallel semantic ownership by importing the projector or catalog directly')
+  check(promptSource.includes('const expansion = expandPrompt(') && promptSource.indexOf('const expansion = expandPrompt(') < promptSource.indexOf('visualConceptAdvisory: projectVisualConceptProductionAdvisoryV1('), 'compiler must render through the existing expansion path before adding semantic identity metadata')
   check(stylesSource.includes('.visual-concept-advisory-entry') && stylesSource.includes('.visual-concept-advisory-coverage') && stylesSource.includes('.visual-concept-advisory-uncovered'), 'advisory must have deterministic Inspector-native visual treatment')
   check(!runtimeSource.includes('usePromptStore') && !runtimeSource.includes('buildPrompt') && !runtimeSource.includes('research/'), 'runtime owner must be pure and independent of store, compiler, and Research Repository')
 
