@@ -61,12 +61,24 @@ try {
     ['v192-bent-knees', 'configuration.knee.bent'],
   ], 'promoted mapping slice must remain exact and ordered')
   deepEqual(catalog.relations, [], 'production V1 catalog must not promote relations')
+  deepEqual(catalog.constraint_concepts.map(concept => [concept.concept_id, concept.concept_type, concept.concept_status]), [
+    ['visibility.feet', 'visibility', 'provisional'],
+    ['visibility.hands', 'visibility', 'provisional'],
+    ['visibility.head', 'visibility', 'provisional'],
+  ], 'promoter must admit exactly the three Graph-owned visibility constraint identities')
+  deepEqual(catalog.advisory_effects, [{
+    effect_id: 'unmodeled.pose_body_overlap.hand_visibility',
+    target_concept_id: 'visibility.hands',
+    advisory_status: 'ADVISORY_ONLY',
+    confidence: 'high',
+    model_profile: 'model.novaanimexl_ilv190',
+  }], 'promoter must carry the bounded pose/body-overlap owner as advisory evidence only')
   deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 10, unmapped_active_prompt_tag_count: 2512 }, 'coverage must bind the exact active registry')
   deepEqual(Object.keys(catalog.source_binding), ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'registry_sha256'], 'catalog source binding must use schema identity and production inputs without full-Graph revision or digest coupling')
   equal(serialized, serializeVisualConceptProductionAdvisoryCatalogV1(catalog), 'promoted output must be byte-stable')
   check(isVisualConceptProductionAdvisoryArtifactCurrentV1(`${JSON.stringify(checkedInCatalog, null, 2)}\n`, serialized), 'checked-in artifact must equal fresh promotion bytes')
   check(!isVisualConceptProductionAdvisoryArtifactCurrentV1(`${serialized} `, serialized), 'stale artifact bytes must be rejected')
-  check(!/research[\\/]|evidence\.|BRG-/i.test(serialized), 'production catalog must contain no Research path or evidence identity')
+  check(!/research[\\/]|evidence\.|BRG-/i.test(serialized), 'production catalog must contain no Research path or panel-level evidence identity')
 
   const duplicateBinding = clone(bindingContract)
   duplicateBinding.bindings.splice(1, 0, clone(duplicateBinding.bindings[0]))
@@ -85,6 +97,56 @@ try {
   mappedProductionChange.concepts.find(concept => concept.concept_id === 'hair.long').label = 'Changed production label'
   const mappedProductionCatalog = projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: mappedProductionChange, promptTagRegistry: registry })
   check(serializeVisualConceptProductionAdvisoryCatalogV1(mappedProductionCatalog) !== serialized, 'mapped production-relevant field change must stale the catalog')
+  const visibilityConceptChange = clone(graphContract)
+  visibilityConceptChange.concepts.find(concept => concept.concept_id === 'visibility.hands').label = 'Changed hand visibility label'
+  check(serializeVisualConceptProductionAdvisoryCatalogV1(projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: visibilityConceptChange, promptTagRegistry: registry })) !== serialized, 'promoted visibility constraint change must stale the catalog')
+  const invalidVisibilityConcept = clone(graphContract)
+  invalidVisibilityConcept.concepts.find(concept => concept.concept_id === 'visibility.feet').concept_type = 'camera'
+  equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: invalidVisibilityConcept, promptTagRegistry: registry })), 'visual_concept_production_constraint_contract_invalid', 'invalid visibility constraint owner must fail promotion closed')
+  const weakenedEffect = clone(graphContract)
+  weakenedEffect.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').confidence = 'medium'
+  equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: weakenedEffect, promptTagRegistry: registry })), 'visual_concept_production_advisory_effect_contract_invalid', 'changed advisory evidence owner must fail promotion closed')
+
+  const defaultConstraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [] })
+  deepEqual(defaultConstraintProjection.constraint_metadata, {
+    record_type: 'visual_concept_compiler_constraint_metadata_v1',
+    version: 1,
+    requested: {
+      record_type: 'visual_concept_compiler_constraint_intent_v1',
+      version: 1,
+      required_visible_region_concept_ids: [],
+      minimum_framing_concept_id: null,
+    },
+    observed_generated_visibility: null,
+    advisory_effects: [],
+  }, 'default compiler projection must preserve compatibility with explicit empty requested intent and no generated observation claim')
+  const requestedConstraints = {
+    record_type: 'visual_concept_compiler_constraint_intent_v1',
+    version: 1,
+    required_visible_region_concept_ids: ['visibility.feet', 'visibility.hands', 'visibility.head'],
+    minimum_framing_concept_id: 'camera.framing.full_body',
+  }
+  const requestedSnapshot = clone(requestedConstraints)
+  const constraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('cam-upper-body')], constraintIntent: requestedConstraints })
+  deepEqual(constraintProjection.constraint_metadata.requested, requestedConstraints, 'requested constraint identity must round-trip without becoming selected or observed state')
+  equal(constraintProjection.constraint_metadata.observed_generated_visibility, null, 'compiler must not infer generated visibility from requested intent or selected framing')
+  deepEqual(constraintProjection.constraint_metadata.advisory_effects, catalog.advisory_effects, 'hand intent must expose only the bounded Graph-owned advisory effect')
+  deepEqual(constraintProjection.mapped_entries.map(entry => entry.concept_id), ['camera.framing.upper_body'], 'selected framing identity must remain separate from requested minimum framing identity')
+  deepEqual(requestedConstraints, requestedSnapshot, 'constraint projection must not mutate caller-owned intent')
+  const constraintPrompt = promptModule.buildPromptWithStrategy([], [selected('cam-upper-body')], 'illustrious', 'BREAK', requestedConstraints)
+  equal(constraintPrompt.prompt, promptModule.buildPrompt([], [selected('cam-upper-body')]), 'constraint metadata must leave exact prompt bytes unchanged')
+  deepEqual(constraintPrompt.visualConceptAdvisory, constraintProjection, 'compiler must carry the canonical constraint projection unchanged')
+  const headOnly = { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.head'], minimum_framing_concept_id: null }
+  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [], constraintIntent: headOnly }).constraint_metadata.advisory_effects, [], 'pose/body-overlap evidence must remain bounded to requested hand visibility')
+  for (const invalidIntent of [
+    { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.hands', 'visibility.hands'] },
+    { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.head', 'visibility.feet'] },
+    { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.knees'] },
+    { ...requestedConstraints, minimum_framing_concept_id: 'camera.framing.portrait' },
+    { ...requestedConstraints, observed_generated_visibility: 'VISIBLE' },
+  ]) {
+    equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [], constraintIntent: invalidIntent }).unavailable_reason, 'projection_input_invalid', 'malformed, duplicate, unordered, unknown, or observation-bearing intent must fail closed')
+  }
 
   for (const [tagId, conceptId, phrase, runId] of framingBindings) {
     const tag = registry.find(candidate => candidate.id === tagId)

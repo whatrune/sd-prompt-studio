@@ -4,7 +4,7 @@ import type { PromptBlock, SelectedTag } from './store'
 import { expandPrompt } from './promptExpansion'
 import type { ModelPreset } from './store'
 import visualConceptProductionCatalogV1 from './data/visual-concept-production-advisory-v1.json'
-import { projectVisualConceptProductionAdvisoryV1 } from './visualConceptProductionAdvisoryV1'
+import { projectVisualConceptProductionAdvisoryV1, type VisualConceptCompilerConstraintIntentV1 } from './visualConceptProductionAdvisoryV1'
 
 const legacyClothingSubcategoryOrder = ['トップス', 'アウター', 'ボトムス', 'ワンピース・ドレス', 'カジュアル', 'フォーマル', 'ゴシック・ロリータ', '制服・学校', '制服・職業', 'ミリタリー・ワーク', 'スポーツ・ダンス', '舞台・アイドル', 'コスチューム', 'ファンタジー・SF', '民族・歴史', '和装', 'ルームウェア', '水着・下着', 'センシティブ衣装', 'デザイン・ディテール', '素材・質感', '柄・装飾', 'レッグウェア', '靴', '衣装（アダルト）']
 const legacyCharacterSubcategoryOrder = ['指定', '種族', '種族特徴', '職業', '属性']
@@ -52,7 +52,7 @@ export function buildPrompt(blocks: PromptBlock[], sceneTags: SelectedTag[] = []
   return buildPromptWithStrategy(blocks, sceneTags).prompt
 }
 
-export function buildPromptWithStrategy(blocks: PromptBlock[], sceneTags: SelectedTag[] = [], strategy: ModelPreset = 'illustrious', subjectBreak = 'BREAK') {
+export function buildPromptWithStrategy(blocks: PromptBlock[], sceneTags: SelectedTag[] = [], strategy: ModelPreset = 'illustrious', subjectBreak = 'BREAK', constraintIntent?: VisualConceptCompilerConstraintIntentV1) {
   const expansion = expandPrompt(blocks, sceneTags, { strategy, subjectBreak, outputCategory, renderTags: bracket })
   return {
     ...expansion,
@@ -60,6 +60,7 @@ export function buildPromptWithStrategy(blocks: PromptBlock[], sceneTags: Select
       catalog: visualConceptProductionCatalogV1,
       blocks,
       sceneTags,
+      constraintIntent,
     }),
   }
 }

@@ -21,6 +21,15 @@ const APPROVED_MAPPINGS = Object.freeze([
   Object.freeze({ prompt_tag_id: 'rin-pose-reclining', concept_id: 'body.state.reclined' }),
   Object.freeze({ prompt_tag_id: 'v192-bent-knees', concept_id: 'configuration.knee.bent' }),
 ])
+const APPROVED_CONSTRAINT_CONCEPT_IDS = Object.freeze([
+  'visibility.feet',
+  'visibility.hands',
+  'visibility.head',
+])
+const APPROVED_ADVISORY_EFFECT = Object.freeze({
+  effect_id: 'unmodeled.pose_body_overlap.hand_visibility',
+  target_concept_id: 'visibility.hands',
+})
 
 const sha256 = value => createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex')
 
@@ -69,6 +78,39 @@ export function projectVisualConceptProductionAdvisoryCatalogV1({ bindingContrac
       concept_status: concept.status,
     })
   })
+  const constraintConcepts = APPROVED_CONSTRAINT_CONCEPT_IDS.map(conceptId => {
+    const concept = concepts.get(conceptId)
+    if (!concept
+      || concept.concept_type !== 'visibility'
+      || typeof concept.label !== 'string' || !concept.label
+      || typeof concept.module !== 'string' || !concept.module
+      || (concept.status !== 'provisional' && concept.status !== 'confirmed')) {
+      throw new Error('visual_concept_production_constraint_contract_invalid')
+    }
+    return Object.freeze({
+      concept_id: concept.concept_id,
+      concept_label: concept.label,
+      concept_module: concept.module,
+      concept_type: concept.concept_type,
+      concept_status: concept.status,
+    })
+  })
+  const sourceEffect = graphContract.unmodeled_effects?.find(effect => effect?.effect_id === APPROVED_ADVISORY_EFFECT.effect_id)
+  if (!sourceEffect
+    || sourceEffect.target_region !== 'hands'
+    || sourceEffect.category !== 'model_specific'
+    || sourceEffect.promotion_status !== 'observed'
+    || sourceEffect.confidence !== 'high'
+    || sourceEffect.model_profile !== 'model.novaanimexl_ilv190') {
+    throw new Error('visual_concept_production_advisory_effect_contract_invalid')
+  }
+  const advisoryEffects = Object.freeze([Object.freeze({
+    effect_id: sourceEffect.effect_id,
+    target_concept_id: APPROVED_ADVISORY_EFFECT.target_concept_id,
+    advisory_status: 'ADVISORY_ONLY',
+    confidence: sourceEffect.confidence,
+    model_profile: sourceEffect.model_profile,
+  })])
 
   return Object.freeze({
     record_type: RECORD_TYPE,
@@ -87,6 +129,8 @@ export function projectVisualConceptProductionAdvisoryCatalogV1({ bindingContrac
       unmapped_active_prompt_tag_count: promptTagRegistry.length - mappings.length,
     }),
     mappings: Object.freeze(mappings),
+    constraint_concepts: Object.freeze(constraintConcepts),
+    advisory_effects: advisoryEffects,
     relations: Object.freeze([]),
   })
 }
