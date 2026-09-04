@@ -1,4 +1,9 @@
 import type { PromptBlock, SelectedTag } from './store'
+import {
+  admitVisualConceptCompilerConstraintIntentV1,
+  EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
+  type VisualConceptCompilerConstraintIntentV1,
+} from './visualConceptCompilerConstraintIntentV1'
 
 const ROOT_KEYS = ['record_type', 'version', 'source_binding', 'coverage', 'mappings', 'constraint_concepts', 'advisory_effects', 'relations']
 const SOURCE_KEYS = ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'registry_sha256']
@@ -21,7 +26,6 @@ const EXPECTED_MAPPINGS = [
   ['v192-bent-knees', 'configuration.knee.bent'],
 ] as const
 const EXPECTED_CONSTRAINT_CONCEPT_IDS = ['visibility.feet', 'visibility.hands', 'visibility.head'] as const
-const EXPECTED_FRAMING_CONCEPT_IDS = ['camera.framing.close_up', 'camera.framing.cowboy_shot', 'camera.framing.full_body', 'camera.framing.upper_body'] as const
 const EXPECTED_ADVISORY_EFFECT_ID = 'unmodeled.pose_body_overlap.hand_visibility' as const
 const EXPECTED_ADVISORY_ID = 'hand_visibility_risk' as const
 const EXPECTED_ADVISORY_TRIGGER = Object.freeze({
@@ -50,13 +54,6 @@ type CatalogAdvisoryEffect = {
   advisory_status: 'ADVISORY_ONLY'
   confidence: 'high'
   model_profile: 'model.novaanimexl_ilv190'
-}
-
-export type VisualConceptCompilerConstraintIntentV1 = {
-  record_type: 'visual_concept_compiler_constraint_intent_v1'
-  version: 1
-  required_visible_region_concept_ids: readonly typeof EXPECTED_CONSTRAINT_CONCEPT_IDS[number][]
-  minimum_framing_concept_id: typeof EXPECTED_FRAMING_CONCEPT_IDS[number] | null
 }
 
 export type VisualConceptCompilerConstraintMetadataV1 = {
@@ -126,13 +123,6 @@ const exactKeys = (value: Record<string, unknown>, expected: string[]) => {
 }
 const nonEmptyString = (value: unknown): value is string => typeof value === 'string' && value.length > 0
 const nonNegativeInteger = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0
-const EMPTY_INTENT: VisualConceptCompilerConstraintIntentV1 = Object.freeze({
-  record_type: 'visual_concept_compiler_constraint_intent_v1',
-  version: 1,
-  required_visible_region_concept_ids: Object.freeze([]),
-  minimum_framing_concept_id: null,
-})
-
 const constraintMetadata = (
   requested: VisualConceptCompilerConstraintIntentV1,
   advisoryEffects: readonly CatalogAdvisoryEffect[] = [],
@@ -176,7 +166,7 @@ function unavailable(reason: 'catalog_contract_invalid' | 'projection_input_inva
     uncovered_selected_tag_count: 0,
     mapped_entries: Object.freeze([]),
     uncovered_entries: Object.freeze([]),
-    constraint_metadata: constraintMetadata(EMPTY_INTENT),
+    constraint_metadata: constraintMetadata(EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1),
   })
 }
 
@@ -246,26 +236,6 @@ function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping
   return { mappings, advisoryEffect: effect as CatalogAdvisoryEffect }
 }
 
-function validateConstraintIntent(value: unknown): VisualConceptCompilerConstraintIntentV1 | null {
-  if (value === undefined) return EMPTY_INTENT
-  if (!isRecord(value) || !exactKeys(value, ['record_type', 'version', 'required_visible_region_concept_ids', 'minimum_framing_concept_id'])
-    || value.record_type !== 'visual_concept_compiler_constraint_intent_v1'
-    || value.version !== 1
-    || !Array.isArray(value.required_visible_region_concept_ids)
-    || !value.required_visible_region_concept_ids.every(id => typeof id === 'string' && EXPECTED_CONSTRAINT_CONCEPT_IDS.includes(id as typeof EXPECTED_CONSTRAINT_CONCEPT_IDS[number]))
-    || new Set(value.required_visible_region_concept_ids).size !== value.required_visible_region_concept_ids.length
-    || value.required_visible_region_concept_ids.some((id, index, values) => index > 0 && values[index - 1].localeCompare(id) >= 0)
-    || (value.minimum_framing_concept_id !== null
-      && (typeof value.minimum_framing_concept_id !== 'string'
-        || !EXPECTED_FRAMING_CONCEPT_IDS.includes(value.minimum_framing_concept_id as typeof EXPECTED_FRAMING_CONCEPT_IDS[number])))) return null
-  return Object.freeze({
-    record_type: value.record_type,
-    version: value.version,
-    required_visible_region_concept_ids: Object.freeze([...value.required_visible_region_concept_ids]) as readonly typeof EXPECTED_CONSTRAINT_CONCEPT_IDS[number][],
-    minimum_framing_concept_id: value.minimum_framing_concept_id as typeof EXPECTED_FRAMING_CONCEPT_IDS[number] | null,
-  })
-}
-
 const validTag = (tag: unknown): tag is SelectedTag => isRecord(tag)
   && nonEmptyString(tag.id)
   && typeof tag.label === 'string'
@@ -281,7 +251,7 @@ export function projectVisualConceptProductionAdvisoryV1({ catalog, blocks, scen
 }): VisualConceptProductionAdvisoryV1 {
   const catalogProjection = validateCatalog(catalog)
   if (!catalogProjection) return unavailable('catalog_contract_invalid')
-  const requested = validateConstraintIntent(constraintIntent)
+  const requested = admitVisualConceptCompilerConstraintIntentV1(constraintIntent)
   if (!requested || !Array.isArray(blocks) || !Array.isArray(sceneTags)) return unavailable('projection_input_invalid')
   const { mappings, advisoryEffect } = catalogProjection
 
