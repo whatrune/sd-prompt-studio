@@ -1,0 +1,135 @@
+schema_version: "3.0"
+target_concept: ""
+blind_analysis: true
+special_values:
+  unclear: Visible evidence is insufficient or conflicting.
+  not_visible: No hand pixels are directly visible.
+axis_catalog:
+  left_hand_visibility:
+    label: Left Hand Visibility
+    allowed_values:
+      - fully_visible
+      - partially_visible
+      - not_visible
+      - unclear
+  right_hand_visibility:
+    label: Right Hand Visibility
+    allowed_values:
+      - fully_visible
+      - partially_visible
+      - not_visible
+      - unclear
+  left_hand_frame_boundary:
+    label: Left Hand Frame Boundary
+    allowed_values:
+      - fully_inside_frame
+      - partially_cropped
+      - outside_frame
+      - unclear
+  right_hand_frame_boundary:
+    label: Right Hand Frame Boundary
+    allowed_values:
+      - fully_inside_frame
+      - partially_cropped
+      - outside_frame
+      - unclear
+  left_hand_occlusion_source:
+    label: Left Hand Occlusion Source
+    allowed_values:
+      - none
+      - body
+      - garment
+      - other
+      - unclear
+  right_hand_occlusion_source:
+    label: Right Hand Occlusion Source
+    allowed_values:
+      - none
+      - body
+      - garment
+      - other
+      - unclear
+  arm_placement_observation:
+    label: Arm Placement Observation
+    allowed_values:
+      - alongside_torso
+      - hands_front_torso
+      - behind_torso
+      - other
+      - unclear
+  body_coverage:
+    label: Body Coverage
+    allowed_values:
+      - full_body
+      - three_quarter
+      - upper_body
+      - close_up
+      - other
+      - unclear
+  hand_assessability:
+    label: Hand Assessability
+    allowed_values:
+      - assessable
+      - unassessable
+      - unclear
+  ambiguity_or_artifact:
+    label: Ambiguity Or Artifact
+    allowed_values:
+      - none
+      - hand_ambiguous
+      - anatomy_artifact
+      - composition_artifact
+      - multiple
+active_observation_axes:
+  - left_hand_visibility
+  - right_hand_visibility
+  - left_hand_frame_boundary
+  - right_hand_frame_boundary
+  - left_hand_occlusion_source
+  - right_hand_occlusion_source
+  - arm_placement_observation
+  - body_coverage
+  - hand_assessability
+  - ambiguity_or_artifact
+contact_load:
+  enabled: false
+  fields:
+    - left_hand
+    - right_hand
+    - left_forearm
+    - right_forearm
+  allowed_values:
+    - none
+    - light
+    - supporting
+    - weight_bearing
+    - unclear
+morphology_candidates:
+  primary:
+    - hand_visibility_arm_placement_observation
+  secondary:
+    - none
+artifact_checks:
+  - none
+  - hand_ambiguous
+  - anatomy_artifact
+  - composition_artifact
+  - multiple
+cross_domain_effects:
+  enabled: false
+  domains: []
+  strength_values: []
+  effect_type_values: []
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  enforce_visible_evidence_policy: true
+  prompt_blind_freeze_required: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  six_images_are_directional_evidence_only: true
+blind_condition_label: COND-01
+run_id: CAM-019-C
