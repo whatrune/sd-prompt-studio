@@ -92,10 +92,17 @@ print(json.dumps({
         'exact_python_version', 'python_cache_tag', 'python_executable', 'python_implementation'
     ) | Sort-Object
     $actualFields = @($identity.psobject.Properties.Name | Sort-Object)
+    $versionMatch = [regex]::Match([string]$identity.exact_python_version, '^3\.12\.(0|[1-9][0-9]*)$')
+    [int]$patchVersion = 0
+    $supportedPatchVersion = (
+        $versionMatch.Success -and
+        [int]::TryParse($versionMatch.Groups[1].Value, [ref]$patchVersion) -and
+        $patchVersion -ge 13
+    )
     if (
         ($expectedFields -join "`n") -cne ($actualFields -join "`n") -or
         [string]$identity.python_implementation -cne 'cpython' -or
-        [string]$identity.exact_python_version -cne '3.12.13' -or
+        -not $supportedPatchVersion -or
         [string]$identity.python_cache_tag -cne 'cpython-312' -or
         [string]$identity.python_executable -cne $PythonExecutable
     ) {

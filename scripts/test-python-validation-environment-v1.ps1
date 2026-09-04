@@ -86,9 +86,13 @@ try {
     $suppliedRuntimeProbe = @(& $python -B -E -s -c 'import json, sys; print(json.dumps({"implementation": sys.implementation.name, "version": ".".join(str(part) for part in sys.version_info[:3]), "cache_tag": sys.implementation.cache_tag}, sort_keys=True))' 2>&1 | ForEach-Object { "$_" })
     Assert-True ($LASTEXITCODE -eq 0 -and $suppliedRuntimeProbe.Count -eq 1) 'supplied test runtime identity probe failed'
     $suppliedRuntimeIdentity = $suppliedRuntimeProbe[0] | ConvertFrom-Json
+    $suppliedRuntimeVersionMatch = [regex]::Match([string]$suppliedRuntimeIdentity.version, '^3\.12\.(0|[1-9][0-9]*)$')
+    [int]$suppliedRuntimePatch = 0
     $suppliedRuntimeIsApproved = (
         [string]$suppliedRuntimeIdentity.implementation -ceq 'cpython' -and
-        [string]$suppliedRuntimeIdentity.version -ceq '3.12.13' -and
+        $suppliedRuntimeVersionMatch.Success -and
+        [int]::TryParse($suppliedRuntimeVersionMatch.Groups[1].Value, [ref]$suppliedRuntimePatch) -and
+        $suppliedRuntimePatch -ge 13 -and
         [string]$suppliedRuntimeIdentity.cache_tag -ceq 'cpython-312'
     )
 
@@ -129,7 +133,7 @@ try {
         if ($suppliedRuntimeIsApproved) {
             Assert-True ($bootstrapAdmission.Admitted) 'approved bootstrap runtime was not admitted'
             Assert-True ([string]$bootstrapAdmission.Identity.python_implementation -ceq 'cpython') 'approved bootstrap implementation changed'
-            Assert-True ([string]$bootstrapAdmission.Identity.exact_python_version -ceq '3.12.13') 'approved bootstrap version changed'
+            Assert-True ([string]$bootstrapAdmission.Identity.exact_python_version -ceq [string]$suppliedRuntimeIdentity.version) 'approved bootstrap version changed'
             Assert-True ([string]$bootstrapAdmission.Identity.python_cache_tag -ceq 'cpython-312') 'approved bootstrap cache tag changed'
             Assert-True ([string]$bootstrapAdmission.Identity.python_executable -ceq $python) 'approved bootstrap executable identity changed'
         }
@@ -147,27 +151,45 @@ try {
         [Environment]::SetEnvironmentVariable('PYTHONUSERBASE', $savedPythonUserBase, 'Process')
     }
 
-    $fake314 = Join-Path $tempRoot $(if ($env:OS -eq 'Windows_NT') { 'python-3.14.cmd' } else { 'python-3.14' })
-    $fake314Payload = [ordered]@{
-        exact_python_version = '3.14.0'
-        python_cache_tag = 'cpython-314'
-        python_executable = $fake314
-        python_implementation = 'cpython'
-    } | ConvertTo-Json -Compress
-    if ($env:OS -eq 'Windows_NT') {
-        [IO.File]::WriteAllText($fake314, "@echo off`r`necho $fake314Payload`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
+    foreach ($runtimeCase in @(
+        [pscustomobject]@{ Version = '3.12.12'; CacheTag = 'cpython-312'; Admitted = $false },
+        [pscustomobject]@{ Version = '3.12.13'; CacheTag = 'cpython-312'; Admitted = $true },
+        [pscustomobject]@{ Version = '3.12.14'; CacheTag = 'cpython-312'; Admitted = $true },
+        [pscustomobject]@{ Version = '3.13.0'; CacheTag = 'cpython-313'; Admitted = $false },
+        [pscustomobject]@{ Version = '3.14.0'; CacheTag = 'cpython-314'; Admitted = $false }
+    )) {
+        $caseName = $runtimeCase.Version.Replace('.', '-')
+        $fakeRuntime = Join-Path $tempRoot $(if ($env:OS -eq 'Windows_NT') { "python-$caseName.cmd" } else { "python-$caseName" })
+        $fakeRuntimePayload = [ordered]@{
+            exact_python_version = $runtimeCase.Version
+            python_cache_tag = $runtimeCase.CacheTag
+            python_executable = $fakeRuntime
+            python_implementation = 'cpython'
+        } | ConvertTo-Json -Compress
+        if ($env:OS -eq 'Windows_NT') {
+            [IO.File]::WriteAllText($fakeRuntime, "@echo off`r`necho $fakeRuntimePayload`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
+        }
+        else {
+            [IO.File]::WriteAllText($fakeRuntime, "#!/bin/sh`nprintf '%s\\n' '$fakeRuntimePayload'`n", [Text.UTF8Encoding]::new($false))
+            & chmod '+x' $fakeRuntime
+            if ($LASTEXITCODE -ne 0) { throw 'fake_runtime_setup_failed' }
+        }
+        $runtimeAdmission = try {
+            $identity = Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $fakeRuntime
+            [pscustomobject]@{ Admitted = $true; Identity = $identity; Reason = $null }
+        }
+        catch {
+            [pscustomobject]@{ Admitted = $false; Identity = $null; Reason = $_.Exception.Message }
+        }
+        Assert-True ($runtimeAdmission.Admitted -eq $runtimeCase.Admitted) "Python $($runtimeCase.Version) admission changed"
+        if ($runtimeCase.Admitted) {
+            Assert-True ([string]$runtimeAdmission.Identity.exact_python_version -ceq $runtimeCase.Version) "Python $($runtimeCase.Version) exact identity changed"
+            Assert-True ([string]$runtimeAdmission.Identity.python_executable -ceq $fakeRuntime) "Python $($runtimeCase.Version) executable identity changed"
+        }
+        else {
+            Assert-True ($runtimeAdmission.Reason -ceq 'local_full_validation_bootstrap_runtime_invalid') "Python $($runtimeCase.Version) rejection reason changed"
+        }
     }
-    else {
-        [IO.File]::WriteAllText($fake314, "#!/bin/sh`nprintf '%s\\n' '$fake314Payload'`n", [Text.UTF8Encoding]::new($false))
-        & chmod '+x' $fake314
-        if ($LASTEXITCODE -ne 0) { throw 'fake_runtime_setup_failed' }
-    }
-    $wrongRuntimeReason = try {
-        Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable $fake314 | Out-Null
-        'unexpected_success'
-    }
-    catch { $_.Exception.Message }
-    Assert-True ($wrongRuntimeReason -ceq 'local_full_validation_bootstrap_runtime_invalid') 'Python 3.14 was not rejected by the pre-acquisition guard'
 
     $missingRuntimeReason = try {
         Assert-LocalFullValidationBootstrapRuntimeV1 -PythonExecutable (Join-Path $tempRoot 'missing-python.exe') | Out-Null
