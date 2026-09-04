@@ -159,18 +159,33 @@ try {
         [pscustomobject]@{ Version = '3.14.0'; CacheTag = 'cpython-314'; Admitted = $false }
     )) {
         $caseName = $runtimeCase.Version.Replace('.', '-')
-        $fakeRuntime = Join-Path $tempRoot $(if ($env:OS -eq 'Windows_NT') { "python-$caseName.cmd" } else { "python-$caseName" })
+        $fakeRuntimeProgram = Join-Path $tempRoot "python-$caseName.mjs"
+        $fakeRuntime = if ($env:OS -eq 'Windows_NT') {
+            Join-Path $tempRoot "python-$caseName.cmd"
+        }
+        else {
+            $fakeRuntimeProgram
+        }
         $fakeRuntimePayload = [ordered]@{
             exact_python_version = $runtimeCase.Version
             python_cache_tag = $runtimeCase.CacheTag
             python_executable = $fakeRuntime
             python_implementation = 'cpython'
         } | ConvertTo-Json -Compress
+        $encodedPayload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($fakeRuntimePayload))
+        [IO.File]::WriteAllText(
+            $fakeRuntimeProgram,
+            "#!/usr/bin/env node`nprocess.stdout.write(Buffer.from('$encodedPayload', 'base64').toString('utf8') + '\n')`n",
+            [Text.UTF8Encoding]::new($false)
+        )
         if ($env:OS -eq 'Windows_NT') {
-            [IO.File]::WriteAllText($fakeRuntime, "@echo off`r`necho $fakeRuntimePayload`r`nexit /b 0`r`n", [Text.Encoding]::ASCII)
+            [IO.File]::WriteAllText(
+                $fakeRuntime,
+                "@echo off`r`nnode `"$fakeRuntimeProgram`" %*`r`nexit /b %ERRORLEVEL%`r`n",
+                [Text.Encoding]::ASCII
+            )
         }
         else {
-            [IO.File]::WriteAllText($fakeRuntime, "#!/bin/sh`nprintf '%s\\n' '$fakeRuntimePayload'`n", [Text.UTF8Encoding]::new($false))
             & chmod '+x' $fakeRuntime
             if ($LASTEXITCODE -ne 0) { throw 'fake_runtime_setup_failed' }
         }
