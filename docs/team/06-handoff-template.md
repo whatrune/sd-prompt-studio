@@ -9,6 +9,8 @@ uses: result_handoff_shape, handoff_status, terminal_stop_reason, canonical_reco
 
 This non-normative template captures Result Handoff inputs and outputs. Field shape and status vocabulary are owned by the [Delegation and Result Contract](11-delegation-and-result-contract.md). Authority, admission, stop reason, correction, protected-action, and completion meaning are owned by the [Shared Role Execution Contract](13-shared-role-execution-contract.md). Review records are owned by the [Review Execution Contract](14-review-execution-contract.md).
 
+This human-facing template is not the protected terminal machine handoff consumed by `COMMIT_VALIDATED_TREE`. Implementers on that route emit the canonical object projected by `scripts/run-bootstrap-publication-operator-v1.mjs` directly; callers must not translate this template into that machine shape.
+
 ```markdown
 # Task Handoff
 

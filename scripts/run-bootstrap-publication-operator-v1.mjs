@@ -508,6 +508,43 @@ const assertPassingValidationResultsV1 = (values, expectedHead) => (
   ))
 )
 
+export const assertImplementationResultHandoffV1 = (value, { changedPaths, expectedHead }) => {
+  if (
+    !sameFields(value, IMPLEMENTATION_HANDOFF_FIELDS_V1) ||
+    value.record_type !== 'result_handoff' || value.authoring_role !== 'IMPLEMENTER' ||
+    value.status !== 'completed' || value.execution_stop_reason !== 'completed' ||
+    value.blocking !== 0 || value.remaining !== 0 || value.unknown !== 0 ||
+    !samePathsV1(value.changed_paths, changedPaths) ||
+    !assertPassingValidationResultsV1(value.validation_results, expectedHead) ||
+    !Array.isArray(value.unperformed_items) || value.unperformed_items.length !== 0
+  ) throw new Error('implementation_result_handoff_invalid')
+  return Object.freeze({
+    ...value,
+    changed_paths: Object.freeze([...value.changed_paths]),
+    validation_results: Object.freeze(value.validation_results.map((entry) => Object.freeze({ ...entry }))),
+    unperformed_items: Object.freeze([]),
+  })
+}
+
+export const projectImplementationResultHandoffV1 = ({ changed_paths, validation_results, expected_head }) => (
+  assertImplementationResultHandoffV1({
+    record_type: 'result_handoff',
+    authoring_role: 'IMPLEMENTER',
+    status: 'completed',
+    execution_stop_reason: 'completed',
+    blocking: 0,
+    remaining: 0,
+    unknown: 0,
+    changed_paths: [...(changed_paths ?? [])].sort(),
+    validation_results: (validation_results ?? []).map((entry) => ({ ...entry })),
+    unperformed_items: [],
+  }, { changedPaths: changed_paths, expectedHead: expected_head })
+)
+
+export const serializeImplementationResultHandoffV1 = (input) => (
+  `${JSON.stringify(projectImplementationResultHandoffV1(input), null, 2)}\n`
+)
+
 const assertTerminalContinuationEventV1 = ({ event, request }) => {
   if (
     !sameFields(event, TERMINAL_EVENT_FIELDS_V1) || event.target !== request.continuation_target ||
@@ -524,17 +561,12 @@ const assertTerminalContinuationEventV1 = ({ event, request }) => {
     const expectedKind = request.expected_pr === null
       ? 'IMPLEMENTATION_COMPLETE'
       : 'CORRECTION_IMPLEMENTATION_COMPLETE'
-    const handoff = event.result
-    if (
-      event.kind !== expectedKind || !sameFields(handoff, IMPLEMENTATION_HANDOFF_FIELDS_V1) ||
-      handoff.record_type !== 'result_handoff' || handoff.authoring_role !== 'IMPLEMENTER' ||
-      handoff.status !== 'completed' || handoff.execution_stop_reason !== 'completed' ||
-      handoff.blocking !== 0 || handoff.remaining !== 0 || handoff.unknown !== 0 ||
-      !samePathsV1(handoff.changed_paths, request.changed_paths) ||
-      !assertPassingValidationResultsV1(handoff.validation_results, request.expected_head) ||
-      !Array.isArray(handoff.unperformed_items) || handoff.unperformed_items.length !== 0
-    ) throw new Error('implementation_result_handoff_invalid')
-    return Object.freeze({ ...event, result: Object.freeze({ ...handoff }) })
+    if (event.kind !== expectedKind) throw new Error('implementation_result_handoff_invalid')
+    const handoff = assertImplementationResultHandoffV1(event.result, {
+      changedPaths: request.changed_paths,
+      expectedHead: request.expected_head,
+    })
+    return Object.freeze({ ...event, result: handoff })
   }
   const review = event.result
   if (

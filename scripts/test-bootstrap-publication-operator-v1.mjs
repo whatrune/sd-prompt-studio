@@ -6,11 +6,14 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import {
   assertMinimalGovernanceProductOwnerV1,
+  assertImplementationResultHandoffV1,
   executeBootstrapPublicationOperatorV1,
   executeNormalTaskExecutionOperatorV1,
   extractProtectedTransitionTaskStateV1,
   insertInitialProtectedTransitionTaskStateV1,
+  projectImplementationResultHandoffV1,
   productionHostV1,
+  serializeImplementationResultHandoffV1,
 } from './run-bootstrap-publication-operator-v1.mjs'
 import {
   serializeCanonicalTaskIssueBodyV1,
@@ -757,18 +760,11 @@ const makeNormalHostV1 = ({
         correction_context: correctionContext,
       }
       const result = operation === 'COMMIT_VALIDATED_TREE'
-        ? {
-            record_type: 'result_handoff',
-            authoring_role: 'IMPLEMENTER',
-            status: 'completed',
-            execution_stop_reason: 'completed',
-            blocking: 0,
-            remaining: 0,
-            unknown: 0,
+        ? projectImplementationResultHandoffV1({
             changed_paths: [...changedPaths],
             validation_results: [{ command: 'canonical validation', result: 'PASS', exact_head: currentHead }],
-            unperformed_items: [],
-          }
+            expected_head: currentHead,
+          })
         : {
             reviewer_role: 'INDEPENDENT_REVIEWER',
             decision: 'APPROVE',
@@ -860,6 +856,58 @@ const makeNormalHostV1 = ({
     },
   }
   return host
+}
+
+{
+  const input = {
+    changed_paths: [...PATHS],
+    validation_results: [{ command: 'canonical validation', result: 'PASS', exact_head: PARENT }],
+    expected_head: PARENT,
+  }
+  const projected = projectImplementationResultHandoffV1(input)
+  const admitted = assertImplementationResultHandoffV1(projected, {
+    changedPaths: PATHS,
+    expectedHead: PARENT,
+  })
+  check(JSON.stringify(admitted) === JSON.stringify(projected), 'N canonical implementation handoff producer emits the exact shape admitted unchanged by the commit consumer owner')
+  const serialized = serializeImplementationResultHandoffV1(input)
+  check(serialized === `${JSON.stringify(projected, null, 2)}\n`, 'N canonical implementation handoff serialization is deterministic with one trailing newline')
+  check(
+    serializeImplementationResultHandoffV1({ ...input, changed_paths: [...input.changed_paths].reverse() }) === serialized,
+    'N canonical implementation handoff serialization normalizes equivalent changed-path ordering',
+  )
+  check(JSON.stringify(JSON.parse(serialized)) === JSON.stringify(projected), 'N serialized canonical implementation handoff round-trips without shape drift')
+}
+
+{
+  const valid = projectImplementationResultHandoffV1({
+    changed_paths: [...PATHS],
+    validation_results: [{ command: 'canonical validation', result: 'PASS', exact_head: PARENT }],
+    expected_head: PARENT,
+  })
+  const invalid = [
+    ['general narrative', { role: 'Backend Implementer', status: 'completed', validation_results: valid.validation_results }],
+    ['missing field', Object.fromEntries(Object.entries(valid).filter(([key]) => key !== 'authoring_role'))],
+    ['role alias', { ...valid, authoring_role: 'Backend Implementer' }],
+    ['extra field', { ...valid, extra: true }],
+    ['blocking nonzero', { ...valid, blocking: 1 }],
+    ['remaining nonzero', { ...valid, remaining: 1 }],
+    ['unknown nonzero', { ...valid, unknown: 1 }],
+    ['path mismatch', { ...valid, changed_paths: [PATHS[0]] }],
+    ['validation failure', { ...valid, validation_results: [{ command: 'canonical validation', result: 'FAIL', exact_head: PARENT }] }],
+    ['stale validation head', { ...valid, validation_results: [{ command: 'canonical validation', result: 'PASS', exact_head: PUSHED }] }],
+    ['unperformed work', { ...valid, unperformed_items: ['not run'] }],
+  ]
+  for (const [label, value] of invalid) {
+    const host = makeNormalHostV1({
+      terminalEventTransform: (event) => ({ ...event, result: value }),
+    })
+    const result = await executeNormalTaskExecutionOperatorV1(
+      normalRequestV1('COMMIT_VALIDATED_TREE', PARENT), host,
+    )
+    check(result.reason === 'implementation_result_handoff_invalid', `N ${label} implementation handoff fails closed`)
+    check(result.mutation_count === 0 && host.metrics.commit === 0, `N ${label} implementation handoff performs zero mutation`)
+  }
 }
 
 {
