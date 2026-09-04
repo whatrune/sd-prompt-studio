@@ -28,16 +28,17 @@ export function admitVisualConceptCompilerConstraintIntentV1(value: unknown): Vi
     || value.record_type !== 'visual_concept_compiler_constraint_intent_v1'
     || value.version !== 1
     || !Array.isArray(value.required_visible_region_concept_ids)
-    || !value.required_visible_region_concept_ids.every(id => typeof id === 'string' && REQUIRED_VISIBLE_REGION_CONCEPT_IDS.includes(id as typeof REQUIRED_VISIBLE_REGION_CONCEPT_IDS[number]))
-    || new Set(value.required_visible_region_concept_ids).size !== value.required_visible_region_concept_ids.length
-    || value.required_visible_region_concept_ids.some((id, index, values) => index > 0 && values[index - 1].localeCompare(id) >= 0)
     || (value.minimum_framing_concept_id !== null
       && (typeof value.minimum_framing_concept_id !== 'string'
         || !MINIMUM_FRAMING_CONCEPT_IDS.includes(value.minimum_framing_concept_id as typeof MINIMUM_FRAMING_CONCEPT_IDS[number])))) return null
+  const requiredVisibleRegionConceptIds = [...value.required_visible_region_concept_ids]
+  if (!requiredVisibleRegionConceptIds.every(id => typeof id === 'string' && REQUIRED_VISIBLE_REGION_CONCEPT_IDS.includes(id as typeof REQUIRED_VISIBLE_REGION_CONCEPT_IDS[number]))
+    || new Set(requiredVisibleRegionConceptIds).size !== requiredVisibleRegionConceptIds.length
+    || requiredVisibleRegionConceptIds.some((id, index, values) => index > 0 && values[index - 1].localeCompare(id) >= 0)) return null
   return Object.freeze({
     record_type: value.record_type,
     version: value.version,
-    required_visible_region_concept_ids: Object.freeze([...value.required_visible_region_concept_ids]) as readonly typeof REQUIRED_VISIBLE_REGION_CONCEPT_IDS[number][],
+    required_visible_region_concept_ids: Object.freeze(requiredVisibleRegionConceptIds) as readonly typeof REQUIRED_VISIBLE_REGION_CONCEPT_IDS[number][],
     minimum_framing_concept_id: value.minimum_framing_concept_id as typeof MINIMUM_FRAMING_CONCEPT_IDS[number] | null,
   })
 }

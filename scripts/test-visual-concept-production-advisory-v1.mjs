@@ -207,6 +207,7 @@ try {
   for (const invalidIntent of [
     { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.hands', 'visibility.hands'] },
     { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.head', 'visibility.feet'] },
+    { ...requestedConstraints, required_visible_region_concept_ids: new Array(1) },
     { ...requestedConstraints, required_visible_region_concept_ids: ['visibility.knees'] },
     { ...requestedConstraints, minimum_framing_concept_id: 'camera.framing.portrait' },
     { ...requestedConstraints, observed_generated_visibility: 'VISIBLE' },
