@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, migratePersistedState, nextPromptGroupName, PROMPT_GROUP_COLORS, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }, { projectDictionaryConflictMap, projectTagSearchKeyboardAction }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, mergePersistedState, migratePersistedState, nextPromptGroupName, PROMPT_GROUP_COLORS, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }, { projectDictionaryConflictMap, projectTagSearchKeyboardAction }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -74,6 +74,24 @@ try {
     },
   })
   assert.deepEqual(rejectedMigratedVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'invalid persisted visibility intent must fail closed to the canonical empty snapshot')
+  const sameVersionHydratedVisibilityIntent = mergePersistedState(
+    JSON.parse(JSON.stringify({ visualConceptConstraintIntent: migratedVisibilityIntent.visualConceptConstraintIntent })),
+    usePromptStore.getState(),
+  )
+  assert.deepEqual(sameVersionHydratedVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.feet', 'visibility.head'], 'same-version hydration must retain valid canonical identities')
+  assert(Object.isFrozen(sameVersionHydratedVisibilityIntent.visualConceptConstraintIntent), 'same-version hydration must re-admit JSON state as an immutable owner-produced snapshot')
+  assert(Object.isFrozen(sameVersionHydratedVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids), 'same-version hydration must freeze the admitted identity list')
+  const rejectedSameVersionVisibilityIntent = mergePersistedState(
+    { visualConceptConstraintIntent: {
+      record_type: 'visual_concept_compiler_constraint_intent_v1',
+      version: 1,
+      required_visible_region_concept_ids: ['visibility.unknown'],
+      minimum_framing_concept_id: null,
+    } },
+    usePromptStore.getState(),
+  )
+  assert.deepEqual(rejectedSameVersionVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'same-version hydration must fail closed on an invalid persisted identity')
+  assert(Object.isFrozen(rejectedSameVersionVisibilityIntent.visualConceptConstraintIntent), 'same-version invalid hydration must use the immutable canonical empty snapshot')
   usePromptStore.getState().clearAll()
   assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'clearing the prompt must clear requested visibility intent without touching semantic ownership')
 

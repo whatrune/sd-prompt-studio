@@ -333,6 +333,16 @@ export function migratePersistedState(persisted: unknown) {
   }
 }
 
+export function mergePersistedState(persisted: unknown, current: State): State {
+  const state = persisted && typeof persisted === 'object' ? persisted as Partial<State> : {}
+  return {
+    ...current,
+    ...state,
+    visualConceptConstraintIntent: admitVisualConceptCompilerConstraintIntentV1(state.visualConceptConstraintIntent)
+      ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
+  }
+}
+
 export const usePromptStore = create<State>()(persist((set, get) => ({
   blocks: [firstBlock],
   sceneTags: [],
@@ -591,4 +601,5 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   name: 'sd-prompt-studio-v14',
   version: 17,
   migrate: migratePersistedState,
+  merge: mergePersistedState,
 }))
