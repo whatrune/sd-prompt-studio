@@ -305,7 +305,9 @@ function validateDocumentContent(contents, failures) {
   }
   for (const marker of [
     'exact host-owned bundled `pwsh` executable',
-    'PowerShell Core `7.6.4`',
+    'bounded `7.6.x` line',
+    '`Major = 7`, `Minor = 6`, and `Patch >= 4`',
+    'callable `[IO.Path]::GetRelativePath`',
     'Windows PowerShell 5.1',
     'PATH-selected `pwsh`',
     'The existing helper remains the sole cleanup-semantics owner.',
@@ -315,7 +317,9 @@ function validateDocumentContent(contents, failures) {
   for (const marker of [
     '<host-owned-bundled-pwsh-executable> -NoProfile -File scripts/remove-task-worktree-after-merge-v1.ps1',
     '`PSEdition = Core`',
-    'exact version `7.6.4`',
+    '`Major = 7`、`Minor = 6`、`Patch >= 4`',
+    '`[IO.Path]::GetRelativePath` callable',
+    '7.7以降への暗黙拡張は行わない',
     'callerのPATHから`pwsh`を探索せず',
     'helper内部のregistration、identity、cleanliness、Git common-directory capability、residue、およびref-preservation semanticsを変更しない',
     '`remove-task-worktree-after-merge-v1.ps1`はOS-wide process discovery、command-line scan、cwd/open-handle enumerationを重複実装しない。',
