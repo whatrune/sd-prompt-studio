@@ -203,9 +203,14 @@ try {
       explanation: {
         summary: graphContract.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').observed_effect,
       },
-      recommendation: null,
+      recommendation: {
+        suggestion_type: 'review_current_pose',
+        message: 'Review the current pose or arm placement when complete hand visibility is required; no replacement is selected automatically.',
+        replacement_prompt_tag_id: null,
+        automatic_action: false,
+      },
     }],
-  }, 'triggered risk must expose one canonical structured inspection entry without inventing recommendation text')
+  }, 'triggered risk must expose one bounded review-only suggestion from the canonical inspection owner')
   const callerOwnedCatalog = clone(checkedInCatalog)
   const immutableInspection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: callerOwnedCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')], constraintIntent: requestedConstraints }).constraint_metadata.advisory_inspection
   callerOwnedCatalog.advisory_effects[0].trigger_prompt_tags[0].prompt = 'mutated after projection'
@@ -214,7 +219,8 @@ try {
   equal(immutableInspection.entries[0].trigger_context.trigger_prompt_tags[0].prompt, 'hands behind back', 'canonical inspection must not retain mutable caller-owned trigger records')
   check(Object.isFrozen(immutableInspection.entries[0].trigger_context.trigger_prompt_tags[0]), 'projected trigger records must be frozen with the rest of the read-only inspection snapshot')
   equal(immutableInspection.entries[0].evidence.source_run_ids[0], 'CAM-018-A', 'canonical inspection must copy bounded evidence provenance without retaining caller ownership')
-  check(Object.isFrozen(immutableInspection.entries[0].evidence.source_run_ids) && Object.isFrozen(immutableInspection.entries[0].explanation), 'explanation and provenance metadata must be immutable')
+  check(Object.isFrozen(immutableInspection.entries[0].evidence.source_run_ids) && Object.isFrozen(immutableInspection.entries[0].explanation) && Object.isFrozen(immutableInspection.entries[0].recommendation), 'explanation, provenance, and suggestion metadata must be immutable')
+  equal(immutableInspection.entries[0].recommendation.replacement_prompt_tag_id, null, 'bounded evidence must not become an unsupported replacement PromptTag suggestion')
   deepEqual(constraintProjection.mapped_entries.map(entry => entry.concept_id), ['camera.framing.upper_body'], 'selected framing identity must remain separate from requested minimum framing identity and an advisory trigger need not become a duplicate concept binding')
   deepEqual(requestedConstraints, requestedSnapshot, 'constraint projection must not mutate caller-owned intent')
   const constraintPrompt = promptModule.buildPromptWithStrategy([], [selected('cam-upper-body'), selected('pos-hands-behind-back')], 'illustrious', 'BREAK', requestedConstraints)
@@ -427,9 +433,10 @@ try {
   check(appSource.includes('Visual Concept advisory unavailable') && appSource.includes('No mapped concepts for this selection.'), 'Inspector must expose unavailable and no-mapped states')
   check(appSource.includes('visualConceptAdvisory.constraint_metadata.advisory_inspection.entries.map'), 'App must render only advisory entries already returned by the canonical Compiler inspection projection')
   check(appSource.includes('className="visual-concept-risk-advisory" role="status" aria-live="polite"'), 'canonical risk output must render as a non-blocking accessible status in the existing Inspector')
-  check(appSource.includes('Hand visibility advisory') && appSource.includes('entry.explanation.summary'), 'the canonical hand-risk entry must render only its owner-projected bounded explanation')
+  check(appSource.includes('Hand visibility advisory') && appSource.includes('entry.explanation.summary') && appSource.includes('entry.recommendation.message') && appSource.includes('entry.recommendation.suggestion_type'), 'the canonical hand-risk entry must render only its owner-projected bounded explanation and suggestion')
   check(appSource.includes("entry.trigger_context.required_visible_region_concept_ids.join(' · ')") && appSource.includes("entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')") && appSource.includes("entry.evidence.source_run_ids.join(' · ')") && appSource.includes('entry.advisory_type') && appSource.includes('entry.evidence.status') && appSource.includes('entry.evidence.confidence') && appSource.includes('entry.supporting_identity.target_concept_id') && appSource.includes('entry.supporting_identity.effect_id'), 'the warning must expose bounded context and provenance from the canonical inspection entry rather than recreating semantics')
   check(!appSource.includes("advisory_type==='hand_visibility_risk'") && !appSource.includes("required_visible_region_concept_ids.includes('visibility.hands')"), 'App must not duplicate the canonical advisory trigger predicate')
+  check(!appSource.includes('review_current_pose') && !appSource.includes('rin-arms-at-sides'), 'App must not own suggestion semantics or invent an unsupported replacement identity')
   check(appSource.includes("buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset, 'BREAK', store.visualConceptConstraintIntent)"), 'App must supply the canonical store snapshot to the existing Compiler input')
   check(appSource.includes('VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1.map') && appSource.includes('<code>{conceptId}</code>'), 'App controls must be generated from and display canonical Graph identities without UI aliases')
   check(appSource.includes('setVisualConceptVisibleRegionRequired(conceptId,event.target.checked)') && !appSource.includes('observed_generated_visibility'), 'App must submit explicit user intent without claiming observed/generated visibility')
