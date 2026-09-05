@@ -12,7 +12,7 @@ import { DEFAULT_LOCALE, getCategoryLabel, getTagLabel, t } from './i18n'
 import { buildColorModifiedTag, COLOR_MODIFIERS, findColorModifier, isColorModifiableCategory } from './modifiers/colorModifier'
 import { parsePromptAnalyzerInput } from './promptAnalyzer'
 import { formatUserDictionaryImportFailure, parseUserDictionaryImportText } from './userDictionaryImport'
-import { VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1 } from './visualConceptCompilerConstraintIntentV1'
+import { VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1, type VisualConceptCompilerVisibleRegionConceptIdV1 } from './visualConceptCompilerConstraintIntentV1'
 
 
 
@@ -55,6 +55,27 @@ const mutuallyExclusiveGroups = [
   ['standing','sitting','lying','kneeling','squatting'],
   ['front view','side view','back view','from above','from below']
 ]
+
+const VISUAL_CONCEPT_VISIBILITY_ORDER_V1 = {
+  'visibility.head': 0,
+  'visibility.hands': 1,
+  'visibility.feet': 2,
+} satisfies Record<VisualConceptCompilerVisibleRegionConceptIdV1, number>
+
+const VISUAL_CONCEPT_VISIBILITY_LABEL_V1 = {
+  'visibility.head': 'Head visible',
+  'visibility.hands': 'Both hands visible',
+  'visibility.feet': 'Both feet visible',
+} satisfies Record<VisualConceptCompilerVisibleRegionConceptIdV1, string>
+
+const VISUAL_CONCEPT_VISIBILITY_PRESENTATION_V1 = Object.freeze(
+  [...VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1]
+    .sort((left, right) => VISUAL_CONCEPT_VISIBILITY_ORDER_V1[left] - VISUAL_CONCEPT_VISIBILITY_ORDER_V1[right])
+    .map(conceptId => Object.freeze({
+      conceptId,
+      label: VISUAL_CONCEPT_VISIBILITY_LABEL_V1[conceptId],
+    })),
+)
 
 
 async function copyText(text: string): Promise<boolean> {
@@ -482,6 +503,11 @@ export default function App() {
   )
   const prompt = expansion.prompt
   const visualConceptAdvisory = expansion.visualConceptAdvisory
+  const requiredVisibleRegionConceptIds = visualConceptAdvisory.constraint_metadata.requested.required_visible_region_concept_ids
+  const visualConceptRiskEntries = visualConceptAdvisory.constraint_metadata.advisory_inspection.entries
+  const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0 && visualConceptRiskEntries.length === 0
+    ? `${requiredVisibleRegionConceptIds.length} visibility ${requiredVisibleRegionConceptIds.length===1?'requirement':'requirements'} active. No known visibility risk for the current selection.`
+    : null
 
   const openSavePrompt = () => {
     setSavePromptName('')
@@ -1049,33 +1075,45 @@ export default function App() {
           {!visualConceptCollapsed&&<div className="preview-section-content visual-concept-advisory-content">
             <fieldset className="visual-concept-visibility-intent">
               <legend>Required visible regions</legend>
-              <div>{VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1.map(conceptId=><label key={conceptId}>
+              <div>{VISUAL_CONCEPT_VISIBILITY_PRESENTATION_V1.map(({conceptId,label})=><label key={conceptId}>
                 <input
                   type="checkbox"
                   checked={store.visualConceptConstraintIntent.required_visible_region_concept_ids.includes(conceptId)}
                   onChange={event=>store.setVisualConceptVisibleRegionRequired(conceptId,event.target.checked)}
                 />
+                <span>{label}</span>
                 <code>{conceptId}</code>
               </label>)}</div>
             </fieldset>
-            {visualConceptAdvisory.constraint_metadata.advisory_inspection.entries.map(entry=><aside className="visual-concept-risk-advisory" role="status" aria-live="polite" key={entry.advisory_type}>
+            {visualConceptRiskEntries.map(entry=><aside className="visual-concept-risk-advisory" key={entry.advisory_type}>
               <AlertTriangle size={16}/>
               <div>
-                <strong>Hand visibility advisory</strong>
-                <span>{entry.explanation.summary}</span>
-                <span>{entry.recommendation.message}</span>
-                <small><code>{entry.recommendation.suggestion_type}</code> · advisory only</small>
-                <small>Context: {entry.trigger_context.required_visible_region_concept_ids.join(' · ')} + {entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')}</small>
-                <small>Evidence runs: {entry.evidence.source_run_ids.join(' · ')}</small>
-                <small><code>{entry.advisory_type}</code> · {entry.evidence.status} / {entry.evidence.confidence}</small>
-                <small><code>{entry.supporting_identity.target_concept_id}</code> · {entry.supporting_identity.effect_id}</small>
+                <div className="visual-concept-risk-advisory-announcement" role="status" aria-live="polite">
+                  <strong>Hand visibility may be reduced by the current pose or arm placement.</strong>
+                  <span>Review current pose or arm placement.</span>
+                </div>
+                <small>Informational only — your prompt and selections are unchanged.</small>
+                <details className="visual-concept-risk-advisory-details">
+                  <summary>Evidence details</summary>
+                  <div>
+                    <span>{entry.explanation.summary}</span>
+                    <small>{entry.recommendation.message}</small>
+                    <small>Context: {entry.trigger_context.required_visible_region_concept_ids.join(' · ')} + {entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')}</small>
+                    <small>Evidence runs: {entry.evidence.source_run_ids.join(' · ')}</small>
+                    <small><code>{entry.recommendation.suggestion_type}</code> · advisory only</small>
+                    <small><code>{entry.advisory_type}</code> · {entry.evidence.status} / {entry.evidence.confidence}</small>
+                    <small><code>{entry.supporting_identity.target_concept_id}</code> · <code>{entry.supporting_identity.effect_id}</code></small>
+                    <small>Model: <code>{entry.supporting_identity.model_profile}</code></small>
+                  </div>
+                </details>
               </div>
             </aside>)}
             {visualConceptAdvisory.advisory_status==='UNAVAILABLE'
               ? <div className="visual-concept-advisory-empty"><AlertTriangle size={16}/><span>Visual Concept advisory unavailable</span></div>
               : <>
+                {visibilityIntentAcknowledgement&&<div className="visual-concept-advisory-empty"><Info size={16}/><span>{visibilityIntentAcknowledgement}</span></div>}
                 {visualConceptAdvisory.mapped_entries.length===0
-                  ? <div className="visual-concept-advisory-empty"><Info size={16}/><span>No mapped concepts for this selection.</span></div>
+                  ? requiredVisibleRegionConceptIds.length===0&&<div className="visual-concept-advisory-empty"><Info size={16}/><span>No mapped concepts for this selection.</span></div>
                   : <div className="visual-concept-advisory-list">{visualConceptAdvisory.mapped_entries.map((entry,index)=><article className="visual-concept-advisory-entry" key={`${entry.owner_kind}-${entry.owner_id}-${entry.prompt_tag_id}-${index}`}>
                     <div><strong>{entry.prompt_tag_label}</strong><code>{entry.concept_id}</code></div>
                     <small>{entry.concept_label}</small>
