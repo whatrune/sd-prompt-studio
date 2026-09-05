@@ -26,6 +26,7 @@ const teamDocs = Array.from({ length: 15 }, (_, index) => {
 });
 const files = ['AGENTS.md', ...teamDocs];
 const baselineContents = new Map(files.map((file) => [file, readFileSync(resolve(root, file), 'utf8')]));
+const previewOwnerSource = readFileSync(resolve(root, 'scripts/run-task-owned-preview-v1.ps1'), 'utf8');
 const canonicalCleanupCommand = '<host-owned-bundled-pwsh-executable> -NoProfile -File scripts/remove-task-worktree-after-merge-v1.ps1 `';
 const cleanupHostContractFailure = 'worktree lifecycle must contain exactly one canonical bundled-pwsh cleanup command';
 
@@ -291,8 +292,10 @@ function validateDocumentContent(contents, failures) {
   const entryGuard = contents.get('AGENTS.md');
   const worktreeRules = contents.get('docs/team/05-worktree-and-branch-rules.md');
   const previewOwnerMarkers = [
-    'A Role execution that starts any Task-owned preview MUST retain the exact exec-session and spawned process-tree identity as execution-local ownership.',
-    'Before returning any successful terminal Role result, including `completed` or `APPROVE`, that same owning execution MUST stop the preview and verify that exact spawned process tree is absent; wrapper or PTY exit alone is not teardown evidence.',
+    'A Role execution that starts any Task-owned preview MUST invoke `scripts/run-task-owned-preview-v1.ps1` from its exact Task worktree and retain the helper invocation\'s exec-session and spawned process-tree identity as execution-local ownership.',
+    'The owning execution requests teardown by sending exactly one `STOP` line through that same session;',
+    'Before returning any successful terminal Role result, including `completed` or `APPROVE`, that same owning execution MUST require the helper\'s terminal `process_tree_absent = true` result and the helper exec-session itself to be terminal; wrapper or PTY interruption alone is not teardown evidence.',
+    'Because the exact owned tree is then absent, none of its processes can retain the Task worktree as current directory or through an open handle.',
     'This failure handoff is permitted without verified teardown, but preview ownership remains bound to the same execution identity and MUST NOT transfer to Integrated Lead or terminal cleanup or be deferred to post-Merge worktree cleanup.',
   ];
   for (const [file, content] of [
@@ -303,6 +306,17 @@ function validateDocumentContent(contents, failures) {
       if (!content.includes(marker)) failures.push(`${file}: preview-owner terminal teardown contract is missing ${marker}`);
     }
   }
+  for (const marker of [
+    '$RootProcess.Kill($true)',
+    "$control -cne 'STOP'",
+    'preview_process_tree_identity_mismatch',
+    'preview_process_tree_absence_unproven',
+    'identity_mismatch_rejected = $true',
+    'process_tree_absent = $true',
+  ]) {
+    if (!previewOwnerSource.includes(marker)) failures.push(`preview execution owner is missing ${marker}`);
+  }
+  if (previewOwnerSource.includes('remove-task-worktree-after-merge-v1.ps1')) failures.push('preview execution owner must not invoke terminal cleanup');
   for (const marker of [
     'exact host-owned bundled `pwsh` executable',
     'bounded `7.6.x` line',
