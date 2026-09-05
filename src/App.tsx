@@ -505,9 +505,9 @@ export default function App() {
   const visualConceptAdvisory = expansion.visualConceptAdvisory
   const requiredVisibleRegionConceptIds = visualConceptAdvisory.constraint_metadata.requested.required_visible_region_concept_ids
   const visualConceptRiskEntries = visualConceptAdvisory.constraint_metadata.advisory_inspection.entries
-  const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0
-    ? `${requiredVisibleRegionConceptIds.length} visibility ${requiredVisibleRegionConceptIds.length===1?'requirement':'requirements'} active${visualConceptRiskEntries.length===0?'. No known visibility risk for the current selection.':'.'}`
-    : 'No mapped concepts for this selection.'
+  const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0 && visualConceptRiskEntries.length === 0
+    ? `${requiredVisibleRegionConceptIds.length} visibility ${requiredVisibleRegionConceptIds.length===1?'requirement':'requirements'} active. No known visibility risk for the current selection.`
+    : null
 
   const openSavePrompt = () => {
     setSavePromptName('')
@@ -1091,8 +1091,8 @@ export default function App() {
                 <div className="visual-concept-risk-advisory-announcement" role="status" aria-live="polite">
                   <strong>Hand visibility may be reduced by the current pose or arm placement.</strong>
                   <span>Review current pose or arm placement.</span>
-                  <small>Informational only — your prompt and selections are unchanged.</small>
                 </div>
+                <small>Informational only — your prompt and selections are unchanged.</small>
                 <details className="visual-concept-risk-advisory-details">
                   <summary>Evidence details</summary>
                   <div>
@@ -1111,8 +1111,9 @@ export default function App() {
             {visualConceptAdvisory.advisory_status==='UNAVAILABLE'
               ? <div className="visual-concept-advisory-empty"><AlertTriangle size={16}/><span>Visual Concept advisory unavailable</span></div>
               : <>
+                {visibilityIntentAcknowledgement&&<div className="visual-concept-advisory-empty"><Info size={16}/><span>{visibilityIntentAcknowledgement}</span></div>}
                 {visualConceptAdvisory.mapped_entries.length===0
-                  ? <div className="visual-concept-advisory-empty"><Info size={16}/><span>{visibilityIntentAcknowledgement}</span></div>
+                  ? requiredVisibleRegionConceptIds.length===0&&<div className="visual-concept-advisory-empty"><Info size={16}/><span>No mapped concepts for this selection.</span></div>
                   : <div className="visual-concept-advisory-list">{visualConceptAdvisory.mapped_entries.map((entry,index)=><article className="visual-concept-advisory-entry" key={`${entry.owner_kind}-${entry.owner_id}-${entry.prompt_tag_id}-${index}`}>
                     <div><strong>{entry.prompt_tag_label}</strong><code>{entry.concept_id}</code></div>
                     <small>{entry.concept_label}</small>
