@@ -12,6 +12,7 @@ import { DEFAULT_LOCALE, getCategoryLabel, getTagLabel, t } from './i18n'
 import { buildColorModifiedTag, COLOR_MODIFIERS, findColorModifier, isColorModifiableCategory } from './modifiers/colorModifier'
 import { parsePromptAnalyzerInput } from './promptAnalyzer'
 import { formatUserDictionaryImportFailure, parseUserDictionaryImportText } from './userDictionaryImport'
+import { VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1 } from './visualConceptCompilerConstraintIntentV1'
 
 
 
@@ -475,7 +476,10 @@ export default function App() {
     }
     return [{ key: category, groups: groupTagsBySubcategory(filtered, category) }]
   }, [category, favoritesOnly, filtered, locale, query, subcategory])
-  const expansion = useMemo(() => buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset), [store.blocks, store.sceneTags, store.modelPreset])
+  const expansion = useMemo(
+    () => buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset, 'BREAK', store.visualConceptConstraintIntent),
+    [store.blocks, store.sceneTags, store.modelPreset, store.visualConceptConstraintIntent],
+  )
   const prompt = expansion.prompt
   const visualConceptAdvisory = expansion.visualConceptAdvisory
 
@@ -1043,6 +1047,17 @@ export default function App() {
         <section className={`preview-section visual-concept-advisory ${visualConceptCollapsed?'collapsed':''}`} aria-labelledby="visual-concept-advisory-title">
           <div className="preview-section-header"><button type="button" className="preview-section-toggle" onClick={()=>setVisualConceptCollapsed(value=>!value)} aria-expanded={!visualConceptCollapsed}><span id="visual-concept-advisory-title">Visual Concepts</span>{visualConceptCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}</button></div>
           {!visualConceptCollapsed&&<div className="preview-section-content visual-concept-advisory-content">
+            <fieldset className="visual-concept-visibility-intent">
+              <legend>Required visible regions</legend>
+              <div>{VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1.map(conceptId=><label key={conceptId}>
+                <input
+                  type="checkbox"
+                  checked={store.visualConceptConstraintIntent.required_visible_region_concept_ids.includes(conceptId)}
+                  onChange={event=>store.setVisualConceptVisibleRegionRequired(conceptId,event.target.checked)}
+                />
+                <code>{conceptId}</code>
+              </label>)}</div>
+            </fieldset>
             {visualConceptAdvisory.advisory_status==='UNAVAILABLE'
               ? <div className="visual-concept-advisory-empty"><AlertTriangle size={16}/><span>Visual Concept advisory unavailable</span></div>
               : <>

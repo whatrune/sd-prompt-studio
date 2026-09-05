@@ -1528,6 +1528,39 @@ body,
   display: grid;
   gap: 10px;
 }
+.visual-concept-visibility-intent {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-primary);
+}
+.visual-concept-visibility-intent legend {
+  padding: 0 4px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+}
+.visual-concept-visibility-intent>div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+.visual-concept-visibility-intent label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+.visual-concept-visibility-intent input {
+  margin: 0;
+}
+.visual-concept-visibility-intent code {
+  overflow-wrap: anywhere;
+}
 .visual-concept-advisory-list {
   display: grid;
   gap: 8px;

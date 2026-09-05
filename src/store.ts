@@ -6,6 +6,13 @@ import { canonicalId, resolveCanonicalTag } from './data/canonical'
 import { createId } from './id'
 import type { LocalizedLabels } from './i18n'
 import { validateUserDictionaryImportPayload, type UserDictionaryImportResult } from './userDictionaryImport'
+import {
+  admitVisualConceptCompilerConstraintIntentV1,
+  EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
+  setVisualConceptCompilerVisibleRegionRequirementV1,
+  type VisualConceptCompilerConstraintIntentV1,
+  type VisualConceptCompilerVisibleRegionConceptIdV1,
+} from './visualConceptCompilerConstraintIntentV1'
 
 export type TagModifiers = { color?: string }
 export type SelectedTag = { id: string; prompt: string; label: string; labels?: LocalizedLabels; category: string; outputCategory?: string; subcategory?: string; sortSubcategory?: string; promptGroup?: string; promptOrder?: number; slot?: string | string[]; layer?: PromptTag['layer']; coverage?: PromptTag['coverage']; weight: number; rating?: ContentRating; baseTagId?: string; modifiers?: TagModifiers }
@@ -31,7 +38,11 @@ export const nextPromptGroupName = (groups: Pick<PromptGroup, 'id' | 'name'>[]) 
   return `グループ${suffix}`
 }
 export type SavedPromptStructure = { blocks: PromptBlock[]; sceneTags: SelectedTag[] }
-export type SavedPromptSettings = { modelPreset: ModelPreset; seeds: SeedEntry[] }
+export type SavedPromptSettings = {
+  modelPreset: ModelPreset
+  seeds: SeedEntry[]
+  visualConceptConstraintIntent: VisualConceptCompilerConstraintIntentV1
+}
 export type SavedPrompt = {
   id: string
   name: string
@@ -73,6 +84,7 @@ export type State = {
   promptGroups: PromptGroup[]
   navigationCollapsed: boolean
   workspaceView: WorkspaceView
+  visualConceptConstraintIntent: VisualConceptCompilerConstraintIntentV1
   addTag: (tag: SelectedTag) => void
   addCustomTag: (prompt: string, category: string, saveToDictionary?: boolean, label?: string) => void
   addUserTag: (tag: Omit<UserPromptTag, 'id' | 'source'> & { id?: string }) => void
@@ -110,6 +122,7 @@ export type State = {
   deletePromptGroup: (id: string) => boolean
   setNavigationCollapsed: (collapsed: boolean) => void
   setWorkspaceView: (view: WorkspaceView) => void
+  setVisualConceptVisibleRegionRequired: (conceptId: VisualConceptCompilerVisibleRegionConceptIdV1, required: boolean) => void
 }
 
 export const DEFAULT_NEGATIVE = 'modern, recent, old, oldest, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured, long body, lowres, bad anatomy, bad hands, missing fingers, extra fingers, extra digits, fewer digits, cropped, very displeasing, (worst quality, bad quality:1.2), sketch, jpeg artifacts, signature, watermark, username, (censored, bar_censor, mosaic_censor:1.2), simple background, conjoined, bad ai-generated'
@@ -204,6 +217,8 @@ function normalizeSavedPrompt(saved: LegacySavedPrompt, fallbackPreset: ModelPre
   const modelPreset = saved.settings?.modelPreset ?? saved.modelPreset ?? fallbackPreset
   const seeds = (Array.isArray(saved.settings?.seeds) ? saved.settings.seeds : saved.seeds ?? [])
     .filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed)
+  const visualConceptConstraintIntent = admitVisualConceptCompilerConstraintIntentV1(saved.settings?.visualConceptConstraintIntent)
+    ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1
   const displayTags = Array.isArray(saved.displayTags) ? saved.displayTags.map(cloneSelectedTag) : promptDisplayTags(blocks, sceneTags)
   const generatedPrompt = saved.generatedPrompt ?? saved.positivePrompt ?? ''
   const now = Date.now()
@@ -217,7 +232,7 @@ function normalizeSavedPrompt(saved: LegacySavedPrompt, fallbackPreset: ModelPre
     structure: { blocks: blocks.map(cloneBlock), sceneTags: sceneTags.map(cloneSelectedTag) },
     generatedPrompt,
     negativePrompt: saved.negativePrompt ?? '',
-    settings: { modelPreset, seeds: seeds.map(cloneSeed) },
+    settings: { modelPreset, seeds: seeds.map(cloneSeed), visualConceptConstraintIntent },
     modelPreset,
     positivePrompt: generatedPrompt,
     blocks,
@@ -319,6 +334,21 @@ export function migratePersistedState(persisted: unknown) {
     promptGroups,
     navigationCollapsed: state.navigationCollapsed === true,
     workspaceView: state.workspaceView === 'favorites' || state.workspaceView === 'library' ? state.workspaceView : 'prompt',
+    visualConceptConstraintIntent: admitVisualConceptCompilerConstraintIntentV1(state.visualConceptConstraintIntent)
+      ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
+  }
+}
+
+export function mergePersistedState(persisted: unknown, current: State): State {
+  const state = persisted && typeof persisted === 'object' ? persisted as Partial<State> : {}
+  return {
+    ...current,
+    ...state,
+    savedPrompts: Array.isArray(state.savedPrompts)
+      ? (state.savedPrompts as LegacySavedPrompt[]).map(saved => normalizeSavedPrompt(saved, state.modelPreset ?? current.modelPreset))
+      : current.savedPrompts,
+    visualConceptConstraintIntent: admitVisualConceptCompilerConstraintIntentV1(state.visualConceptConstraintIntent)
+      ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
   }
 }
 
@@ -338,6 +368,7 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   promptGroups: [createUnclassifiedPromptGroup()],
   navigationCollapsed: false,
   workspaceView: 'prompt',
+  visualConceptConstraintIntent: EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
   replaceTags: (removeIds, tag) => set((state) => ({
     ...(isSceneCategory(tag.category) ? { sceneTags: [...state.sceneTags.filter(t => !removeIds.includes(t.id) && t.prompt !== tag.prompt), tag] } : { blocks: state.blocks.map(b => b.id === state.activeBlockId
       ? { ...b, tags: [...b.tags.filter(t => !removeIds.includes(t.id) && t.prompt !== tag.prompt), tag] }
@@ -415,7 +446,11 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   setSubjectPosition: (id, position) => set((state) => ({ blocks: state.blocks.map(block => block.id === id ? { ...block, position } : block) })),
   setActiveBlock: (id) => set({ activeBlockId: id, activeLayer: 'subject' }),
   setActiveLayer: (layer) => set({ activeLayer: layer }),
-  clearAll: () => set((state) => ({ sceneTags: [], blocks: state.blocks.map((b, index) => ({ ...b, name: `被写体 ${index + 1}`, tags: [] })) })),
+  clearAll: () => set((state) => ({
+    sceneTags: [],
+    blocks: state.blocks.map((b, index) => ({ ...b, name: `被写体 ${index + 1}`, tags: [] })),
+    visualConceptConstraintIntent: EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
+  })),
   applyQualityPreset: (preset) => {
     const current = preset ?? get().modelPreset
     const prompts = QUALITY_PRESETS[current]
@@ -459,7 +494,12 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
       displayTags,
       structure: { blocks: blocks.map(cloneBlock), sceneTags: sceneTags.map(cloneSelectedTag) },
       generatedPrompt: input.positivePrompt,
-      settings: { modelPreset: state.modelPreset, seeds: seeds.map(cloneSeed) },
+      settings: {
+        modelPreset: state.modelPreset,
+        seeds: seeds.map(cloneSeed),
+        visualConceptConstraintIntent: admitVisualConceptCompilerConstraintIntentV1(state.visualConceptConstraintIntent)
+          ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
+      },
       modelPreset: state.modelPreset,
       positivePrompt: input.positivePrompt,
       negativePrompt: input.negativePrompt,
@@ -482,6 +522,8 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
       negative: saved.negativePrompt,
       modelPreset: saved.modelPreset,
       seeds: saved.seeds.map(cloneSeed),
+      visualConceptConstraintIntent: admitVisualConceptCompilerConstraintIntentV1(saved.settings.visualConceptConstraintIntent)
+        ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
       activeBlockId: blocks[0].id,
       activeLayer: 'subject',
     })
@@ -567,8 +609,13 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
   },
   setNavigationCollapsed: (navigationCollapsed) => set({ navigationCollapsed }),
   setWorkspaceView: (workspaceView) => set({ workspaceView }),
+  setVisualConceptVisibleRegionRequired: (conceptId, required) => set((state) => {
+    const visualConceptConstraintIntent = setVisualConceptCompilerVisibleRegionRequirementV1(state.visualConceptConstraintIntent, conceptId, required)
+    return visualConceptConstraintIntent ? { visualConceptConstraintIntent } : state
+  }),
 }), {
   name: 'sd-prompt-studio-v14',
-  version: 16,
+  version: 17,
   migrate: migratePersistedState,
+  merge: mergePersistedState,
 }))

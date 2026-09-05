@@ -5,7 +5,7 @@ import { createServer } from 'vite'
 const server = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
 
 try {
-  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, migratePersistedState, nextPromptGroupName, PROMPT_GROUP_COLORS, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }, { projectDictionaryConflictMap, projectTagSearchKeyboardAction }] = await Promise.all([
+  const [{ adultTags }, { buildPrompt, buildPromptWithStrategy, tagSort }, { buildSavedPromptSummary, mergePersistedState, migratePersistedState, nextPromptGroupName, PROMPT_GROUP_COLORS, UNCLASSIFIED_PROMPT_GROUP_ID, usePromptStore, isSceneCategory }, { categoryOrder, subcategoryOrder, tags, allTags }, { getConflictReason, getSlotDefinitions }, { canonicalVisibleTags, mergeCanonicalTag, resolveCanonicalTag }, { applyColorModifier, buildColorModifiedTag, findColorModifier, isColorModifiableCategory }, { projectDictionaryConflictMap, projectTagSearchKeyboardAction }] = await Promise.all([
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/store.ts'),
@@ -34,6 +34,66 @@ try {
   assert.equal(migratedNavigation.workspaceView, 'library', 'persisted Workspace view must survive migration')
   usePromptStore.getState().setNavigationCollapsed(false)
   usePromptStore.getState().setWorkspaceView('prompt')
+
+  const emptyVisibilityIntent = usePromptStore.getState().visualConceptConstraintIntent
+  assert.deepEqual(emptyVisibilityIntent.required_visible_region_concept_ids, [], 'visibility intent must start as the canonical empty snapshot')
+  const promptBeforeVisibilityIntent = buildPromptWithStrategy(usePromptStore.getState().blocks, usePromptStore.getState().sceneTags, usePromptStore.getState().modelPreset).prompt
+  usePromptStore.getState().setVisualConceptVisibleRegionRequired('visibility.hands', true)
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.hands'], 'store must persist explicit canonical hand-visibility intent')
+  const promptAfterVisibilityIntent = buildPromptWithStrategy(usePromptStore.getState().blocks, usePromptStore.getState().sceneTags, usePromptStore.getState().modelPreset, 'BREAK', usePromptStore.getState().visualConceptConstraintIntent).prompt
+  assert.equal(promptAfterVisibilityIntent, promptBeforeVisibilityIntent, 'visibility intent alone must not change prompt bytes')
+  const handsBehindTag = tags.find(tag => tag.id === 'pos-hands-behind-back')
+  assert(handsBehindTag, 'the exact admitted hand-visibility risk trigger must exist')
+  const handRiskExpansion = buildPromptWithStrategy(
+    [{ id: 'hand-risk-subject', name: 'Subject 1', tags: [{ ...handsBehindTag, weight: 1 }] }],
+    [],
+    'illustrious',
+    'BREAK',
+    usePromptStore.getState().visualConceptConstraintIntent,
+  )
+  assert.deepEqual(handRiskExpansion.visualConceptAdvisory.constraint_metadata.advisory_inspection.entries.map(entry => entry.advisory_type), ['hand_visibility_risk'], 'store-admitted hand intent must reach the existing Compiler advisory inspection for the exact supported pose context')
+  usePromptStore.getState().setVisualConceptVisibleRegionRequired('visibility.unknown', true)
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.hands'], 'unknown visibility identity must leave admitted store state unchanged')
+  const migratedVisibilityIntent = migratePersistedState({
+    blocks: [{ id: 'visibility-subject', name: 'Subject 1', tags: [] }],
+    visualConceptConstraintIntent: {
+      record_type: 'visual_concept_compiler_constraint_intent_v1',
+      version: 1,
+      required_visible_region_concept_ids: ['visibility.feet', 'visibility.head'],
+      minimum_framing_concept_id: null,
+    },
+  })
+  assert.deepEqual(migratedVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.feet', 'visibility.head'], 'valid persisted visibility intent must survive canonical migration')
+  const rejectedMigratedVisibilityIntent = migratePersistedState({
+    blocks: [{ id: 'invalid-visibility-subject', name: 'Subject 1', tags: [] }],
+    visualConceptConstraintIntent: {
+      record_type: 'visual_concept_compiler_constraint_intent_v1',
+      version: 1,
+      required_visible_region_concept_ids: ['visibility.unknown'],
+      minimum_framing_concept_id: null,
+    },
+  })
+  assert.deepEqual(rejectedMigratedVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'invalid persisted visibility intent must fail closed to the canonical empty snapshot')
+  const sameVersionHydratedVisibilityIntent = mergePersistedState(
+    JSON.parse(JSON.stringify({ visualConceptConstraintIntent: migratedVisibilityIntent.visualConceptConstraintIntent })),
+    usePromptStore.getState(),
+  )
+  assert.deepEqual(sameVersionHydratedVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.feet', 'visibility.head'], 'same-version hydration must retain valid canonical identities')
+  assert(Object.isFrozen(sameVersionHydratedVisibilityIntent.visualConceptConstraintIntent), 'same-version hydration must re-admit JSON state as an immutable owner-produced snapshot')
+  assert(Object.isFrozen(sameVersionHydratedVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids), 'same-version hydration must freeze the admitted identity list')
+  const rejectedSameVersionVisibilityIntent = mergePersistedState(
+    { visualConceptConstraintIntent: {
+      record_type: 'visual_concept_compiler_constraint_intent_v1',
+      version: 1,
+      required_visible_region_concept_ids: ['visibility.unknown'],
+      minimum_framing_concept_id: null,
+    } },
+    usePromptStore.getState(),
+  )
+  assert.deepEqual(rejectedSameVersionVisibilityIntent.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'same-version hydration must fail closed on an invalid persisted identity')
+  assert(Object.isFrozen(rejectedSameVersionVisibilityIntent.visualConceptConstraintIntent), 'same-version invalid hydration must use the immutable canonical empty snapshot')
+  usePromptStore.getState().clearAll()
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'clearing the prompt must clear requested visibility intent without touching semantic ownership')
 
   assert.equal(adultTags.length, 131, 'adult tag count must remain unchanged')
   assert.equal(new Set(adultTags.map(tag => tag.id)).size, 131, 'adult tag ids must remain unique')
@@ -601,11 +661,61 @@ try {
   })
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].modelPreset, 'sdxl', 'legacy saved Prompts must inherit the persisted Model Preset')
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].settings.modelPreset, 'sdxl', 'legacy saved Prompts must migrate to nested settings')
+  assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].settings.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'legacy saved Prompts must default to canonical empty visibility intent')
+  assert(Object.isFrozen(migratedLegacySavedPrompt.savedPrompts[0].settings.visualConceptConstraintIntent), 'legacy saved Prompt visibility intent must be an immutable owner snapshot')
   assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].structure.blocks.map(block => block.id), ['legacy-library'], 'legacy saved Prompts must migrate to a reusable structure snapshot')
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].legacyColor, '#ff6699', 'legacy Prompt-level colors must be retained for compatibility')
   assert.equal('color' in migratedLegacySavedPrompt.savedPrompts[0], false, 'migrated Saved Prompts must not retain color as a renderable field')
   assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].groups, [UNCLASSIFIED_PROMPT_GROUP_ID], 'ungrouped legacy Prompts must migrate into Unclassified')
   assert.equal(migratedLegacySavedPrompt.promptGroups[0].color, '#ff6699', 'Unclassified must inherit a legacy ungrouped color when available')
+  const migratedMalformedSavedIntent = migratePersistedState({
+    blocks: [{ id: 'malformed-saved-intent-root', name: 'Subject 1', tags: [] }],
+    savedPrompts: [{
+      id: 'malformed-saved-intent',
+      name: 'Malformed Saved Intent',
+      blocks: [{ id: 'malformed-saved-intent-subject', name: 'Subject 1', tags: [] }],
+      settings: {
+        modelPreset: 'illustrious',
+        seeds: [],
+        visualConceptConstraintIntent: {
+          record_type: 'visual_concept_compiler_constraint_intent_v1',
+          version: 1,
+          required_visible_region_concept_ids: ['visibility.unknown'],
+          minimum_framing_concept_id: null,
+        },
+      },
+    }],
+  })
+  assert.deepEqual(migratedMalformedSavedIntent.savedPrompts[0].settings.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'malformed Saved Prompt visibility intent must fail closed to canonical empty')
+  const sameVersionSavedPromptHydration = mergePersistedState(JSON.parse(JSON.stringify({
+    modelPreset: 'illustrious',
+    savedPrompts: [
+      {
+        id: 'same-version-valid-saved-intent', name: 'Valid', blocks: [], sceneTags: [], seeds: [],
+        settings: {
+          modelPreset: 'illustrious', seeds: [],
+          visualConceptConstraintIntent: {
+            record_type: 'visual_concept_compiler_constraint_intent_v1', version: 1,
+            required_visible_region_concept_ids: ['visibility.hands'], minimum_framing_concept_id: null,
+          },
+        },
+      },
+      { id: 'same-version-missing-saved-intent', name: 'Missing', blocks: [], sceneTags: [], seeds: [] },
+      {
+        id: 'same-version-malformed-saved-intent', name: 'Malformed', blocks: [], sceneTags: [], seeds: [],
+        settings: {
+          modelPreset: 'illustrious', seeds: [],
+          visualConceptConstraintIntent: {
+            record_type: 'visual_concept_compiler_constraint_intent_v1', version: 1,
+            required_visible_region_concept_ids: ['visibility.unknown'], minimum_framing_concept_id: null,
+          },
+        },
+      },
+    ],
+  })), usePromptStore.getState())
+  assert.deepEqual(sameVersionSavedPromptHydration.savedPrompts.map(saved => saved.settings.visualConceptConstraintIntent.required_visible_region_concept_ids), [['visibility.hands'], [], []], 'same-version hydration must canonically admit valid Saved Prompt intent and fail missing or malformed intent closed')
+  assert(sameVersionSavedPromptHydration.savedPrompts.every(saved => Object.isFrozen(saved.settings.visualConceptConstraintIntent)), 'same-version hydration must produce immutable Saved Prompt intent snapshots')
+  assert(sameVersionSavedPromptHydration.savedPrompts.every(saved => Object.isFrozen(saved.settings.visualConceptConstraintIntent.required_visible_region_concept_ids)), 'same-version hydration must freeze every Saved Prompt visibility identity list')
 
   usePromptStore.setState({
     blocks: [{ id: 'library-subject', name: 'Library Subject', subjectNumber: 1, position: 'center', tags: [subjectHair] }],
@@ -649,6 +759,7 @@ try {
   assert.equal(atomicallyUpdatedGroup?.color, '#334455')
   assert.notEqual(atomicallyUpdatedGroup?.updatedAt, 1, 'an atomic group update must refresh updatedAt')
   assert.equal(atomicGroupUpdateCount, 1, 'an atomic group update must emit exactly one Store change')
+  usePromptStore.getState().setVisualConceptVisibleRegionRequired('visibility.hands', true)
   const savedLibraryPrompt = usePromptStore.getState().savePrompt({
     name: 'Library Favorite',
     positivePrompt: 'saved positive snapshot',
@@ -667,6 +778,8 @@ try {
   assert.equal(savedLibraryPrompt.displayTags.length, 2)
   assert.equal(savedLibraryPrompt.structure.blocks[0].tags[0].prompt, 'black hair')
   assert.equal(savedLibraryPrompt.settings.modelPreset, 'pony')
+  assert.deepEqual(savedLibraryPrompt.settings.visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.hands'], 'Saved Prompt settings must capture explicit visibility intent')
+  assert(Object.isFrozen(savedLibraryPrompt.settings.visualConceptConstraintIntent), 'Saved Prompt visibility intent must remain an immutable canonical snapshot')
   assert.deepEqual(usePromptStore.getState().savedPrompts[0].seeds.map(seed => seed.value), [123456789, 987654321, 24680])
   assert.equal(usePromptStore.getState().savePrompt({ name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
   const seedlessPrompt = usePromptStore.getState().savePrompt({ name: 'Seedless Prompt', positivePrompt: '', negativePrompt: '', seeds: [] })
@@ -761,6 +874,8 @@ try {
     seeds: [{ value: 1 }],
     modelPreset: 'sdxl',
   })
+  usePromptStore.getState().setVisualConceptVisibleRegionRequired('visibility.feet', true)
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.feet'], 'current visibility intent must be independently editable before replacement restore')
   assert.equal(usePromptStore.getState().savedPrompts[0].blocks[0].tags[0].prompt, 'black hair', 'saved blocks must remain immutable after current edits')
   assert.equal(usePromptStore.getState().savedPrompts[0].sceneTags[0].prompt, 'masterpiece', 'saved Scene tags must remain immutable after current edits')
   assert.equal(usePromptStore.getState().restorePrompt(savedLibraryPrompt.id), true, 'saved Prompt state must restore')
@@ -770,6 +885,8 @@ try {
   assert.equal(usePromptStore.getState().negative, 'library negative')
   assert.equal(usePromptStore.getState().modelPreset, 'pony')
   assert.deepEqual(usePromptStore.getState().seeds.map(seed => seed.value), [123456789, 987654321, 24680])
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.hands'], 'replacement restore must restore the Saved Prompt visibility intent instead of retaining unrelated current intent')
+  assert(Object.isFrozen(usePromptStore.getState().visualConceptConstraintIntent), 'restored visibility intent must be re-admitted as an immutable owner snapshot')
   usePromptStore.setState({ blocks: [{ id: 'merge-base', name: 'Merge Base', subjectNumber: 1, tags: [] }], sceneTags: [], activeBlockId: 'merge-base', seeds: [] })
   assert.equal(usePromptStore.getState().mergeSavedPrompt(savedLibraryPrompt.id), true, 'saved Prompt state must support simple merge')
   assert.equal(usePromptStore.getState().blocks.length, 2, 'simple merge must preserve the current Subject and append saved Subjects')
