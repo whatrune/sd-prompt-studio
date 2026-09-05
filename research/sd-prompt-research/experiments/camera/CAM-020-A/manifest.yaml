@@ -1,0 +1,96 @@
+schema_version: '1.0'
+run_id: CAM-020-A
+domain: camera
+condition: hands behind back
+title: CAM-020-A — hands behind back
+status: OBSERVED
+created_at: '2026-09-05T18:15:52+09:00'
+updated_at: '2026-09-05T09:15:52.419+00:00'
+research:
+  target_phrase: hands behind back
+  research_question: Is rin-arms-at-sides (arms at sides) a sufficiently reliable non-mutating replacement
+    suggestion for pos-hands-behind-back (hands behind back) when explicit visibility.hands intent is
+    active?
+  baseline_run_id: CAM-019-C
+  variant_label: hands behind back
+  hypothesis_before_run: Arms at sides may preserve complete bilateral hand visibility more reliably than
+    hands behind back under an otherwise matched hands-visible full-body context.
+prompt:
+  positive: 1girl, solo, standing, neutral expression, plain fitted sleeveless top, black shorts, barefoot,
+    eye level, front view, empty seamless studio, plain floor, hands visible, full body, hands behind
+    back
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing
+    fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle, background objects,
+    props, furniture
+  changed_phrases:
+  - hands behind back
+  fixed_phrases:
+  - 1girl
+  - solo
+  - standing
+  - neutral expression
+  - plain fitted sleeveless top
+  - black shorts
+  - barefoot
+  - eye level
+  - front view
+  - empty seamless studio
+  - plain floor
+  - hands visible
+  - full body
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+  - 946796771
+  - 2087543395
+  - 960423650
+  - 1993324767
+  - 1286520154
+  - 878145270
+source:
+  sheet_file: null
+  metadata_file: source/CAM-020-A_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: null
+outputs:
+  panels:
+  - panels/CAM-020-A_01.png
+  - panels/CAM-020-A_02.png
+  - panels/CAM-020-A_03.png
+  - panels/CAM-020-A_04.png
+  - panels/CAM-020-A_05.png
+  - panels/CAM-020-A_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: 'Generated directly through the verified A1111 txt2img API under Task #642. Prompt-blind observation
+    was frozen before condition mapping disclosure. Results are research evidence only.'
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null

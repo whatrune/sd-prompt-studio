@@ -750,3 +750,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-04T05:25:04.874+00:00'
   path: experiments/camera/CAM-019-C
+- run_id: CAM-020-A
+  domain: camera
+  title: CAM-020-A — hands behind back
+  status: OBSERVED
+  updated_at: '2026-09-05T09:15:52.419+00:00'
+  path: experiments/camera/CAM-020-A
+- run_id: CAM-020-B
+  domain: camera
+  title: CAM-020-B — arms at sides
+  status: OBSERVED
+  updated_at: '2026-09-05T09:15:52.419+00:00'
+  path: experiments/camera/CAM-020-B

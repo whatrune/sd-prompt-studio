@@ -1,0 +1,246 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-020-B",
+  "blind_condition_label": "COND-01",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "left_hand_visibility",
+    "right_hand_visibility",
+    "left_hand_frame_boundary",
+    "right_hand_frame_boundary",
+    "left_hand_occlusion_source",
+    "right_hand_occlusion_source",
+    "arm_placement_observation",
+    "body_coverage",
+    "hand_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-01: complete bilateral hand visibility=6/6; both hands not visible=0/6.",
+      "Opaque condition COND-01: observed placement pattern=6/6; assessable=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested arm placement, run mapping, prompts, seeds, PromptTag IDs, and emitted phrases were withheld.",
+      "The 12-panel opaque observation record was frozen before mapping disclosure at SHA-256 d2bdb721e6740869f901a87b65b97983ead3ab7ff672618c5ff00a0e23ca8f24.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen row or evidence note.",
+      "Prompt compliance, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both lowered hand contours are fully visible alongside the thighs with clear separation from the torso."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hands are visibly lowered alongside the torso and are complete within the full-body frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hands are directly and completely visible beside the shorts; neither hand is cropped or overlapped by the body."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both narrow hand silhouettes are fully visible beside the shorts without cropping or occlusion."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hands are fully visible at the sides of the shorts and remain inside the image boundary."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The two hands are directly visible beside the hips with complete contours and no body overlap."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "left_hand_visibility": {"fully_visible": 6},
+      "right_hand_visibility": {"fully_visible": 6},
+      "left_hand_frame_boundary": {"fully_inside_frame": 6},
+      "right_hand_frame_boundary": {"fully_inside_frame": 6},
+      "left_hand_occlusion_source": {"none": 6},
+      "right_hand_occlusion_source": {"none": 6},
+      "arm_placement_observation": {"alongside_torso": 6},
+      "body_coverage": {"full_body": 6},
+      "hand_assessability": {"assessable": 6},
+      "ambiguity_or_artifact": {"none": 6}
+    },
+    "primary_morphology_counts": {"hand_visibility_replacement_candidate_observation": 6},
+    "secondary_morphology_counts": {},
+    "artifact_counts": {"none": 6},
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
