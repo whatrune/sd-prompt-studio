@@ -1063,6 +1063,8 @@ export default function App() {
               <div>
                 <strong>Hand visibility advisory</strong>
                 <span>{entry.explanation.summary}</span>
+                <span>{entry.recommendation.message}</span>
+                <small><code>{entry.recommendation.suggestion_type}</code> · advisory only</small>
                 <small>Context: {entry.trigger_context.required_visible_region_concept_ids.join(' · ')} + {entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')}</small>
                 <small>Evidence runs: {entry.evidence.source_run_ids.join(' · ')}</small>
                 <small><code>{entry.advisory_type}</code> · {entry.evidence.status} / {entry.evidence.confidence}</small>

@@ -91,7 +91,12 @@ export type VisualConceptCompilerAdvisoryInspectionEntryV1 = {
     source_run_ids: typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS
   }
   explanation: { summary: string }
-  recommendation: null
+  recommendation: {
+    suggestion_type: 'review_current_pose'
+    message: string
+    replacement_prompt_tag_id: null
+    automatic_action: false
+  }
 }
 
 export type VisualConceptCompilerAdvisoryInspectionV1 = {
@@ -163,7 +168,12 @@ const constraintMetadata = (
         source_run_ids: Object.freeze([...effect.explanation.source_run_ids]) as typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS,
       }),
       explanation: Object.freeze({ summary: effect.explanation.summary }),
-      recommendation: null,
+      recommendation: Object.freeze({
+        suggestion_type: 'review_current_pose' as const,
+        message: 'Review the current pose or arm placement when complete hand visibility is required; no replacement is selected automatically.',
+        replacement_prompt_tag_id: null,
+        automatic_action: false as const,
+      }),
     }))),
   }),
 })
