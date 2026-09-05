@@ -1,0 +1,246 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-020-A",
+  "blind_condition_label": "COND-02",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "left_hand_visibility",
+    "right_hand_visibility",
+    "left_hand_frame_boundary",
+    "right_hand_frame_boundary",
+    "left_hand_occlusion_source",
+    "right_hand_occlusion_source",
+    "arm_placement_observation",
+    "body_coverage",
+    "hand_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-02: complete bilateral hand visibility=0/6; both hands not visible=6/6.",
+      "Opaque condition COND-02: observed placement pattern=6/6; assessable=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested arm placement, run mapping, prompts, seeds, PromptTag IDs, and emitted phrases were withheld.",
+      "The 12-panel opaque observation record was frozen before mapping disclosure at SHA-256 d2bdb721e6740869f901a87b65b97983ead3ab7ff672618c5ff00a0e23ca8f24.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen row or evidence note.",
+      "Prompt compliance, threshold application, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "not_visible",
+        "not_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "body",
+        "body",
+        "behind_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hands are completely hidden behind the torso while the arms visibly continue rearward."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "not_visible",
+        "not_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "body",
+        "body",
+        "behind_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hands are absent from visible pixels because the arms continue behind the body; no frame crop is involved."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "not_visible",
+        "not_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "body",
+        "body",
+        "behind_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both arms visibly pass behind the torso; no hand pixels are visible although the subject is fully framed."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "not_visible",
+        "not_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "body",
+        "body",
+        "behind_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The arms pass behind the torso and both hands remain fully obscured inside the uncropped subject frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "not_visible",
+        "not_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "body",
+        "body",
+        "behind_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Neither hand is visible; both arm paths disappear behind the body within the full-body composition."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "not_visible",
+        "not_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "body",
+        "body",
+        "behind_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hand_visibility_replacement_candidate_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "No hand contour is directly visible; bilateral arm placement behind the body supplies direct body-occlusion evidence."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "left_hand_visibility": {"not_visible": 6},
+      "right_hand_visibility": {"not_visible": 6},
+      "left_hand_frame_boundary": {"fully_inside_frame": 6},
+      "right_hand_frame_boundary": {"fully_inside_frame": 6},
+      "left_hand_occlusion_source": {"body": 6},
+      "right_hand_occlusion_source": {"body": 6},
+      "arm_placement_observation": {"behind_torso": 6},
+      "body_coverage": {"full_body": 6},
+      "hand_assessability": {"assessable": 6},
+      "ambiguity_or_artifact": {"none": 6}
+    },
+    "primary_morphology_counts": {"hand_visibility_replacement_candidate_observation": 6},
+    "secondary_morphology_counts": {},
+    "artifact_counts": {"none": 6},
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
