@@ -10,9 +10,13 @@ const SOURCE_KEYS = ['binding_record_type', 'binding_version', 'binding_sha256',
 const COVERAGE_KEYS = ['active_prompt_tag_count', 'mapped_active_prompt_tag_count', 'unmapped_active_prompt_tag_count']
 const MAPPING_KEYS = ['prompt_tag_id', 'concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
 const CONSTRAINT_CONCEPT_KEYS = ['concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
-const ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'trigger_prompt_tags', 'advisory_status', 'confidence', 'model_profile', 'explanation']
+const ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'trigger_prompt_tags', 'advisory_status', 'confidence', 'model_profile', 'explanation', 'specific_replacement_suggestions']
 const ADVISORY_TRIGGER_KEYS = ['prompt_tag_id', 'prompt', 'category', 'slot']
 const ADVISORY_EXPLANATION_KEYS = ['summary', 'source_run_ids']
+const SPECIFIC_REPLACEMENT_KEYS = ['prompt_tag_id', 'prompt', 'prompt_tag_label', 'category', 'slot', 'suggestion_status', 'automatic_action', 'evidence']
+const SPECIFIC_REPLACEMENT_EVIDENCE_KEYS = ['classification', 'source_run_ids', 'model_profile', 'metrics']
+const SPECIFIC_REPLACEMENT_METRIC_KEYS = ['candidate_requested_placement', 'candidate_complete_bilateral_hand_visibility', 'matched_visibility_improvement', 'candidate_ambiguity_or_artifact']
+const COUNT_METRIC_KEYS = ['count', 'total']
 const SHA256 = /^[0-9a-f]{64}$/
 const EXPECTED_MAPPINGS = [
   ['cam-close-up', 'camera.framing.close_up'],
@@ -39,6 +43,13 @@ const EXPECTED_ADVISORY_SOURCE_RUN_IDS = [
   'CAM-018-A', 'CAM-018-B', 'CAM-018-C', 'CAM-018-D',
   'CAM-019-A', 'CAM-019-B', 'CAM-019-C',
 ] as const
+const EXPECTED_SPECIFIC_REPLACEMENT_SOURCE_RUN_IDS = ['CAM-020-A', 'CAM-020-B'] as const
+const EXPECTED_SPECIFIC_REPLACEMENT = Object.freeze({
+  prompt_tag_id: 'rin-arms-at-sides',
+  prompt: 'arms at sides',
+  category: 'pose',
+  slot: 'hand_action',
+})
 
 type CatalogMapping = {
   prompt_tag_id: string
@@ -51,6 +62,26 @@ type CatalogMapping = {
 
 type CatalogConstraintConcept = Omit<CatalogMapping, 'prompt_tag_id'>
 type CatalogAdvisoryTrigger = typeof EXPECTED_ADVISORY_TRIGGER
+type CatalogSpecificReplacementSuggestion = {
+  prompt_tag_id: typeof EXPECTED_SPECIFIC_REPLACEMENT.prompt_tag_id
+  prompt: typeof EXPECTED_SPECIFIC_REPLACEMENT.prompt
+  prompt_tag_label: string
+  category: typeof EXPECTED_SPECIFIC_REPLACEMENT.category
+  slot: typeof EXPECTED_SPECIFIC_REPLACEMENT.slot
+  suggestion_status: 'ADVISORY_ONLY'
+  automatic_action: false
+  evidence: {
+    classification: 'SPECIFIC_REPLACEMENT_SUGGESTION_SUPPORTED'
+    source_run_ids: typeof EXPECTED_SPECIFIC_REPLACEMENT_SOURCE_RUN_IDS
+    model_profile: 'model.novaanimexl_ilv190'
+    metrics: {
+      candidate_requested_placement: { count: 6; total: 6 }
+      candidate_complete_bilateral_hand_visibility: { count: 6; total: 6 }
+      matched_visibility_improvement: { count: 6; total: 6 }
+      candidate_ambiguity_or_artifact: { count: 0; total: 6 }
+    }
+  }
+}
 type CatalogAdvisoryEffect = {
   advisory_id: typeof EXPECTED_ADVISORY_ID
   effect_id: typeof EXPECTED_ADVISORY_EFFECT_ID
@@ -63,6 +94,7 @@ type CatalogAdvisoryEffect = {
     summary: string
     source_run_ids: typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS
   }
+  specific_replacement_suggestions: readonly [CatalogSpecificReplacementSuggestion]
 }
 
 export type VisualConceptCompilerConstraintMetadataV1 = {
@@ -96,6 +128,7 @@ export type VisualConceptCompilerAdvisoryInspectionEntryV1 = {
     message: string
     replacement_prompt_tag_id: null
     automatic_action: false
+    specific_replacement_suggestions: readonly CatalogSpecificReplacementSuggestion[]
   }
 }
 
@@ -173,6 +206,14 @@ const constraintMetadata = (
         message: 'Review the current pose or arm placement when complete hand visibility is required; no replacement is selected automatically.',
         replacement_prompt_tag_id: null,
         automatic_action: false as const,
+        specific_replacement_suggestions: Object.freeze(effect.specific_replacement_suggestions.map(suggestion => Object.freeze({
+          ...suggestion,
+          evidence: Object.freeze({
+            ...suggestion.evidence,
+            source_run_ids: Object.freeze([...suggestion.evidence.source_run_ids]) as typeof EXPECTED_SPECIFIC_REPLACEMENT_SOURCE_RUN_IDS,
+            metrics: Object.freeze(Object.fromEntries(Object.entries(suggestion.evidence.metrics).map(([key, metric]) => [key, Object.freeze({ ...metric })]))) as CatalogSpecificReplacementSuggestion['evidence']['metrics'],
+          }),
+        }))),
       }),
     }))),
   }),
@@ -260,7 +301,36 @@ function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping
     || !nonEmptyString(effect.explanation.summary)
     || !Array.isArray(effect.explanation.source_run_ids)
     || effect.explanation.source_run_ids.length !== EXPECTED_ADVISORY_SOURCE_RUN_IDS.length
-    || effect.explanation.source_run_ids.some((runId, index) => runId !== EXPECTED_ADVISORY_SOURCE_RUN_IDS[index])) return null
+    || effect.explanation.source_run_ids.some((runId, index) => runId !== EXPECTED_ADVISORY_SOURCE_RUN_IDS[index])
+    || !Array.isArray(effect.specific_replacement_suggestions)
+    || effect.specific_replacement_suggestions.length !== 1) return null
+  const suggestion = effect.specific_replacement_suggestions[0]
+  if (!isRecord(suggestion) || !exactKeys(suggestion, SPECIFIC_REPLACEMENT_KEYS)
+    || suggestion.prompt_tag_id !== EXPECTED_SPECIFIC_REPLACEMENT.prompt_tag_id
+    || suggestion.prompt !== EXPECTED_SPECIFIC_REPLACEMENT.prompt
+    || !nonEmptyString(suggestion.prompt_tag_label)
+    || suggestion.category !== EXPECTED_SPECIFIC_REPLACEMENT.category
+    || suggestion.slot !== EXPECTED_SPECIFIC_REPLACEMENT.slot
+    || suggestion.suggestion_status !== 'ADVISORY_ONLY'
+    || suggestion.automatic_action !== false
+    || !isRecord(suggestion.evidence) || !exactKeys(suggestion.evidence, SPECIFIC_REPLACEMENT_EVIDENCE_KEYS)
+    || suggestion.evidence.classification !== 'SPECIFIC_REPLACEMENT_SUGGESTION_SUPPORTED'
+    || suggestion.evidence.model_profile !== 'model.novaanimexl_ilv190'
+    || !Array.isArray(suggestion.evidence.source_run_ids)
+    || suggestion.evidence.source_run_ids.length !== EXPECTED_SPECIFIC_REPLACEMENT_SOURCE_RUN_IDS.length
+    || suggestion.evidence.source_run_ids.some((runId, index) => runId !== EXPECTED_SPECIFIC_REPLACEMENT_SOURCE_RUN_IDS[index])
+    || !isRecord(suggestion.evidence.metrics) || !exactKeys(suggestion.evidence.metrics, SPECIFIC_REPLACEMENT_METRIC_KEYS)) return null
+  const expectedMetrics = {
+    candidate_requested_placement: [6, 6],
+    candidate_complete_bilateral_hand_visibility: [6, 6],
+    matched_visibility_improvement: [6, 6],
+    candidate_ambiguity_or_artifact: [0, 6],
+  } as const
+  for (const [key, [count, total]] of Object.entries(expectedMetrics)) {
+    const metric = suggestion.evidence.metrics[key]
+    if (!isRecord(metric) || !exactKeys(metric, COUNT_METRIC_KEYS)
+      || metric.count !== count || metric.total !== total) return null
+  }
   return { mappings, advisoryEffect: effect as CatalogAdvisoryEffect }
 }
 

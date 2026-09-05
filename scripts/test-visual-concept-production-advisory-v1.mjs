@@ -86,6 +86,26 @@ try {
       summary: graphContract.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').observed_effect,
       source_run_ids: ['CAM-018-A', 'CAM-018-B', 'CAM-018-C', 'CAM-018-D', 'CAM-019-A', 'CAM-019-B', 'CAM-019-C'],
     },
+    specific_replacement_suggestions: [{
+      prompt_tag_id: 'rin-arms-at-sides',
+      prompt: 'arms at sides',
+      prompt_tag_label: registry.find(tag => tag.id === 'rin-arms-at-sides').label,
+      category: 'pose',
+      slot: 'hand_action',
+      suggestion_status: 'ADVISORY_ONLY',
+      automatic_action: false,
+      evidence: {
+        classification: 'SPECIFIC_REPLACEMENT_SUGGESTION_SUPPORTED',
+        source_run_ids: ['CAM-020-A', 'CAM-020-B'],
+        model_profile: 'model.novaanimexl_ilv190',
+        metrics: {
+          candidate_requested_placement: { count: 6, total: 6 },
+          candidate_complete_bilateral_hand_visibility: { count: 6, total: 6 },
+          matched_visibility_improvement: { count: 6, total: 6 },
+          candidate_ambiguity_or_artifact: { count: 0, total: 6 },
+        },
+      },
+    }],
   }], 'promoter must carry the bounded pose/body-overlap owner as advisory evidence only')
   deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 10, unmapped_active_prompt_tag_count: 2512 }, 'coverage must bind the exact active registry')
   deepEqual(Object.keys(catalog.source_binding), ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'registry_sha256'], 'catalog source binding must use schema identity and production inputs without full-Graph revision or digest coupling')
@@ -133,6 +153,8 @@ try {
     run_id: 'CAM-999-A',
   })
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: broadenedEvidence, promptTagRegistry: registry })), 'visual_concept_production_advisory_effect_contract_invalid', 'explanation provenance must remain bounded to admitted CAM-018 and CAM-019 runs')
+  const invalidReplacementCandidateRegistry = registry.map(tag => tag.id === 'rin-arms-at-sides' ? { ...tag, prompt: 'arms somewhere else' } : tag)
+  equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract, promptTagRegistry: invalidReplacementCandidateRegistry })), 'visual_concept_production_replacement_candidate_contract_invalid', 'specific replacement promotion must bind the exact existing PromptTag identity')
 
   const defaultConstraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [] })
   deepEqual(defaultConstraintProjection.constraint_metadata, {
@@ -208,6 +230,26 @@ try {
         message: 'Review the current pose or arm placement when complete hand visibility is required; no replacement is selected automatically.',
         replacement_prompt_tag_id: null,
         automatic_action: false,
+        specific_replacement_suggestions: [{
+          prompt_tag_id: 'rin-arms-at-sides',
+          prompt: 'arms at sides',
+          prompt_tag_label: registry.find(tag => tag.id === 'rin-arms-at-sides').label,
+          category: 'pose',
+          slot: 'hand_action',
+          suggestion_status: 'ADVISORY_ONLY',
+          automatic_action: false,
+          evidence: {
+            classification: 'SPECIFIC_REPLACEMENT_SUGGESTION_SUPPORTED',
+            source_run_ids: ['CAM-020-A', 'CAM-020-B'],
+            model_profile: 'model.novaanimexl_ilv190',
+            metrics: {
+              candidate_requested_placement: { count: 6, total: 6 },
+              candidate_complete_bilateral_hand_visibility: { count: 6, total: 6 },
+              matched_visibility_improvement: { count: 6, total: 6 },
+              candidate_ambiguity_or_artifact: { count: 0, total: 6 },
+            },
+          },
+        }],
       },
     }],
   }, 'triggered risk must expose one bounded review-only suggestion from the canonical inspection owner')
@@ -220,7 +262,9 @@ try {
   check(Object.isFrozen(immutableInspection.entries[0].trigger_context.trigger_prompt_tags[0]), 'projected trigger records must be frozen with the rest of the read-only inspection snapshot')
   equal(immutableInspection.entries[0].evidence.source_run_ids[0], 'CAM-018-A', 'canonical inspection must copy bounded evidence provenance without retaining caller ownership')
   check(Object.isFrozen(immutableInspection.entries[0].evidence.source_run_ids) && Object.isFrozen(immutableInspection.entries[0].explanation) && Object.isFrozen(immutableInspection.entries[0].recommendation), 'explanation, provenance, and suggestion metadata must be immutable')
-  equal(immutableInspection.entries[0].recommendation.replacement_prompt_tag_id, null, 'bounded evidence must not become an unsupported replacement PromptTag suggestion')
+  equal(immutableInspection.entries[0].recommendation.replacement_prompt_tag_id, null, 'generic review_current_pose guidance must remain unchanged')
+  equal(immutableInspection.entries[0].recommendation.specific_replacement_suggestions[0].prompt_tag_id, 'rin-arms-at-sides', 'bounded CAM-020 evidence must expose the exact supported PromptTag candidate')
+  check(Object.isFrozen(immutableInspection.entries[0].recommendation.specific_replacement_suggestions) && Object.isFrozen(immutableInspection.entries[0].recommendation.specific_replacement_suggestions[0].evidence.metrics), 'specific replacement evidence must be copied into immutable inspection metadata')
   deepEqual(constraintProjection.mapped_entries.map(entry => entry.concept_id), ['camera.framing.upper_body'], 'selected framing identity must remain separate from requested minimum framing identity and an advisory trigger need not become a duplicate concept binding')
   deepEqual(requestedConstraints, requestedSnapshot, 'constraint projection must not mutate caller-owned intent')
   const constraintPrompt = promptModule.buildPromptWithStrategy([], [selected('cam-upper-body'), selected('pos-hands-behind-back')], 'illustrious', 'BREAK', requestedConstraints)
@@ -454,6 +498,7 @@ try {
   check(appSource.includes("entry.trigger_context.required_visible_region_concept_ids.join(' · ')") && appSource.includes("entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')") && appSource.includes("entry.evidence.source_run_ids.join(' · ')") && appSource.includes('entry.advisory_type') && appSource.includes('entry.evidence.status') && appSource.includes('entry.evidence.confidence') && appSource.includes('entry.supporting_identity.target_concept_id') && appSource.includes('entry.supporting_identity.effect_id'), 'the warning must expose bounded context and provenance from the canonical inspection entry rather than recreating semantics')
   check(!appSource.includes("advisory_type==='hand_visibility_risk'") && !appSource.includes("required_visible_region_concept_ids.includes('visibility.hands')"), 'App must not duplicate the canonical advisory trigger predicate')
   check(!appSource.includes('review_current_pose') && !appSource.includes('rin-arms-at-sides'), 'App must not own suggestion semantics or invent an unsupported replacement identity')
+  check(appSource.includes('entry.recommendation.specific_replacement_suggestions.map') && appSource.includes('suggestion.prompt_tag_id') && appSource.includes('suggestion.evidence.metrics.matched_visibility_improvement'), 'App must render the canonical bounded candidate and evidence without owning either identity')
   check(appSource.includes("buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset, 'BREAK', store.visualConceptConstraintIntent)"), 'App must supply the canonical store snapshot to the existing Compiler input')
   const labelOwner = appSource.indexOf('const VISUAL_CONCEPT_VISIBILITY_LABEL_V1')
   const headLabel = appSource.indexOf("'visibility.head': 'Head visible'", labelOwner)

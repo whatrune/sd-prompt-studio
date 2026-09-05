@@ -1091,6 +1091,7 @@ export default function App() {
                 <div className="visual-concept-risk-advisory-announcement" role="status" aria-live="polite">
                   <strong>Hand visibility may be reduced by the current pose or arm placement.</strong>
                   <span>Review current pose or arm placement.</span>
+                  {entry.recommendation.specific_replacement_suggestions.map(suggestion=><span key={suggestion.prompt_tag_id}>Consider <strong>{suggestion.prompt}</strong> <code>{suggestion.prompt_tag_id}</code>.</span>)}
                 </div>
                 <small>Informational only — your prompt and selections are unchanged.</small>
                 <details className="visual-concept-risk-advisory-details">
@@ -1098,6 +1099,11 @@ export default function App() {
                   <div>
                     <span>{entry.explanation.summary}</span>
                     <small>{entry.recommendation.message}</small>
+                    {entry.recommendation.specific_replacement_suggestions.map(suggestion=><div key={suggestion.prompt_tag_id}>
+                      <small>Candidate: {suggestion.prompt_tag_label} · <code>{suggestion.prompt_tag_id}</code> · <code>{suggestion.prompt}</code></small>
+                      <small>CAM-020: {suggestion.evidence.classification} · runs {suggestion.evidence.source_run_ids.join(' · ')}</small>
+                      <small>Placement {suggestion.evidence.metrics.candidate_requested_placement.count}/{suggestion.evidence.metrics.candidate_requested_placement.total} · bilateral hands {suggestion.evidence.metrics.candidate_complete_bilateral_hand_visibility.count}/{suggestion.evidence.metrics.candidate_complete_bilateral_hand_visibility.total} · matched improvement {suggestion.evidence.metrics.matched_visibility_improvement.count}/{suggestion.evidence.metrics.matched_visibility_improvement.total} · ambiguity/artifact {suggestion.evidence.metrics.candidate_ambiguity_or_artifact.count}/{suggestion.evidence.metrics.candidate_ambiguity_or_artifact.total}</small>
+                    </div>)}
                     <small>Context: {entry.trigger_context.required_visible_region_concept_ids.join(' · ')} + {entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')}</small>
                     <small>Evidence runs: {entry.evidence.source_run_ids.join(' · ')}</small>
                     <small><code>{entry.recommendation.suggestion_type}</code> · advisory only</small>

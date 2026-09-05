@@ -46,6 +46,23 @@ const APPROVED_ADVISORY_EVIDENCE_RUN_IDS = Object.freeze([
   'CAM-019-B',
   'CAM-019-C',
 ])
+const APPROVED_SPECIFIC_REPLACEMENT_SUGGESTION = Object.freeze({
+  prompt_tag_id: 'rin-arms-at-sides',
+  prompt: 'arms at sides',
+  category: 'pose',
+  slot: 'hand_action',
+})
+const APPROVED_SPECIFIC_REPLACEMENT_EVIDENCE = Object.freeze({
+  classification: 'SPECIFIC_REPLACEMENT_SUGGESTION_SUPPORTED',
+  source_run_ids: Object.freeze(['CAM-020-A', 'CAM-020-B']),
+  model_profile: 'model.novaanimexl_ilv190',
+  metrics: Object.freeze({
+    candidate_requested_placement: Object.freeze({ count: 6, total: 6 }),
+    candidate_complete_bilateral_hand_visibility: Object.freeze({ count: 6, total: 6 }),
+    matched_visibility_improvement: Object.freeze({ count: 6, total: 6 }),
+    candidate_ambiguity_or_artifact: Object.freeze({ count: 0, total: 6 }),
+  }),
+})
 
 const sha256 = value => createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex')
 
@@ -141,6 +158,14 @@ export function projectVisualConceptProductionAdvisoryCatalogV1({ bindingContrac
     || tag.slot !== APPROVED_ADVISORY_EFFECT.trigger_prompt_tags[index].slot)) {
     throw new Error('visual_concept_production_advisory_trigger_contract_invalid')
   }
+  const replacementCandidate = selectedById.get(APPROVED_SPECIFIC_REPLACEMENT_SUGGESTION.prompt_tag_id)
+  if (!replacementCandidate
+    || replacementCandidate.prompt !== APPROVED_SPECIFIC_REPLACEMENT_SUGGESTION.prompt
+    || replacementCandidate.category !== APPROVED_SPECIFIC_REPLACEMENT_SUGGESTION.category
+    || replacementCandidate.slot !== APPROVED_SPECIFIC_REPLACEMENT_SUGGESTION.slot
+    || typeof replacementCandidate.label !== 'string' || replacementCandidate.label.length === 0) {
+    throw new Error('visual_concept_production_replacement_candidate_contract_invalid')
+  }
   const advisoryEffects = Object.freeze([Object.freeze({
     advisory_id: APPROVED_ADVISORY_EFFECT.advisory_id,
     effect_id: sourceEffect.effect_id,
@@ -153,6 +178,16 @@ export function projectVisualConceptProductionAdvisoryCatalogV1({ bindingContrac
       summary: sourceEffect.observed_effect,
       source_run_ids: Object.freeze(evidenceRunIds),
     }),
+    specific_replacement_suggestions: Object.freeze([Object.freeze({
+      prompt_tag_id: replacementCandidate.id,
+      prompt: replacementCandidate.prompt,
+      prompt_tag_label: replacementCandidate.label,
+      category: replacementCandidate.category,
+      slot: replacementCandidate.slot,
+      suggestion_status: 'ADVISORY_ONLY',
+      automatic_action: false,
+      evidence: APPROVED_SPECIFIC_REPLACEMENT_EVIDENCE,
+    })]),
   })])
 
   return Object.freeze({

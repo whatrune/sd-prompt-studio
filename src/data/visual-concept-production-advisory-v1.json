@@ -146,7 +146,44 @@
           "CAM-019-B",
           "CAM-019-C"
         ]
-      }
+      },
+      "specific_replacement_suggestions": [
+        {
+          "prompt_tag_id": "rin-arms-at-sides",
+          "prompt": "arms at sides",
+          "prompt_tag_label": "両腕を体の横へ",
+          "category": "pose",
+          "slot": "hand_action",
+          "suggestion_status": "ADVISORY_ONLY",
+          "automatic_action": false,
+          "evidence": {
+            "classification": "SPECIFIC_REPLACEMENT_SUGGESTION_SUPPORTED",
+            "source_run_ids": [
+              "CAM-020-A",
+              "CAM-020-B"
+            ],
+            "model_profile": "model.novaanimexl_ilv190",
+            "metrics": {
+              "candidate_requested_placement": {
+                "count": 6,
+                "total": 6
+              },
+              "candidate_complete_bilateral_hand_visibility": {
+                "count": 6,
+                "total": 6
+              },
+              "matched_visibility_improvement": {
+                "count": 6,
+                "total": 6
+              },
+              "candidate_ambiguity_or_artifact": {
+                "count": 0,
+                "total": 6
+              }
+            }
+          }
+        }
+      ]
     }
   ],
   "relations": []
