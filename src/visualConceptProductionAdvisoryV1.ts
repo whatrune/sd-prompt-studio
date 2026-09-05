@@ -10,8 +10,9 @@ const SOURCE_KEYS = ['binding_record_type', 'binding_version', 'binding_sha256',
 const COVERAGE_KEYS = ['active_prompt_tag_count', 'mapped_active_prompt_tag_count', 'unmapped_active_prompt_tag_count']
 const MAPPING_KEYS = ['prompt_tag_id', 'concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
 const CONSTRAINT_CONCEPT_KEYS = ['concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
-const ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'trigger_prompt_tags', 'advisory_status', 'confidence', 'model_profile']
+const ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'trigger_prompt_tags', 'advisory_status', 'confidence', 'model_profile', 'explanation']
 const ADVISORY_TRIGGER_KEYS = ['prompt_tag_id', 'prompt', 'category', 'slot']
+const ADVISORY_EXPLANATION_KEYS = ['summary', 'source_run_ids']
 const SHA256 = /^[0-9a-f]{64}$/
 const EXPECTED_MAPPINGS = [
   ['cam-close-up', 'camera.framing.close_up'],
@@ -34,6 +35,10 @@ const EXPECTED_ADVISORY_TRIGGER = Object.freeze({
   category: 'pose',
   slot: 'hand_action',
 })
+const EXPECTED_ADVISORY_SOURCE_RUN_IDS = [
+  'CAM-018-A', 'CAM-018-B', 'CAM-018-C', 'CAM-018-D',
+  'CAM-019-A', 'CAM-019-B', 'CAM-019-C',
+] as const
 
 type CatalogMapping = {
   prompt_tag_id: string
@@ -54,6 +59,10 @@ type CatalogAdvisoryEffect = {
   advisory_status: 'ADVISORY_ONLY'
   confidence: 'high'
   model_profile: 'model.novaanimexl_ilv190'
+  explanation: {
+    summary: string
+    source_run_ids: typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS
+  }
 }
 
 export type VisualConceptCompilerConstraintMetadataV1 = {
@@ -79,7 +88,9 @@ export type VisualConceptCompilerAdvisoryInspectionEntryV1 = {
   evidence: {
     status: 'ADVISORY_ONLY'
     confidence: 'high'
+    source_run_ids: typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS
   }
+  explanation: { summary: string }
   recommendation: null
 }
 
@@ -149,7 +160,9 @@ const constraintMetadata = (
       evidence: Object.freeze({
         status: effect.advisory_status,
         confidence: effect.confidence,
+        source_run_ids: Object.freeze([...effect.explanation.source_run_ids]) as typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS,
       }),
+      explanation: Object.freeze({ summary: effect.explanation.summary }),
       recommendation: null,
     }))),
   }),
@@ -232,7 +245,12 @@ function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping
       && trigger.slot === EXPECTED_ADVISORY_TRIGGER.slot)
     || effect.advisory_status !== 'ADVISORY_ONLY'
     || effect.confidence !== 'high'
-    || effect.model_profile !== 'model.novaanimexl_ilv190') return null
+    || effect.model_profile !== 'model.novaanimexl_ilv190'
+    || !isRecord(effect.explanation) || !exactKeys(effect.explanation, ADVISORY_EXPLANATION_KEYS)
+    || !nonEmptyString(effect.explanation.summary)
+    || !Array.isArray(effect.explanation.source_run_ids)
+    || effect.explanation.source_run_ids.length !== EXPECTED_ADVISORY_SOURCE_RUN_IDS.length
+    || effect.explanation.source_run_ids.some((runId, index) => runId !== EXPECTED_ADVISORY_SOURCE_RUN_IDS[index])) return null
   return { mappings, advisoryEffect: effect as CatalogAdvisoryEffect }
 }
 
