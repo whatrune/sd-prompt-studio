@@ -661,11 +661,32 @@ try {
   })
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].modelPreset, 'sdxl', 'legacy saved Prompts must inherit the persisted Model Preset')
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].settings.modelPreset, 'sdxl', 'legacy saved Prompts must migrate to nested settings')
+  assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].settings.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'legacy saved Prompts must default to canonical empty visibility intent')
+  assert(Object.isFrozen(migratedLegacySavedPrompt.savedPrompts[0].settings.visualConceptConstraintIntent), 'legacy saved Prompt visibility intent must be an immutable owner snapshot')
   assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].structure.blocks.map(block => block.id), ['legacy-library'], 'legacy saved Prompts must migrate to a reusable structure snapshot')
   assert.equal(migratedLegacySavedPrompt.savedPrompts[0].legacyColor, '#ff6699', 'legacy Prompt-level colors must be retained for compatibility')
   assert.equal('color' in migratedLegacySavedPrompt.savedPrompts[0], false, 'migrated Saved Prompts must not retain color as a renderable field')
   assert.deepEqual(migratedLegacySavedPrompt.savedPrompts[0].groups, [UNCLASSIFIED_PROMPT_GROUP_ID], 'ungrouped legacy Prompts must migrate into Unclassified')
   assert.equal(migratedLegacySavedPrompt.promptGroups[0].color, '#ff6699', 'Unclassified must inherit a legacy ungrouped color when available')
+  const migratedMalformedSavedIntent = migratePersistedState({
+    blocks: [{ id: 'malformed-saved-intent-root', name: 'Subject 1', tags: [] }],
+    savedPrompts: [{
+      id: 'malformed-saved-intent',
+      name: 'Malformed Saved Intent',
+      blocks: [{ id: 'malformed-saved-intent-subject', name: 'Subject 1', tags: [] }],
+      settings: {
+        modelPreset: 'illustrious',
+        seeds: [],
+        visualConceptConstraintIntent: {
+          record_type: 'visual_concept_compiler_constraint_intent_v1',
+          version: 1,
+          required_visible_region_concept_ids: ['visibility.unknown'],
+          minimum_framing_concept_id: null,
+        },
+      },
+    }],
+  })
+  assert.deepEqual(migratedMalformedSavedIntent.savedPrompts[0].settings.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'malformed Saved Prompt visibility intent must fail closed to canonical empty')
 
   usePromptStore.setState({
     blocks: [{ id: 'library-subject', name: 'Library Subject', subjectNumber: 1, position: 'center', tags: [subjectHair] }],
@@ -709,6 +730,7 @@ try {
   assert.equal(atomicallyUpdatedGroup?.color, '#334455')
   assert.notEqual(atomicallyUpdatedGroup?.updatedAt, 1, 'an atomic group update must refresh updatedAt')
   assert.equal(atomicGroupUpdateCount, 1, 'an atomic group update must emit exactly one Store change')
+  usePromptStore.getState().setVisualConceptVisibleRegionRequired('visibility.hands', true)
   const savedLibraryPrompt = usePromptStore.getState().savePrompt({
     name: 'Library Favorite',
     positivePrompt: 'saved positive snapshot',
@@ -727,6 +749,8 @@ try {
   assert.equal(savedLibraryPrompt.displayTags.length, 2)
   assert.equal(savedLibraryPrompt.structure.blocks[0].tags[0].prompt, 'black hair')
   assert.equal(savedLibraryPrompt.settings.modelPreset, 'pony')
+  assert.deepEqual(savedLibraryPrompt.settings.visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.hands'], 'Saved Prompt settings must capture explicit visibility intent')
+  assert(Object.isFrozen(savedLibraryPrompt.settings.visualConceptConstraintIntent), 'Saved Prompt visibility intent must remain an immutable canonical snapshot')
   assert.deepEqual(usePromptStore.getState().savedPrompts[0].seeds.map(seed => seed.value), [123456789, 987654321, 24680])
   assert.equal(usePromptStore.getState().savePrompt({ name: 'Duplicate seeds', positivePrompt: '', negativePrompt: '', seeds: [{ value: 7 }, { value: 7 }] }), null, 'duplicate Seeds must be rejected')
   const seedlessPrompt = usePromptStore.getState().savePrompt({ name: 'Seedless Prompt', positivePrompt: '', negativePrompt: '', seeds: [] })
@@ -821,6 +845,8 @@ try {
     seeds: [{ value: 1 }],
     modelPreset: 'sdxl',
   })
+  usePromptStore.getState().setVisualConceptVisibleRegionRequired('visibility.feet', true)
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.feet'], 'current visibility intent must be independently editable before replacement restore')
   assert.equal(usePromptStore.getState().savedPrompts[0].blocks[0].tags[0].prompt, 'black hair', 'saved blocks must remain immutable after current edits')
   assert.equal(usePromptStore.getState().savedPrompts[0].sceneTags[0].prompt, 'masterpiece', 'saved Scene tags must remain immutable after current edits')
   assert.equal(usePromptStore.getState().restorePrompt(savedLibraryPrompt.id), true, 'saved Prompt state must restore')
@@ -830,6 +856,8 @@ try {
   assert.equal(usePromptStore.getState().negative, 'library negative')
   assert.equal(usePromptStore.getState().modelPreset, 'pony')
   assert.deepEqual(usePromptStore.getState().seeds.map(seed => seed.value), [123456789, 987654321, 24680])
+  assert.deepEqual(usePromptStore.getState().visualConceptConstraintIntent.required_visible_region_concept_ids, ['visibility.hands'], 'replacement restore must restore the Saved Prompt visibility intent instead of retaining unrelated current intent')
+  assert(Object.isFrozen(usePromptStore.getState().visualConceptConstraintIntent), 'restored visibility intent must be re-admitted as an immutable owner snapshot')
   usePromptStore.setState({ blocks: [{ id: 'merge-base', name: 'Merge Base', subjectNumber: 1, tags: [] }], sceneTags: [], activeBlockId: 'merge-base', seeds: [] })
   assert.equal(usePromptStore.getState().mergeSavedPrompt(savedLibraryPrompt.id), true, 'saved Prompt state must support simple merge')
   assert.equal(usePromptStore.getState().blocks.length, 2, 'simple merge must preserve the current Subject and append saved Subjects')

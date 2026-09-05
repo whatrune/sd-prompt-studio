@@ -38,7 +38,11 @@ export const nextPromptGroupName = (groups: Pick<PromptGroup, 'id' | 'name'>[]) 
   return `グループ${suffix}`
 }
 export type SavedPromptStructure = { blocks: PromptBlock[]; sceneTags: SelectedTag[] }
-export type SavedPromptSettings = { modelPreset: ModelPreset; seeds: SeedEntry[] }
+export type SavedPromptSettings = {
+  modelPreset: ModelPreset
+  seeds: SeedEntry[]
+  visualConceptConstraintIntent: VisualConceptCompilerConstraintIntentV1
+}
 export type SavedPrompt = {
   id: string
   name: string
@@ -213,6 +217,8 @@ function normalizeSavedPrompt(saved: LegacySavedPrompt, fallbackPreset: ModelPre
   const modelPreset = saved.settings?.modelPreset ?? saved.modelPreset ?? fallbackPreset
   const seeds = (Array.isArray(saved.settings?.seeds) ? saved.settings.seeds : saved.seeds ?? [])
     .filter(seed => seed && Number.isSafeInteger(seed.value)).map(cloneSeed)
+  const visualConceptConstraintIntent = admitVisualConceptCompilerConstraintIntentV1(saved.settings?.visualConceptConstraintIntent)
+    ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1
   const displayTags = Array.isArray(saved.displayTags) ? saved.displayTags.map(cloneSelectedTag) : promptDisplayTags(blocks, sceneTags)
   const generatedPrompt = saved.generatedPrompt ?? saved.positivePrompt ?? ''
   const now = Date.now()
@@ -226,7 +232,7 @@ function normalizeSavedPrompt(saved: LegacySavedPrompt, fallbackPreset: ModelPre
     structure: { blocks: blocks.map(cloneBlock), sceneTags: sceneTags.map(cloneSelectedTag) },
     generatedPrompt,
     negativePrompt: saved.negativePrompt ?? '',
-    settings: { modelPreset, seeds: seeds.map(cloneSeed) },
+    settings: { modelPreset, seeds: seeds.map(cloneSeed), visualConceptConstraintIntent },
     modelPreset,
     positivePrompt: generatedPrompt,
     blocks,
@@ -485,7 +491,12 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
       displayTags,
       structure: { blocks: blocks.map(cloneBlock), sceneTags: sceneTags.map(cloneSelectedTag) },
       generatedPrompt: input.positivePrompt,
-      settings: { modelPreset: state.modelPreset, seeds: seeds.map(cloneSeed) },
+      settings: {
+        modelPreset: state.modelPreset,
+        seeds: seeds.map(cloneSeed),
+        visualConceptConstraintIntent: admitVisualConceptCompilerConstraintIntentV1(state.visualConceptConstraintIntent)
+          ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
+      },
       modelPreset: state.modelPreset,
       positivePrompt: input.positivePrompt,
       negativePrompt: input.negativePrompt,
@@ -508,6 +519,8 @@ export const usePromptStore = create<State>()(persist((set, get) => ({
       negative: saved.negativePrompt,
       modelPreset: saved.modelPreset,
       seeds: saved.seeds.map(cloneSeed),
+      visualConceptConstraintIntent: admitVisualConceptCompilerConstraintIntentV1(saved.settings.visualConceptConstraintIntent)
+        ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
       activeBlockId: blocks[0].id,
       activeLayer: 'subject',
     })
