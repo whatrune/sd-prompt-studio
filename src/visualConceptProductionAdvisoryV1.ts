@@ -10,7 +10,8 @@ const SOURCE_KEYS = ['binding_record_type', 'binding_version', 'binding_sha256',
 const COVERAGE_KEYS = ['active_prompt_tag_count', 'mapped_active_prompt_tag_count', 'unmapped_active_prompt_tag_count']
 const MAPPING_KEYS = ['prompt_tag_id', 'concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
 const CONSTRAINT_CONCEPT_KEYS = ['concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
-const ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'trigger_prompt_tags', 'advisory_status', 'confidence', 'model_profile', 'explanation', 'specific_replacement_suggestions']
+const LEGACY_ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'trigger_prompt_tags', 'advisory_status', 'confidence', 'model_profile', 'explanation']
+const ADVISORY_EFFECT_KEYS = [...LEGACY_ADVISORY_EFFECT_KEYS, 'specific_replacement_suggestions']
 const ADVISORY_TRIGGER_KEYS = ['prompt_tag_id', 'prompt', 'category', 'slot']
 const ADVISORY_EXPLANATION_KEYS = ['summary', 'source_run_ids']
 const SPECIFIC_REPLACEMENT_KEYS = ['prompt_tag_id', 'prompt', 'prompt_tag_label', 'category', 'slot', 'suggestion_status', 'automatic_action', 'evidence']
@@ -94,7 +95,7 @@ type CatalogAdvisoryEffect = {
     summary: string
     source_run_ids: typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS
   }
-  specific_replacement_suggestions: readonly [CatalogSpecificReplacementSuggestion]
+  specific_replacement_suggestions: readonly CatalogSpecificReplacementSuggestion[]
 }
 
 export type VisualConceptCompilerConstraintMetadataV1 = {
@@ -282,7 +283,9 @@ function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping
       || (candidate.concept_status !== 'provisional' && candidate.concept_status !== 'confirmed')) return null
   }
   const effect = value.advisory_effects[0]
-  if (!isRecord(effect) || !exactKeys(effect, ADVISORY_EFFECT_KEYS)
+  const legacyEffectShape = isRecord(effect) && exactKeys(effect, LEGACY_ADVISORY_EFFECT_KEYS)
+  const currentEffectShape = isRecord(effect) && exactKeys(effect, ADVISORY_EFFECT_KEYS)
+  if (!isRecord(effect) || (!legacyEffectShape && !currentEffectShape)
     || effect.advisory_id !== EXPECTED_ADVISORY_ID
     || effect.effect_id !== EXPECTED_ADVISORY_EFFECT_ID
     || effect.target_concept_id !== 'visibility.hands'
@@ -301,8 +304,11 @@ function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping
     || !nonEmptyString(effect.explanation.summary)
     || !Array.isArray(effect.explanation.source_run_ids)
     || effect.explanation.source_run_ids.length !== EXPECTED_ADVISORY_SOURCE_RUN_IDS.length
-    || effect.explanation.source_run_ids.some((runId, index) => runId !== EXPECTED_ADVISORY_SOURCE_RUN_IDS[index])
-    || !Array.isArray(effect.specific_replacement_suggestions)
+    || effect.explanation.source_run_ids.some((runId, index) => runId !== EXPECTED_ADVISORY_SOURCE_RUN_IDS[index])) return null
+  if (legacyEffectShape) {
+    return { mappings, advisoryEffect: { ...effect, specific_replacement_suggestions: [] } as unknown as CatalogAdvisoryEffect }
+  }
+  if (!Array.isArray(effect.specific_replacement_suggestions)
     || effect.specific_replacement_suggestions.length !== 1) return null
   const suggestion = effect.specific_replacement_suggestions[0]
   if (!isRecord(suggestion) || !exactKeys(suggestion, SPECIFIC_REPLACEMENT_KEYS)

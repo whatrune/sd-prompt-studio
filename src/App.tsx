@@ -1091,7 +1091,7 @@ export default function App() {
                 <div className="visual-concept-risk-advisory-announcement" role="status" aria-live="polite">
                   <strong>Hand visibility may be reduced by the current pose or arm placement.</strong>
                   <span>Review current pose or arm placement.</span>
-                  {entry.recommendation.specific_replacement_suggestions.map(suggestion=><span key={suggestion.prompt_tag_id}>Consider <strong>{suggestion.prompt}</strong> <code>{suggestion.prompt_tag_id}</code>.</span>)}
+                  {entry.recommendation.specific_replacement_suggestions.map(suggestion=><span key={suggestion.prompt_tag_id}>CAM-020 evidence for <code>{suggestion.evidence.model_profile}</code> supports considering <strong>{suggestion.prompt}</strong> <code>{suggestion.prompt_tag_id}</code>.</span>)}
                 </div>
                 <small>Informational only — your prompt and selections are unchanged.</small>
                 <details className="visual-concept-risk-advisory-details">

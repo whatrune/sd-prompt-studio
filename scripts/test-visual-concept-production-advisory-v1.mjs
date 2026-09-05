@@ -156,6 +156,13 @@ try {
   const invalidReplacementCandidateRegistry = registry.map(tag => tag.id === 'rin-arms-at-sides' ? { ...tag, prompt: 'arms somewhere else' } : tag)
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract, promptTagRegistry: invalidReplacementCandidateRegistry })), 'visual_concept_production_replacement_candidate_contract_invalid', 'specific replacement promotion must bind the exact existing PromptTag identity')
 
+  const legacyCatalog = structuredClone(checkedInCatalog)
+  delete legacyCatalog.advisory_effects[0].specific_replacement_suggestions
+  const legacyProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: legacyCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')], constraintIntent: { record_type: 'visual_concept_compiler_constraint_intent_v1', version: 1, required_visible_region_concept_ids: ['visibility.hands'], minimum_framing_concept_id: null } })
+  equal(legacyProjection.advisory_status, 'READY', 'a valid pre-suggestion V1 catalog must retain its existing advisory behavior')
+  equal(legacyProjection.constraint_metadata.advisory_inspection.entries[0].recommendation.suggestion_type, 'review_current_pose', 'legacy V1 catalogs must preserve generic review guidance')
+  deepEqual(legacyProjection.constraint_metadata.advisory_inspection.entries[0].recommendation.specific_replacement_suggestions, [], 'an omitted legacy V1 suggestion field must normalize to an empty candidate list')
+
   const defaultConstraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [] })
   deepEqual(defaultConstraintProjection.constraint_metadata, {
     record_type: 'visual_concept_compiler_constraint_metadata_v1',
@@ -499,6 +506,7 @@ try {
   check(!appSource.includes("advisory_type==='hand_visibility_risk'") && !appSource.includes("required_visible_region_concept_ids.includes('visibility.hands')"), 'App must not duplicate the canonical advisory trigger predicate')
   check(!appSource.includes('review_current_pose') && !appSource.includes('rin-arms-at-sides'), 'App must not own suggestion semantics or invent an unsupported replacement identity')
   check(appSource.includes('entry.recommendation.specific_replacement_suggestions.map') && appSource.includes('suggestion.prompt_tag_id') && appSource.includes('suggestion.evidence.metrics.matched_visibility_improvement'), 'App must render the canonical bounded candidate and evidence without owning either identity')
+  check(appSource.includes('suggestion.evidence.model_profile'), 'the visible candidate recommendation must disclose its bounded model evidence instead of implying cross-model support')
   check(appSource.includes("buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset, 'BREAK', store.visualConceptConstraintIntent)"), 'App must supply the canonical store snapshot to the existing Compiler input')
   const labelOwner = appSource.indexOf('const VISUAL_CONCEPT_VISIBILITY_LABEL_V1')
   const headLabel = appSource.indexOf("'visibility.head': 'Head visible'", labelOwner)
