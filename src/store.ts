@@ -344,6 +344,9 @@ export function mergePersistedState(persisted: unknown, current: State): State {
   return {
     ...current,
     ...state,
+    savedPrompts: Array.isArray(state.savedPrompts)
+      ? (state.savedPrompts as LegacySavedPrompt[]).map(saved => normalizeSavedPrompt(saved, state.modelPreset ?? current.modelPreset))
+      : current.savedPrompts,
     visualConceptConstraintIntent: admitVisualConceptCompilerConstraintIntentV1(state.visualConceptConstraintIntent)
       ?? EMPTY_VISUAL_CONCEPT_COMPILER_CONSTRAINT_INTENT_V1,
   }

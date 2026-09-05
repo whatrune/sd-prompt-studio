@@ -687,6 +687,35 @@ try {
     }],
   })
   assert.deepEqual(migratedMalformedSavedIntent.savedPrompts[0].settings.visualConceptConstraintIntent.required_visible_region_concept_ids, [], 'malformed Saved Prompt visibility intent must fail closed to canonical empty')
+  const sameVersionSavedPromptHydration = mergePersistedState(JSON.parse(JSON.stringify({
+    modelPreset: 'illustrious',
+    savedPrompts: [
+      {
+        id: 'same-version-valid-saved-intent', name: 'Valid', blocks: [], sceneTags: [], seeds: [],
+        settings: {
+          modelPreset: 'illustrious', seeds: [],
+          visualConceptConstraintIntent: {
+            record_type: 'visual_concept_compiler_constraint_intent_v1', version: 1,
+            required_visible_region_concept_ids: ['visibility.hands'], minimum_framing_concept_id: null,
+          },
+        },
+      },
+      { id: 'same-version-missing-saved-intent', name: 'Missing', blocks: [], sceneTags: [], seeds: [] },
+      {
+        id: 'same-version-malformed-saved-intent', name: 'Malformed', blocks: [], sceneTags: [], seeds: [],
+        settings: {
+          modelPreset: 'illustrious', seeds: [],
+          visualConceptConstraintIntent: {
+            record_type: 'visual_concept_compiler_constraint_intent_v1', version: 1,
+            required_visible_region_concept_ids: ['visibility.unknown'], minimum_framing_concept_id: null,
+          },
+        },
+      },
+    ],
+  })), usePromptStore.getState())
+  assert.deepEqual(sameVersionSavedPromptHydration.savedPrompts.map(saved => saved.settings.visualConceptConstraintIntent.required_visible_region_concept_ids), [['visibility.hands'], [], []], 'same-version hydration must canonically admit valid Saved Prompt intent and fail missing or malformed intent closed')
+  assert(sameVersionSavedPromptHydration.savedPrompts.every(saved => Object.isFrozen(saved.settings.visualConceptConstraintIntent)), 'same-version hydration must produce immutable Saved Prompt intent snapshots')
+  assert(sameVersionSavedPromptHydration.savedPrompts.every(saved => Object.isFrozen(saved.settings.visualConceptConstraintIntent.required_visible_region_concept_ids)), 'same-version hydration must freeze every Saved Prompt visibility identity list')
 
   usePromptStore.setState({
     blocks: [{ id: 'library-subject', name: 'Library Subject', subjectNumber: 1, position: 'center', tags: [subjectHair] }],
