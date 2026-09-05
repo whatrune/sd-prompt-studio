@@ -316,10 +316,18 @@ function validateDocumentContent(contents, failures) {
     "$control -cne 'STOP'",
     'preview_process_tree_identity_unproven',
     'preview_process_tree_absence_unproven',
+    'preview_owner_stop_required',
     'terminal_uncertainty_rejected = $true',
+    'natural_exit_zero_rejected = $naturalExitZeroRejected',
     'process_tree_absent = $true',
   ]) {
     if (!previewOwnerSource.includes(marker)) failures.push(`preview execution owner is missing ${marker}`);
+  }
+  if (!previewOwnerSource.includes("Assert-PreviewOwnerStopCompleted -TerminationMode $terminationMode -PreviewExitCode $previewExitCode")) {
+    failures.push('preview execution owner must admit COMPLETED only after OWNER_STOP');
+  }
+  if (previewOwnerSource.includes("$terminationMode -eq 'NATURAL_EXIT' -and $previewExitCode -ne 0")) {
+    failures.push('preview execution owner must reject zero-exit NATURAL_EXIT');
   }
   for (const prohibited of ['Get-Process', 'Get-CimInstance', 'taskkill']) {
     if (previewOwnerSource.includes(prohibited)) failures.push(`preview execution owner must not use OS-wide process discovery: ${prohibited}`);

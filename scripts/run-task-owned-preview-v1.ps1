@@ -254,6 +254,14 @@ function Get-NormalizedExistingPath {
     return [IO.Path]::GetFullPath((Resolve-Path -LiteralPath $Path).Path).TrimEnd('\', '/')
 }
 
+function Assert-PreviewOwnerStopCompleted {
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('OWNER_STOP', 'NATURAL_EXIT')][string]$TerminationMode,
+        [AllowNull()][Nullable[int]]$PreviewExitCode
+    )
+    if ($TerminationMode -cne 'OWNER_STOP') { throw 'preview_owner_stop_required' }
+}
+
 function Invoke-SelfTest {
     $currentPwsh = [IO.Path]::GetFullPath([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)
     $eventName = 'Local\TaskPreviewSelfTest-' + [guid]::NewGuid().ToString('N')
@@ -274,12 +282,21 @@ function Invoke-SelfTest {
         }
         if (-not $terminalUncertaintyRejected) { throw 'preview_process_tree_absence_unproven' }
 
+        $naturalExitZeroRejected = $false
+        try { Assert-PreviewOwnerStopCompleted -TerminationMode 'NATURAL_EXIT' -PreviewExitCode 0 }
+        catch {
+            if ($_.Exception.Message -cne 'preview_owner_stop_required') { throw }
+            $naturalExitZeroRejected = $true
+        }
+        if (-not $naturalExitZeroRejected) { throw 'preview_owner_stop_required' }
+
         $treeSize = $owner.TotalProcesses
         $owner.TerminateAndVerify(10000)
         return [pscustomobject]@{
             state = 'PASS'
             exact_job_process_count = $treeSize
             terminal_uncertainty_rejected = $true
+            natural_exit_zero_rejected = $naturalExitZeroRejected
             process_tree_absent = $owner.ActiveProcesses -eq 0
         }
     }
@@ -336,7 +353,7 @@ finally {
     if ($null -ne $owner) { $owner.Dispose() }
 }
 
-if ($terminationMode -eq 'NATURAL_EXIT' -and $previewExitCode -ne 0) { throw 'preview_process_failed' }
+Assert-PreviewOwnerStopCompleted -TerminationMode $terminationMode -PreviewExitCode $previewExitCode
 [pscustomobject]@{
     state = 'COMPLETED'
     execution_instance_id = $executionGuid.ToString()
