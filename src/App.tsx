@@ -1062,7 +1062,9 @@ export default function App() {
               <AlertTriangle size={16}/>
               <div>
                 <strong>Hand visibility advisory</strong>
-                <span>Requested hand visibility may be at risk for the selected pose context.</span>
+                <span>{entry.explanation.summary}</span>
+                <small>Context: {entry.trigger_context.required_visible_region_concept_ids.join(' · ')} + {entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')}</small>
+                <small>Evidence runs: {entry.evidence.source_run_ids.join(' · ')}</small>
                 <small><code>{entry.advisory_type}</code> · {entry.evidence.status} / {entry.evidence.confidence}</small>
                 <small><code>{entry.supporting_identity.target_concept_id}</code> · {entry.supporting_identity.effect_id}</small>
               </div>

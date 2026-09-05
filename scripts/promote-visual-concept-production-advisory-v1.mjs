@@ -37,6 +37,15 @@ const APPROVED_ADVISORY_EFFECT = Object.freeze({
     slot: 'hand_action',
   })]),
 })
+const APPROVED_ADVISORY_EVIDENCE_RUN_IDS = Object.freeze([
+  'CAM-018-A',
+  'CAM-018-B',
+  'CAM-018-C',
+  'CAM-018-D',
+  'CAM-019-A',
+  'CAM-019-B',
+  'CAM-019-C',
+])
 
 const sha256 = value => createHash('sha256').update(JSON.stringify(value), 'utf8').digest('hex')
 
@@ -103,12 +112,26 @@ export function projectVisualConceptProductionAdvisoryCatalogV1({ bindingContrac
     })
   })
   const sourceEffect = graphContract.unmodeled_effects?.find(effect => effect?.effect_id === APPROVED_ADVISORY_EFFECT.effect_id)
+  const evidenceRunIds = Array.isArray(sourceEffect?.evidence_refs)
+    ? [...new Set(sourceEffect.evidence_refs.map(reference => reference?.run_id))].sort()
+    : []
   if (!sourceEffect
     || sourceEffect.target_region !== 'hands'
     || sourceEffect.category !== 'model_specific'
     || sourceEffect.promotion_status !== 'observed'
     || sourceEffect.confidence !== 'high'
-    || sourceEffect.model_profile !== 'model.novaanimexl_ilv190') {
+    || sourceEffect.model_profile !== 'model.novaanimexl_ilv190'
+    || typeof sourceEffect.observed_effect !== 'string' || sourceEffect.observed_effect.length === 0
+    || !Array.isArray(sourceEffect.evidence_refs) || sourceEffect.evidence_refs.length === 0
+    || sourceEffect.evidence_refs.some(reference => typeof reference?.evidence_ref_id !== 'string'
+      || typeof reference?.run_id !== 'string'
+      || typeof reference?.observation_path !== 'string'
+      || typeof reference?.metric !== 'string'
+      || !Number.isSafeInteger(reference?.count) || reference.count < 0
+      || !Number.isSafeInteger(reference?.total) || reference.total < 1 || reference.count > reference.total
+      || reference?.confidence !== 'high' || reference?.storage !== 'local')
+    || evidenceRunIds.length !== APPROVED_ADVISORY_EVIDENCE_RUN_IDS.length
+    || evidenceRunIds.some((runId, index) => runId !== APPROVED_ADVISORY_EVIDENCE_RUN_IDS[index])) {
     throw new Error('visual_concept_production_advisory_effect_contract_invalid')
   }
   const triggerPromptTags = APPROVED_ADVISORY_EFFECT.trigger_prompt_tags.map(trigger => selectedById.get(trigger.prompt_tag_id))
@@ -126,6 +149,10 @@ export function projectVisualConceptProductionAdvisoryCatalogV1({ bindingContrac
     advisory_status: 'ADVISORY_ONLY',
     confidence: sourceEffect.confidence,
     model_profile: sourceEffect.model_profile,
+    explanation: Object.freeze({
+      summary: sourceEffect.observed_effect,
+      source_run_ids: Object.freeze(evidenceRunIds),
+    }),
   })])
 
   return Object.freeze({

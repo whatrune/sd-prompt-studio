@@ -134,7 +134,19 @@
       ],
       "advisory_status": "ADVISORY_ONLY",
       "confidence": "high",
-      "model_profile": "model.novaanimexl_ilv190"
+      "model_profile": "model.novaanimexl_ilv190",
+      "explanation": {
+        "summary": "Across the bounded CAM-018 and CAM-019 prompt contexts, realized behind-body arm placement coincided with direct bilateral body occlusion in 11/12 panels: 6/6 in CAM-018 and 5/6 in CAM-019. Each experiment recorded matched complete-bilateral visibility loss in 5/6 seeds relative to its low-occlusion or relaxed reference.",
+        "source_run_ids": [
+          "CAM-018-A",
+          "CAM-018-B",
+          "CAM-018-C",
+          "CAM-018-D",
+          "CAM-019-A",
+          "CAM-019-B",
+          "CAM-019-C"
+        ]
+      }
     }
   ],
   "relations": []

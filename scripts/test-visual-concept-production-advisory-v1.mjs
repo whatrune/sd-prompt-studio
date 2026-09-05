@@ -82,6 +82,10 @@ try {
     advisory_status: 'ADVISORY_ONLY',
     confidence: 'high',
     model_profile: 'model.novaanimexl_ilv190',
+    explanation: {
+      summary: graphContract.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').observed_effect,
+      source_run_ids: ['CAM-018-A', 'CAM-018-B', 'CAM-018-C', 'CAM-018-D', 'CAM-019-A', 'CAM-019-B', 'CAM-019-C'],
+    },
   }], 'promoter must carry the bounded pose/body-overlap owner as advisory evidence only')
   deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 10, unmapped_active_prompt_tag_count: 2512 }, 'coverage must bind the exact active registry')
   deepEqual(Object.keys(catalog.source_binding), ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'registry_sha256'], 'catalog source binding must use schema identity and production inputs without full-Graph revision or digest coupling')
@@ -122,6 +126,13 @@ try {
   const weakenedEffect = clone(graphContract)
   weakenedEffect.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').confidence = 'medium'
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: weakenedEffect, promptTagRegistry: registry })), 'visual_concept_production_advisory_effect_contract_invalid', 'changed advisory evidence owner must fail promotion closed')
+  const broadenedEvidence = clone(graphContract)
+  broadenedEvidence.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').evidence_refs.push({
+    ...broadenedEvidence.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').evidence_refs[0],
+    evidence_ref_id: 'evidence.cam999a.unsupported',
+    run_id: 'CAM-999-A',
+  })
+  equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: broadenedEvidence, promptTagRegistry: registry })), 'visual_concept_production_advisory_effect_contract_invalid', 'explanation provenance must remain bounded to admitted CAM-018 and CAM-019 runs')
 
   const defaultConstraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [] })
   deepEqual(defaultConstraintProjection.constraint_metadata, {
@@ -184,15 +195,26 @@ try {
         effect_id: 'unmodeled.pose_body_overlap.hand_visibility',
         model_profile: 'model.novaanimexl_ilv190',
       },
-      evidence: { status: 'ADVISORY_ONLY', confidence: 'high' },
+      evidence: {
+        status: 'ADVISORY_ONLY',
+        confidence: 'high',
+        source_run_ids: ['CAM-018-A', 'CAM-018-B', 'CAM-018-C', 'CAM-018-D', 'CAM-019-A', 'CAM-019-B', 'CAM-019-C'],
+      },
+      explanation: {
+        summary: graphContract.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').observed_effect,
+      },
       recommendation: null,
     }],
   }, 'triggered risk must expose one canonical structured inspection entry without inventing recommendation text')
   const callerOwnedCatalog = clone(checkedInCatalog)
   const immutableInspection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: callerOwnedCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')], constraintIntent: requestedConstraints }).constraint_metadata.advisory_inspection
   callerOwnedCatalog.advisory_effects[0].trigger_prompt_tags[0].prompt = 'mutated after projection'
+  callerOwnedCatalog.advisory_effects[0].explanation.summary = 'mutated after projection'
+  callerOwnedCatalog.advisory_effects[0].explanation.source_run_ids[0] = 'CAM-999-A'
   equal(immutableInspection.entries[0].trigger_context.trigger_prompt_tags[0].prompt, 'hands behind back', 'canonical inspection must not retain mutable caller-owned trigger records')
   check(Object.isFrozen(immutableInspection.entries[0].trigger_context.trigger_prompt_tags[0]), 'projected trigger records must be frozen with the rest of the read-only inspection snapshot')
+  equal(immutableInspection.entries[0].evidence.source_run_ids[0], 'CAM-018-A', 'canonical inspection must copy bounded evidence provenance without retaining caller ownership')
+  check(Object.isFrozen(immutableInspection.entries[0].evidence.source_run_ids) && Object.isFrozen(immutableInspection.entries[0].explanation), 'explanation and provenance metadata must be immutable')
   deepEqual(constraintProjection.mapped_entries.map(entry => entry.concept_id), ['camera.framing.upper_body'], 'selected framing identity must remain separate from requested minimum framing identity and an advisory trigger need not become a duplicate concept binding')
   deepEqual(requestedConstraints, requestedSnapshot, 'constraint projection must not mutate caller-owned intent')
   const constraintPrompt = promptModule.buildPromptWithStrategy([], [selected('cam-upper-body'), selected('pos-hands-behind-back')], 'illustrious', 'BREAK', requestedConstraints)
@@ -405,8 +427,8 @@ try {
   check(appSource.includes('Visual Concept advisory unavailable') && appSource.includes('No mapped concepts for this selection.'), 'Inspector must expose unavailable and no-mapped states')
   check(appSource.includes('visualConceptAdvisory.constraint_metadata.advisory_inspection.entries.map'), 'App must render only advisory entries already returned by the canonical Compiler inspection projection')
   check(appSource.includes('className="visual-concept-risk-advisory" role="status" aria-live="polite"'), 'canonical risk output must render as a non-blocking accessible status in the existing Inspector')
-  check(appSource.includes('Hand visibility advisory') && appSource.includes('Requested hand visibility may be at risk for the selected pose context.'), 'the initial canonical hand-risk entry must have a bounded informational warning')
-  check(appSource.includes('entry.advisory_type') && appSource.includes('entry.evidence.status') && appSource.includes('entry.evidence.confidence') && appSource.includes('entry.supporting_identity.target_concept_id') && appSource.includes('entry.supporting_identity.effect_id'), 'the warning must expose bounded context from the canonical inspection entry rather than recreating semantics')
+  check(appSource.includes('Hand visibility advisory') && appSource.includes('entry.explanation.summary'), 'the canonical hand-risk entry must render only its owner-projected bounded explanation')
+  check(appSource.includes("entry.trigger_context.required_visible_region_concept_ids.join(' · ')") && appSource.includes("entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')") && appSource.includes("entry.evidence.source_run_ids.join(' · ')") && appSource.includes('entry.advisory_type') && appSource.includes('entry.evidence.status') && appSource.includes('entry.evidence.confidence') && appSource.includes('entry.supporting_identity.target_concept_id') && appSource.includes('entry.supporting_identity.effect_id'), 'the warning must expose bounded context and provenance from the canonical inspection entry rather than recreating semantics')
   check(!appSource.includes("advisory_type==='hand_visibility_risk'") && !appSource.includes("required_visible_region_concept_ids.includes('visibility.hands')"), 'App must not duplicate the canonical advisory trigger predicate')
   check(appSource.includes("buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset, 'BREAK', store.visualConceptConstraintIntent)"), 'App must supply the canonical store snapshot to the existing Compiler input')
   check(appSource.includes('VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1.map') && appSource.includes('<code>{conceptId}</code>'), 'App controls must be generated from and display canonical Graph identities without UI aliases')
