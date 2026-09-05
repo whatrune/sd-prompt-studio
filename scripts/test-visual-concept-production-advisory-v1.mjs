@@ -430,15 +430,35 @@ try {
   const visualSection = appSource.indexOf('className={`preview-section visual-concept-advisory')
   check(visualSection > appSource.indexOf('className="selected-outline"') && visualSection < appSource.indexOf('className={`preview-section generation-context'), 'Visual Concepts must render after Prompt Context and before Generation Context')
   equal((appSource.match(/id="visual-concept-advisory-title"/g) ?? []).length, 1, 'Visual Concepts must appear only in the current Prompt Inspector')
-  check(appSource.includes('Visual Concept advisory unavailable') && appSource.includes('No mapped concepts for this selection.'), 'Inspector must expose unavailable and no-mapped states')
-  check(appSource.includes('visualConceptAdvisory.constraint_metadata.advisory_inspection.entries.map'), 'App must render only advisory entries already returned by the canonical Compiler inspection projection')
-  check(appSource.includes('className="visual-concept-risk-advisory" role="status" aria-live="polite"'), 'canonical risk output must render as a non-blocking accessible status in the existing Inspector')
-  check(appSource.includes('Hand visibility advisory') && appSource.includes('entry.explanation.summary') && appSource.includes('entry.recommendation.message') && appSource.includes('entry.recommendation.suggestion_type'), 'the canonical hand-risk entry must render only its owner-projected bounded explanation and suggestion')
+  check(appSource.includes('Visual Concept advisory unavailable') && appSource.includes('No mapped concepts for this selection.'), 'Inspector must expose unavailable and genuinely empty no-mapped states')
+  check(appSource.includes('const visualConceptRiskEntries = visualConceptAdvisory.constraint_metadata.advisory_inspection.entries') && appSource.includes('visualConceptRiskEntries.map'), 'App must render only advisory entries already returned by the canonical Compiler inspection projection')
+  check(appSource.includes('className="visual-concept-risk-advisory-announcement" role="status" aria-live="polite"') && !appSource.includes('className="visual-concept-risk-advisory" role="status"'), 'only the concise warning and recommendation must render as the live non-blocking status')
+  check(appSource.includes('Hand visibility may be reduced by the current pose or arm placement.') && appSource.includes('Review current pose or arm placement.') && appSource.includes('Informational only — your prompt and selections are unchanged.'), 'the default risk card must present the approved concise warning, recommendation, and non-mutating assurance')
+  const evidenceDetails = appSource.indexOf('<details className="visual-concept-risk-advisory-details">')
+  check(evidenceDetails > 0 && appSource.indexOf('Evidence details', evidenceDetails) > evidenceDetails, 'technical advisory content must use one collapsed Evidence details disclosure')
+  check(appSource.indexOf('entry.explanation.summary', evidenceDetails) > evidenceDetails && appSource.indexOf('entry.recommendation.message', evidenceDetails) > evidenceDetails && appSource.indexOf('entry.recommendation.suggestion_type', evidenceDetails) > evidenceDetails, 'owner-projected evidence metrics and internal suggestion data must remain available only inside Evidence details')
+  check([
+    "entry.trigger_context.required_visible_region_concept_ids.join(' · ')",
+    "entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')",
+    "entry.evidence.source_run_ids.join(' · ')",
+    'entry.advisory_type',
+    'entry.evidence.status',
+    'entry.evidence.confidence',
+    'entry.supporting_identity.target_concept_id',
+    'entry.supporting_identity.effect_id',
+    'entry.supporting_identity.model_profile',
+  ].every(value => appSource.indexOf(value, evidenceDetails) > evidenceDetails), 'provenance, confidence, identities, runs, and model details must remain behind the Evidence details disclosure')
   check(appSource.includes("entry.trigger_context.required_visible_region_concept_ids.join(' · ')") && appSource.includes("entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')") && appSource.includes("entry.evidence.source_run_ids.join(' · ')") && appSource.includes('entry.advisory_type') && appSource.includes('entry.evidence.status') && appSource.includes('entry.evidence.confidence') && appSource.includes('entry.supporting_identity.target_concept_id') && appSource.includes('entry.supporting_identity.effect_id'), 'the warning must expose bounded context and provenance from the canonical inspection entry rather than recreating semantics')
   check(!appSource.includes("advisory_type==='hand_visibility_risk'") && !appSource.includes("required_visible_region_concept_ids.includes('visibility.hands')"), 'App must not duplicate the canonical advisory trigger predicate')
   check(!appSource.includes('review_current_pose') && !appSource.includes('rin-arms-at-sides'), 'App must not own suggestion semantics or invent an unsupported replacement identity')
   check(appSource.includes("buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset, 'BREAK', store.visualConceptConstraintIntent)"), 'App must supply the canonical store snapshot to the existing Compiler input')
-  check(appSource.includes('VISUAL_CONCEPT_COMPILER_VISIBLE_REGION_CONCEPT_IDS_V1.map') && appSource.includes('<code>{conceptId}</code>'), 'App controls must be generated from and display canonical Graph identities without UI aliases')
+  const labelOwner = appSource.indexOf('const VISUAL_CONCEPT_VISIBILITY_LABEL_V1')
+  const headLabel = appSource.indexOf("'visibility.head': 'Head visible'", labelOwner)
+  const handsLabel = appSource.indexOf("'visibility.hands': 'Both hands visible'", labelOwner)
+  const feetLabel = appSource.indexOf("'visibility.feet': 'Both feet visible'", labelOwner)
+  check(appSource.includes("'visibility.head': 0") && appSource.includes("'visibility.hands': 1") && appSource.includes("'visibility.feet': 2") && headLabel > 0 && headLabel < handsLabel && handsLabel < feetLabel && appSource.includes('VISUAL_CONCEPT_VISIBILITY_PRESENTATION_V1.map(({conceptId,label})'), 'App controls must present all canonical visibility identities in the approved natural user-facing order')
+  check(appSource.includes('<span>{label}</span>') && appSource.includes('<code>{conceptId}</code>'), 'friendly visibility labels must lead while canonical IDs remain available as secondary technical detail')
+  check(appSource.includes('const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0') && appSource.includes('No known visibility risk for the current selection.') && appSource.includes('visualConceptRiskEntries.length===0'), 'active visibility intent without a known risk must be acknowledged truthfully')
   check(appSource.includes('setVisualConceptVisibleRegionRequired(conceptId,event.target.checked)') && !appSource.includes('observed_generated_visibility'), 'App must submit explicit user intent without claiming observed/generated visibility')
   check(appSource.includes('MAPPED') && appSource.includes('UNCOVERED') && appSource.includes('TOTAL'), 'Inspector must distinguish all three coverage counts')
   check(appSource.includes('Uncovered selected tags') && appSource.includes('entry.prompt_tag_id') && appSource.includes('entry.prompt_tag_label'), 'Inspector must expose uncovered tag identities in a secondary list')
