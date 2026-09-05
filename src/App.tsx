@@ -1058,6 +1058,15 @@ export default function App() {
                 <code>{conceptId}</code>
               </label>)}</div>
             </fieldset>
+            {visualConceptAdvisory.constraint_metadata.advisory_inspection.entries.map(entry=><aside className="visual-concept-risk-advisory" role="status" aria-live="polite" key={entry.advisory_type}>
+              <AlertTriangle size={16}/>
+              <div>
+                <strong>Hand visibility advisory</strong>
+                <span>Requested hand visibility may be at risk for the selected pose context.</span>
+                <small><code>{entry.advisory_type}</code> · {entry.evidence.status} / {entry.evidence.confidence}</small>
+                <small><code>{entry.supporting_identity.target_concept_id}</code> · {entry.supporting_identity.effect_id}</small>
+              </div>
+            </aside>)}
             {visualConceptAdvisory.advisory_status==='UNAVAILABLE'
               ? <div className="visual-concept-advisory-empty"><AlertTriangle size={16}/><span>Visual Concept advisory unavailable</span></div>
               : <>

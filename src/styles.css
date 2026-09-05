@@ -1561,6 +1561,37 @@ body,
 .visual-concept-visibility-intent code {
   overflow-wrap: anywhere;
 }
+.visual-concept-risk-advisory {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid var(--warning-border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  background: var(--warning-bg);
+}
+.visual-concept-risk-advisory>svg {
+  flex: 0 0 auto;
+  color: var(--warning-border);
+}
+.visual-concept-risk-advisory>div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.visual-concept-risk-advisory strong {
+  color: var(--text-primary);
+  font-size: 11px;
+}
+.visual-concept-risk-advisory span,
+.visual-concept-risk-advisory small {
+  font-size: 10px;
+  line-height: 1.4;
+}
+.visual-concept-risk-advisory code {
+  overflow-wrap: anywhere;
+}
 .visual-concept-advisory-list {
   display: grid;
   gap: 8px;
