@@ -1195,8 +1195,11 @@ const createTerminalCloseFixture = ({
   closeError = null,
   closeResponseMismatch = false,
   closeRefetchMismatch = false,
+  beforeMutationPolicy = null,
+  beforeMutationIssueState = null,
+  beforeMutationIssueStateReason = null,
 } = {}) => {
-  const canonicalBody = serializeCanonicalTaskIssueBodyV1({
+  const bodyForPolicy = (closurePolicy) => serializeCanonicalTaskIssueBodyV1({
     request: canonicalTaskBodyRequest({
       title: 'POST_MERGE_TASK_AUTO_CLOSE_V1',
       objective: taskInput.objective,
@@ -1204,11 +1207,12 @@ const createTerminalCloseFixture = ({
       authorized_paths: PATHS,
       head_branch: BRANCH,
       worktree_path: terminalWorktreePath,
-      task_issue_closure_policy: policy,
+      task_issue_closure_policy: closurePolicy,
     }),
     mode: 'BOUND_FINAL',
     taskIssue: TASK,
   })
+  const canonicalBody = bodyForPolicy(policy)
   let body = canonicalBody
   if (legacy) {
     const parsed = parseCanonicalTaskIssueBodyV1({ body, mode: 'BOUND_FINAL' })
@@ -1232,13 +1236,20 @@ const createTerminalCloseFixture = ({
     html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`,
     user: { login: 'whatrune' },
     author_association: 'OWNER',
-    body: closeRefetchMismatch && state.issueReads > 1 ? `${state.issueBody}\n` : state.issueBody,
+    body: closeRefetchMismatch && state.issueReads > 2 ? `${state.issueBody}\n` : state.issueBody,
   })
   const host = {
     async api(route) {
       if (route === 'user') return { login: 'whatrune' }
       if (route === `repos/${REPOSITORY}/issues/${TASK}`) {
         state.issueReads += 1
+        if (state.issueReads === 2) {
+          if (beforeMutationPolicy !== null) state.issueBody = bodyForPolicy(beforeMutationPolicy)
+          if (beforeMutationIssueState !== null) state.issueState = beforeMutationIssueState
+          if (beforeMutationIssueStateReason !== null) {
+            state.issueStateReason = beforeMutationIssueStateReason
+          }
+        }
         return issueResource()
       }
       if (route === `repos/${REPOSITORY}/pulls/${PR}`) return {
@@ -1287,7 +1298,7 @@ const createTerminalCloseFixture = ({
   equal(result.merge_outcome_affected, false)
   equal(result.cleanup_outcome_affected, false)
   equal(fixture.state.closeMutations, 1)
-  equal(fixture.state.issueReads, 2)
+  equal(fixture.state.issueReads, 3)
   equal(fixture.state.issueBody, fixture.body)
 }
 
@@ -1300,7 +1311,7 @@ const createTerminalCloseFixture = ({
   equal(result.issue_state_reason, 'not_planned')
   equal(result.mutation_count, 0)
   equal(fixture.state.closeMutations, 0)
-  equal(fixture.state.issueReads, 1)
+  equal(fixture.state.issueReads, 2)
 }
 
 for (const options of [{ policy: 'KEEP_OPEN' }, { legacy: true }]) {
@@ -1312,7 +1323,33 @@ for (const options of [{ policy: 'KEEP_OPEN' }, { legacy: true }]) {
   equal(result.closure_policy, 'KEEP_OPEN')
   equal(result.mutation_count, 0)
   equal(fixture.state.closeMutations, 0)
-  equal(fixture.state.issueReads, 1)
+  equal(fixture.state.issueReads, 2)
+}
+
+{
+  const fixture = createTerminalCloseFixture({ beforeMutationPolicy: 'KEEP_OPEN' })
+  const result = await closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest(), host: fixture.host,
+  })
+  equal(result.reason, 'task_issue_keep_open')
+  equal(result.closure_policy, 'KEEP_OPEN')
+  equal(result.mutation_count, 0)
+  equal(fixture.state.closeMutations, 0)
+  equal(fixture.state.issueReads, 2)
+}
+
+{
+  const fixture = createTerminalCloseFixture({
+    beforeMutationIssueState: 'closed',
+    beforeMutationIssueStateReason: 'completed',
+  })
+  const result = await closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest(), host: fixture.host,
+  })
+  equal(result.reason, 'task_issue_already_closed')
+  equal(result.mutation_count, 0)
+  equal(fixture.state.closeMutations, 0)
+  equal(fixture.state.issueReads, 2)
 }
 
 {
@@ -1344,7 +1381,7 @@ for (const options of [{ policy: 'KEEP_OPEN' }, { legacy: true }]) {
   }))
   equal(error.message, 'transport outcome unknown')
   equal(fixture.state.closeMutations, 1)
-  equal(fixture.state.issueReads, 1)
+  equal(fixture.state.issueReads, 2)
 }
 
 {
@@ -1354,7 +1391,7 @@ for (const options of [{ policy: 'KEEP_OPEN' }, { legacy: true }]) {
   }))
   equal(error.message, 'task_issue_close_response_invalid')
   equal(fixture.state.closeMutations, 1)
-  equal(fixture.state.issueReads, 1)
+  equal(fixture.state.issueReads, 2)
 }
 
 {
@@ -1364,7 +1401,7 @@ for (const options of [{ policy: 'KEEP_OPEN' }, { legacy: true }]) {
   }))
   equal(error.message, 'task_issue_close_resource_mismatch')
   equal(fixture.state.closeMutations, 1)
-  equal(fixture.state.issueReads, 2)
+  equal(fixture.state.issueReads, 3)
 }
 
 const allChecks = [check('validate', 15368), check('build-preview', 15368), check('Cloudflare Pages', 85455)]

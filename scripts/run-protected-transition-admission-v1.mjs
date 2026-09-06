@@ -1199,25 +1199,27 @@ export const closeCanonicalTaskIssueAfterTerminalCleanupV1 = async ({ request, h
   ) throw new Error('task_issue_close_host_invalid')
 
   const actor = await host.api('user')
-  const task = await host.api(`repos/${request.repository}/issues/${request.task_issue}`)
-  const body = task?.body
-  assertTaskIssueCloseResourceV1({ resource: task, request, body })
-  const parsed = parseCanonicalTaskIssueBodyV1({ body, mode: 'BOUND_FINAL' })
-  const taskAuthority = parsed.task_authority
-  const predelegation = parsed.normal_execution_predelegation
-  const grant = predelegation?.allowed_changes
-  const policy = taskIssueClosurePolicyV1(predelegation)
+  const bindTaskIssue = (task) => {
+    const body = task?.body
+    assertTaskIssueCloseResourceV1({ resource: task, request, body })
+    const parsed = parseCanonicalTaskIssueBodyV1({ body, mode: 'BOUND_FINAL' })
+    const taskAuthority = parsed.task_authority
+    const predelegation = parsed.normal_execution_predelegation
+    const grant = predelegation?.allowed_changes
+    const policy = taskIssueClosurePolicyV1(predelegation)
+    if (
+      actor?.login !== 'whatrune' || taskAuthority.task_issue !== request.task_issue ||
+      taskAuthority.repository !== request.repository || taskAuthority.product_owner_login !== 'whatrune'
+    ) throw new Error('task_issue_close_authority_invalid')
+    if (predelegation !== null && (
+      grant.repository !== request.repository || grant.task_issue !== request.task_issue ||
+      grant.authorized_actor !== actor.login || grant.head_branch !== request.head_branch ||
+      !sameAbsoluteHostPathV1(grant.worktree_path, request.worktree_path)
+    )) throw new Error('task_issue_close_authority_invalid')
+    return Object.freeze({ task, body, policy })
+  }
 
-  if (
-    actor?.login !== 'whatrune' || taskAuthority.task_issue !== request.task_issue ||
-    taskAuthority.repository !== request.repository || taskAuthority.product_owner_login !== 'whatrune'
-  ) throw new Error('task_issue_close_authority_invalid')
-
-  if (predelegation !== null && (
-    grant.repository !== request.repository || grant.task_issue !== request.task_issue ||
-    grant.authorized_actor !== actor.login || grant.head_branch !== request.head_branch ||
-    !sameAbsoluteHostPathV1(grant.worktree_path, request.worktree_path)
-  )) throw new Error('task_issue_close_authority_invalid')
+  bindTaskIssue(await host.api(`repos/${request.repository}/issues/${request.task_issue}`))
 
   const pull = await host.api(`repos/${request.repository}/pulls/${request.pull_request}`)
   const main = await host.api(`repos/${request.repository}/git/ref/heads/main`)
@@ -1236,6 +1238,10 @@ export const closeCanonicalTaskIssueAfterTerminalCleanupV1 = async ({ request, h
     throw new Error('task_issue_close_merge_binding_invalid')
   }
 
+  const current = bindTaskIssue(
+    await host.api(`repos/${request.repository}/issues/${request.task_issue}`),
+  )
+  const { task, body, policy } = current
   if (task.state === 'closed') {
     return Object.freeze({
       state: 'PASS', reason: 'task_issue_already_closed', closure_policy: policy,
