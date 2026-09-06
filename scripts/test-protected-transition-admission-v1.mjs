@@ -2259,6 +2259,9 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
     environment: {
       GH_TOKEN: 'caller-gh-token-must-not-flow',
       GITHUB_TOKEN: 'caller-github-token-must-not-flow',
+      GH_HOST: 'enterprise.example.test',
+      GH_ENTERPRISE_TOKEN: 'caller-enterprise-token-must-not-flow',
+      GITHUB_ENTERPRISE_TOKEN: 'caller-github-enterprise-token-must-not-flow',
       SAFE_ENVIRONMENT_VALUE: 'preserved',
     },
     ghExecutable: 'exact-gh',
@@ -2285,14 +2288,19 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(ghCalls.length, 2)
   for (const call of ghCalls) {
     equal(call.executable, 'exact-gh')
-    equal(call.args.join(' '), `api repos/${REPOSITORY}/issues/${TASK}/comments --method POST --input -`)
+    equal(call.args.join(' '), `api --hostname github.com repos/${REPOSITORY}/issues/${TASK}/comments --method POST --input -`)
     equal(call.options.encoding, 'utf8')
     equal(call.options.windowsHide, true)
     equal(call.options.env.GH_TOKEN, 'test-token')
     equal(Object.hasOwn(call.options.env, 'GITHUB_TOKEN'), false)
+    equal(Object.hasOwn(call.options.env, 'GH_HOST'), false)
+    equal(Object.hasOwn(call.options.env, 'GH_ENTERPRISE_TOKEN'), false)
+    equal(Object.hasOwn(call.options.env, 'GITHUB_ENTERPRISE_TOKEN'), false)
     equal(call.options.env.SAFE_ENVIRONMENT_VALUE, 'preserved')
     equal(JSON.stringify(call.options).includes('caller-gh-token-must-not-flow'), false)
     equal(JSON.stringify(call.options).includes('caller-github-token-must-not-flow'), false)
+    equal(JSON.stringify(call.options).includes('caller-enterprise-token-must-not-flow'), false)
+    equal(JSON.stringify(call.options).includes('caller-github-enterprise-token-must-not-flow'), false)
   }
   equal(ghCalls[0].options.input, JSON.stringify({ body: assignmentBody }))
   equal(ghCalls[1].options.input, JSON.stringify({ body: reviewBody }))
@@ -2311,7 +2319,7 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
     repository: REPOSITORY, prNumber: PR, exactHead: HEAD, body: reviewBody,
   })
   equal(calls.length, 1)
-  equal(calls[0].args.join(' '), `api repos/${REPOSITORY}/pulls/${PR}/reviews --method POST --input -`)
+  equal(calls[0].args.join(' '), `api --hostname github.com repos/${REPOSITORY}/pulls/${PR}/reviews --method POST --input -`)
   equal(calls[0].options.input, JSON.stringify({ body: reviewBody, event: 'APPROVE', commit_id: HEAD }))
 }
 for (const response of [

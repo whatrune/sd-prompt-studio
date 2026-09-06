@@ -368,7 +368,9 @@ export const createProductionHostV1 = (options = {}) => {
   }
   const ghEnvironment = {}
   for (const key of Object.keys(environment)) {
-    if (key !== 'GH_TOKEN' && key !== 'GITHUB_TOKEN') ghEnvironment[key] = environment[key]
+    if (![
+      'GH_TOKEN', 'GITHUB_TOKEN', 'GH_HOST', 'GH_ENTERPRISE_TOKEN', 'GITHUB_ENTERPRISE_TOKEN',
+    ].includes(key)) ghEnvironment[key] = environment[key]
   }
   ghEnvironment.GH_TOKEN = token
   const directGhApiMutation = ({ route, payload }) => {
@@ -376,7 +378,7 @@ export const createProductionHostV1 = (options = {}) => {
     try {
       result = spawnGh(
         ghExecutable,
-        ['api', route, '--method', 'POST', '--input', '-'],
+        ['api', '--hostname', 'github.com', route, '--method', 'POST', '--input', '-'],
         {
           encoding: 'utf8',
           env: ghEnvironment,
