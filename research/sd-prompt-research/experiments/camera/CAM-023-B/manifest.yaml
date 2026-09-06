@@ -1,0 +1,93 @@
+schema_version: "1.0"
+run_id: CAM-023-B
+domain: camera
+condition: upper body, arms at sides
+title: CAM-023-B — upper body plus arms at sides
+status: OBSERVED
+created_at: 2026-09-06T05:49:53.000Z
+updated_at: 2026-09-06T06:02:50.596Z
+research:
+  target_phrase: upper body, arms at sides
+  research_question: Does adding rin-arms-at-sides materially reduce realization of requested
+    upper-body or cowboy-shot framing?
+  baseline_run_id: CAM-022-A
+  variant_label: upper body plus arms at sides
+  hypothesis_before_run: Explicit arms-at-sides intent may widen the realized crop relative to the
+    same requested canonical framing without arm-placement intent.
+prompt:
+  positive: 1girl, solo, standing, neutral expression, plain fitted sleeveless top, black shorts,
+    barefoot, eye level, front view, empty seamless studio, plain floor, upper body, arms at sides
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers,
+    missing fingers, extra limbs, fused limbs, text, watermark, airplane, aircraft, vehicle,
+    background objects, props, furniture
+  changed_phrases:
+    - upper body
+    - arms at sides
+  fixed_phrases:
+    - 1girl
+    - solo
+    - standing
+    - neutral expression
+    - plain fitted sleeveless top
+    - black shorts
+    - barefoot
+    - eye level
+    - front view
+    - empty seamless studio
+    - plain floor
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ""
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+    - 280851079
+    - 573389415
+    - 585734404
+    - 508152166
+    - 1343163822
+    - 804008691
+source:
+  sheet_file: null
+  metadata_file: source/CAM-023-B_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: null
+outputs:
+  panels:
+    - panels/CAM-023-B_01.png
+    - panels/CAM-023-B_02.png
+    - panels/CAM-023-B_03.png
+    - panels/CAM-023-B_04.png
+    - panels/CAM-023-B_05.png
+    - panels/CAM-023-B_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: "Generated directly through the verified A1111 txt2img API under Task #650. Prompt-blind
+    observation was frozen before condition mapping disclosure. Results are research evidence only."
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null

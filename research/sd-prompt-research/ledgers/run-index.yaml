@@ -804,3 +804,27 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-05T21:11:35.474Z'
   path: experiments/camera/CAM-022-D
+- run_id: CAM-023-A
+  domain: camera
+  title: CAM-023-A — upper body control
+  status: OBSERVED
+  updated_at: '2026-09-06T06:02:50.596Z'
+  path: experiments/camera/CAM-023-A
+- run_id: CAM-023-B
+  domain: camera
+  title: CAM-023-B — upper body plus arms at sides
+  status: OBSERVED
+  updated_at: '2026-09-06T06:02:50.596Z'
+  path: experiments/camera/CAM-023-B
+- run_id: CAM-023-C
+  domain: camera
+  title: CAM-023-C — cowboy shot control
+  status: OBSERVED
+  updated_at: '2026-09-06T06:02:50.596Z'
+  path: experiments/camera/CAM-023-C
+- run_id: CAM-023-D
+  domain: camera
+  title: CAM-023-D — cowboy shot plus arms at sides
+  status: OBSERVED
+  updated_at: '2026-09-06T06:02:50.596Z'
+  path: experiments/camera/CAM-023-D
