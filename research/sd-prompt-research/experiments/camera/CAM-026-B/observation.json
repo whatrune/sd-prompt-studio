@@ -1,0 +1,294 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-026-B",
+  "blind_condition_label": "COND-04",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "face_detail",
+    "framing_boundary_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-04: observed requested upper_body framing=2/6.",
+      "Opaque condition COND-04: framing boundary assessable=2/6.",
+      "Opaque condition COND-04: ambiguity/artifact=4/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; prompts, seeds, requested framing, run mapping, PromptTag IDs, and emitted terms were withheld.",
+      "The 24-panel opaque observation record was frozen before mapping disclosure at SHA-256 0fe4c5669ad2aa5bcbd18cfbbe7a4f60657f0b606dfd12f09ecd57a9196124c1.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-framing alignment, matched-seed comparison, CAM-024 comparison, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "unknown",
+        "head_partial",
+        "unknown",
+        "partial",
+        "partial",
+        "unclear",
+        "unclear",
+        "partial",
+        "high",
+        "unclear",
+        "framing_ambiguous"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "A tight torso crop and an isolated foreshortened foot at the lower edge prevent one stable body-boundary assignment."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "framing_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "waist",
+        "visible",
+        "visible",
+        "partial",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Head and torso are contained; lower edge reaches the waist."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "unknown",
+        "head_partial",
+        "unknown",
+        "partial",
+        "partial",
+        "unclear",
+        "partial",
+        "partial",
+        "high",
+        "unclear",
+        "framing_ambiguous"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "A tight torso view includes foreshortened toes at the lower edge, making the canonical crop boundary ambiguous."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "framing_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "unknown",
+        "above_head",
+        "unknown",
+        "visible",
+        "visible",
+        "partial",
+        "partial",
+        "partial",
+        "high",
+        "unclear",
+        "framing_ambiguous"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Seated foreshortening places feet beside a tight torso crop, so no single ordinal boundary is stable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "framing_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "pelvis",
+        "visible",
+        "visible",
+        "partial",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Head and torso are contained and the lower edge crosses the pelvis."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "unknown",
+        "above_head",
+        "unknown",
+        "visible",
+        "visible",
+        "partial",
+        "partial",
+        "partial",
+        "high",
+        "unclear",
+        "framing_ambiguous"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Foreshortened legs and feet intrude beside the torso, preventing a stable canonical lower-boundary label."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "framing_ambiguous"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "unknown": 4,
+        "upper_body": 2
+      },
+      "upper_crop_boundary": {
+        "head_partial": 2,
+        "above_head": 4
+      },
+      "lower_crop_boundary": {
+        "unknown": 4,
+        "waist": 1,
+        "pelvis": 1
+      },
+      "head_visibility": {
+        "partial": 2,
+        "visible": 4
+      },
+      "torso_visibility": {
+        "partial": 2,
+        "visible": 4
+      },
+      "pelvis_visibility": {
+        "unclear": 2,
+        "partial": 4
+      },
+      "knees_visibility": {
+        "unclear": 1,
+        "not_visible": 2,
+        "partial": 3
+      },
+      "feet_visibility": {
+        "partial": 4,
+        "not_visible": 2
+      },
+      "face_detail": {
+        "high": 6
+      },
+      "framing_boundary_assessable": {
+        "unclear": 4,
+        "assessable": 2
+      },
+      "ambiguity_or_artifact": {
+        "framing_ambiguous": 4,
+        "none": 2
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_framing_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "framing_ambiguous": 4,
+      "none": 2
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
