@@ -19,7 +19,7 @@
   ],
   "summary": {
     "overall_visible_pattern": [
-      "Opaque condition COND-01: observed requested upper_body framing=1/6.",
+      "Opaque condition COND-01: observed framing distribution close_up=5/6, upper_body=1/6.",
       "Opaque condition COND-01: framing boundary assessable=6/6.",
       "Opaque condition COND-01: ambiguity/artifact=0/6."
     ],

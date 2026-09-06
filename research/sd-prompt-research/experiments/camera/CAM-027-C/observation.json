@@ -19,7 +19,7 @@
   ],
   "summary": {
     "overall_visible_pattern": [
-      "Opaque condition COND-04: observed requested cowboy_shot framing=6/6.",
+      "Opaque condition COND-04: observed framing distribution cowboy_shot=6/6.",
       "Opaque condition COND-04: framing boundary assessable=6/6.",
       "Opaque condition COND-04: ambiguity/artifact=1/6."
     ],
