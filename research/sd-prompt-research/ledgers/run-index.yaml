@@ -852,3 +852,27 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-06T10:44:53.503Z'
   path: experiments/camera/CAM-024-D
+- run_id: CAM-025-A
+  domain: camera
+  title: CAM-025-A — upper body baseline
+  status: OBSERVED
+  updated_at: '2026-09-06T11:25:37.0546446+00:00'
+  path: experiments/camera/CAM-025-A
+- run_id: CAM-025-B
+  domain: camera
+  title: CAM-025-B — upper body + standing
+  status: OBSERVED
+  updated_at: '2026-09-06T11:25:37.0546446+00:00'
+  path: experiments/camera/CAM-025-B
+- run_id: CAM-025-C
+  domain: camera
+  title: CAM-025-C — cowboy shot baseline
+  status: OBSERVED
+  updated_at: '2026-09-06T11:26:13.4873414+00:00'
+  path: experiments/camera/CAM-025-C
+- run_id: CAM-025-D
+  domain: camera
+  title: CAM-025-D — cowboy shot + standing
+  status: OBSERVED
+  updated_at: '2026-09-06T11:26:50.1778938+00:00'
+  path: experiments/camera/CAM-025-D
