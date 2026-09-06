@@ -151,7 +151,8 @@ The only additional Git lifecycle check is that an explicitly authorized operato
 11. hostが供給するexact bundled pwsh executableをPowerShell Coreのbounded 7.6.x line（Major = 7、Minor = 6、Patch >= 4）かつ`[IO.Path]::GetRelativePath` callableとしてprobeし、その同一host processからremove-task-worktree-after-merge-v1.ps1を実行して、Git common-directoryへのwrite/delete capabilityをnormal git worktree removeの直前に実測する
 12. former Task worktree pathが残る場合、unregistered、別のregistered Task worktree配下ではないこと、.git markerなし、reparse/symlink ancestorまたはroot escapeなし、およびcaptured exact path一致を再確認する
 13. verified orphan residueだけをexact former Task worktree pathから削除し、path absenceとbranch/ref preservationを確認する
-14. DONE
+14. exact Canonical Taskのclosure policyを評価し、`AUTO_CLOSE_COMPLETED`ならそのTask Issueだけを`completed`としてcloseしてdirect-refetchする。`KEEP_OPEN`、policy fieldがないlegacy Task、またはalready-closed Issueはzero-mutation PASSとする
+15. DONE
 ```
 
 概念コマンド:
@@ -163,6 +164,8 @@ pwsh scripts/sync-local-main-after-merge-v1.ps1 -RepositoryPath <repository-root
   -TaskWorktreePath <task-worktree> `
   -ExpectedBranch <task-branch> `
   -ExpectedHead <task-head>
+node scripts/run-protected-transition-admission-v1.mjs `
+  --close-canonical-task-after-cleanup-file <exact-terminal-cleanup-request.json>
 ```
 
 `sync-local-main-after-merge-v1.ps1`はpost-Merge verification後のlocal housekeeping ownerである。fresh-fetchした`origin/main`をintegration authorityとして使い、rootが`main`をcheckoutしたroot worktreeであること、rootがcleanであること、`origin/main..main`のcommit数が0であること、および`main`が`origin/main`のancestorであることをrequireする。同期は既にequalならzero-mutation PASS、それ以外は`git merge --ff-only origin/main`だけを許し、最後に`main == origin/main`とclean rootをrequireする。rebase、merge commit、reset、force-update、およびbranch deletionは行わない。
@@ -179,7 +182,9 @@ Active-execution ownershipはnormal `git worktree remove`より前の既存lifec
 
 Git removal後もregistrationが残る場合、dirty worktree、identity mismatch、registered residue/ancestor、`.git` marker、reparse/symlink escape、boundary mismatch、residual removal failure、またはbranch/ref driftではcleanupをfail closedにする。非ゼロexit後にregistrationが消えている部分成功はfailure retryではなくfresh state reconciliationとして既存residue cleanupへ進む。cleanup failureは確認済みMergeまたは成功済みworktree deregistrationを無効化せず、Merge結果とは別に報告する。unsafe fallback、force Git removal、および別pathへのdeletion expansionは禁止する。
 
-Canonical Task Issueのcloseはrepository cleanupとは別のprotected actionであり、明示的なProduct OwnerまたはIssue-closure authorityを必要とする。Merge Decision authorityからIssue closeを推論してはならない。Issue-closure authorityの不在またはIssue closeの失敗は、確認済みのMergeまたはworktree cleanupをblockせず、無効化もしない。
+Canonical Task IssueのcloseはMerge Decision authorityから推論しない。通常の新規Canonical Taskはnormal-execution predelegationにexact closure policyを持ち、明示的な`KEEP_OPEN`がなければ`AUTO_CLOSE_COMPLETED`をdefaultとする。policy fieldを持たないlegacy Taskは`KEEP_OPEN`として扱う。close admissionはpost-Merge verification PASS、local-main synchronization PASS、およびterminal Task worktree cleanup PASSをすべてrequireし、exact Canonical Task Issue以外をcloseしてはならない。already closedおよび`KEEP_OPEN`はzero-mutation PASSである。
+
+`AUTO_CLOSE_COMPLETED`は単一のcanonical Issue-close transportからGitHub reason `completed`で1回だけcloseし、body byte equalityを保ったdirect-refetchで`CLOSED / completed`をrequireする。ambiguous mutationをretryせず、alternate/fallback mutation routeを持たない。Issue closeの失敗は確認済みMerge、successful local-main synchronization、またはsuccessful worktree cleanupをblockせず、無効化もしない。umbrella/tracking Taskをopenに保つ場合はTask作成時に`KEEP_OPEN`を明示する。
 
 未コミット変更があるworktreeを強制削除しない。normal cleanupはlocal branchまたはremote branchを削除しない。worktree removalの失敗は、既に確認済みのMergeを無効化せず、cleanup failureとしてMerge結果とは分離して報告する。この手順はTask終了時の同期的な処理であり、cleanup framework、daemon、scheduler、databaseを要求しない。
 

@@ -25,6 +25,7 @@ import {
   serializeSimplifiedTaskAuthorityV1,
 } from './protected-transition-merge-operator-preflight-v1.mjs'
 import {
+  closeCanonicalTaskIssueAfterTerminalCleanupV1,
   createProductionHostV1,
   ensureReviewAuthorityAndRunPreflightV1,
   parseCanonicalTaskIssueBodyV1,
@@ -681,6 +682,11 @@ equal(parsedCanonicalTaskBound.task_authority.task_issue, 526)
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.task_issue, 526)
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.task_id, 'TASK-526-NORMAL-EXECUTION-PREDELEGATION')
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.expected_base, BASE)
+equal(
+  parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.allowed_operations
+    .task_issue_closure.policy,
+  'AUTO_CLOSE_COMPLETED',
+)
 equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.task_issue, 526)
 equal(parsedCanonicalTaskBound.review_publication_predelegation.task_id, 'TASK-526-REVIEW-PUBLICATION-PREDELEGATION')
 equal(parsedCanonicalTaskBound.task_authority.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
@@ -694,6 +700,25 @@ ok(canonicalTaskBoundBody.includes('日本語'))
 ok(canonicalTaskBoundBody.includes('Unicode ✓'))
 ok(canonicalTaskBoundBody.includes('embedded # remain content'))
 equal(canonicalTaskBoundBody.includes('System.Object[]'), false)
+const keepOpenCanonicalTaskBody = serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({ task_issue_closure_policy: 'KEEP_OPEN' }),
+  mode: 'BOUND_FINAL',
+  taskIssue: 526,
+})
+const parsedKeepOpenCanonicalTaskBody = parseCanonicalTaskIssueBodyV1({
+  body: keepOpenCanonicalTaskBody,
+  mode: 'BOUND_FINAL',
+})
+equal(
+  parsedKeepOpenCanonicalTaskBody.normal_execution_predelegation.allowed_changes.allowed_operations
+    .task_issue_closure.policy,
+  'KEEP_OPEN',
+)
+ok(parsedKeepOpenCanonicalTaskBody.normal_execution_predelegation.forbidden_changes.includes('issue_closure'))
+throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({ task_issue_closure_policy: 'INVALID' }),
+  mode: 'UNBOUND_CREATE',
+}), /canonical_task_body_request_invalid/)
 const legacyCanonicalTaskBody = canonicalTaskBoundBody.replace(
   yamlBlock(parsedCanonicalTaskBound.normal_execution_predelegation),
   '',
@@ -1114,6 +1139,232 @@ const createCanonicalTaskPublicationHost = ({
   equal(fixture.state.createCalls, 1)
   equal(fixture.state.patchCalls, 0)
   equal(fixture.state.issueApiCalls, 0)
+}
+
+const terminalRepositoryPath = process.platform === 'win32'
+  ? join('C:\\', 'workspace')
+  : join('/workspace')
+const terminalWorktreePath = join(terminalRepositoryPath, '.worktrees', 'task-429')
+const terminalSyncResult = (overrides = {}) => ({
+  state: 'PASS',
+  reason: 'local_main_fast_forwarded',
+  action: 'FAST_FORWARD',
+  repository: terminalRepositoryPath,
+  local_main_before: BASE,
+  origin_main: MERGE,
+  local_main_after: MERGE,
+  local_only_commits: 0,
+  merge_outcome_affected: false,
+  worktree_cleanup_may_continue: true,
+  ...overrides,
+})
+const terminalCleanupResult = (overrides = {}) => ({
+  state: 'PASS',
+  reason: 'task_worktree_cleanup_completed',
+  action: 'GIT_REMOVE',
+  repository: terminalRepositoryPath,
+  retired_worktree: terminalWorktreePath,
+  residual_removed: false,
+  branch_refs_preserved: true,
+  git_remove_exit_code: 0,
+  git_remove_stderr: '',
+  git_common_directory: join(terminalRepositoryPath, '.git'),
+  worktree_administration_directory: join(terminalRepositoryPath, '.git', 'worktrees', 'task-429'),
+  git_common_directory_capability: 'PROVEN',
+  merge_outcome_affected: false,
+  ...overrides,
+})
+const terminalCloseRequest = (overrides = {}) => ({
+  repository: REPOSITORY,
+  task_issue: TASK,
+  pull_request: PR,
+  exact_head: HEAD,
+  head_branch: BRANCH,
+  worktree_path: terminalWorktreePath,
+  local_main_sync_result: terminalSyncResult(),
+  worktree_cleanup_result: terminalCleanupResult(),
+  ...overrides,
+})
+const createTerminalCloseFixture = ({
+  policy = 'AUTO_CLOSE_COMPLETED',
+  legacy = false,
+  issueState = 'open',
+  issueStateReason = null,
+  pullHead = HEAD,
+  comparisonStatus = 'identical',
+  closeError = null,
+  closeResponseMismatch = false,
+  closeRefetchMismatch = false,
+} = {}) => {
+  const canonicalBody = serializeCanonicalTaskIssueBodyV1({
+    request: canonicalTaskBodyRequest({
+      title: 'POST_MERGE_TASK_AUTO_CLOSE_V1',
+      objective: taskInput.objective,
+      markdown: '# Post-Merge Task Auto Close',
+      authorized_paths: PATHS,
+      head_branch: BRANCH,
+      worktree_path: terminalWorktreePath,
+      task_issue_closure_policy: policy,
+    }),
+    mode: 'BOUND_FINAL',
+    taskIssue: TASK,
+  })
+  let body = canonicalBody
+  if (legacy) {
+    const parsed = parseCanonicalTaskIssueBodyV1({ body, mode: 'BOUND_FINAL' })
+    const assignment = structuredClone(parsed.normal_execution_predelegation)
+    delete assignment.allowed_changes.allowed_operations.task_issue_closure
+    assignment.forbidden_changes = [...assignment.forbidden_changes, 'issue_closure']
+    body = body.replace(yamlBlock(parsed.normal_execution_predelegation), yamlBlock(assignment))
+    parseCanonicalTaskIssueBodyV1({ body, mode: 'BOUND_FINAL' })
+  }
+  const state = {
+    issueState,
+    issueStateReason,
+    issueBody: body,
+    issueReads: 0,
+    closeMutations: 0,
+  }
+  const issueResource = () => ({
+    number: TASK,
+    state: state.issueState,
+    state_reason: state.issueStateReason,
+    html_url: `https://github.com/${REPOSITORY}/issues/${TASK}`,
+    user: { login: 'whatrune' },
+    author_association: 'OWNER',
+    body: closeRefetchMismatch && state.issueReads > 1 ? `${state.issueBody}\n` : state.issueBody,
+  })
+  const host = {
+    async api(route) {
+      if (route === 'user') return { login: 'whatrune' }
+      if (route === `repos/${REPOSITORY}/issues/${TASK}`) {
+        state.issueReads += 1
+        return issueResource()
+      }
+      if (route === `repos/${REPOSITORY}/pulls/${PR}`) return {
+        number: PR,
+        state: 'closed',
+        merged: true,
+        head: { sha: pullHead, ref: BRANCH, repo: { full_name: REPOSITORY } },
+        base: { ref: 'main', repo: { full_name: REPOSITORY } },
+        merge_commit_sha: MERGE,
+      }
+      if (route === `repos/${REPOSITORY}/git/ref/heads/main`) {
+        return { ref: 'refs/heads/main', object: { sha: MERGE } }
+      }
+      if (route === `repos/${REPOSITORY}/compare/${MERGE}...${MERGE}`) {
+        return { status: comparisonStatus }
+      }
+      throw new Error(`unexpected_api:${route}`)
+    },
+    async closeTaskIssue({ repository, taskIssue }) {
+      state.closeMutations += 1
+      equal(repository, REPOSITORY)
+      equal(taskIssue, TASK)
+      if (closeError !== null) throw closeError
+      state.issueState = 'closed'
+      state.issueStateReason = 'completed'
+      const resource = issueResource()
+      return closeResponseMismatch ? { ...resource, body: `${resource.body}\n` } : resource
+    },
+  }
+  return { host, state, body }
+}
+
+{
+  const fixture = createTerminalCloseFixture()
+  const result = await closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest(),
+    host: fixture.host,
+  })
+  equal(result.state, 'PASS')
+  equal(result.reason, 'task_issue_closed_completed')
+  equal(result.closure_policy, 'AUTO_CLOSE_COMPLETED')
+  equal(result.mutation_count, 1)
+  equal(result.issue_state, 'closed')
+  equal(result.issue_state_reason, 'completed')
+  equal(result.body_preserved, true)
+  equal(result.merge_outcome_affected, false)
+  equal(result.cleanup_outcome_affected, false)
+  equal(fixture.state.closeMutations, 1)
+  equal(fixture.state.issueReads, 2)
+  equal(fixture.state.issueBody, fixture.body)
+}
+
+{
+  const fixture = createTerminalCloseFixture({ issueState: 'closed', issueStateReason: 'not_planned' })
+  const result = await closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest(), host: fixture.host,
+  })
+  equal(result.reason, 'task_issue_already_closed')
+  equal(result.issue_state_reason, 'not_planned')
+  equal(result.mutation_count, 0)
+  equal(fixture.state.closeMutations, 0)
+  equal(fixture.state.issueReads, 1)
+}
+
+for (const options of [{ policy: 'KEEP_OPEN' }, { legacy: true }]) {
+  const fixture = createTerminalCloseFixture(options)
+  const result = await closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest(), host: fixture.host,
+  })
+  equal(result.reason, 'task_issue_keep_open')
+  equal(result.closure_policy, 'KEEP_OPEN')
+  equal(result.mutation_count, 0)
+  equal(fixture.state.closeMutations, 0)
+  equal(fixture.state.issueReads, 1)
+}
+
+{
+  const fixture = createTerminalCloseFixture()
+  const error = await captureError(() => closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest({
+      local_main_sync_result: terminalSyncResult({ state: 'FAILED' }),
+    }),
+    host: fixture.host,
+  }))
+  equal(error.message, 'post_merge_task_close_terminal_gate_invalid')
+  equal(fixture.state.closeMutations, 0)
+  equal(fixture.state.issueReads, 0)
+}
+
+{
+  const fixture = createTerminalCloseFixture({ pullHead: '9'.repeat(40) })
+  const error = await captureError(() => closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest(), host: fixture.host,
+  }))
+  equal(error.message, 'task_issue_close_merge_binding_invalid')
+  equal(fixture.state.closeMutations, 0)
+}
+
+{
+  const fixture = createTerminalCloseFixture({ closeError: new Error('transport outcome unknown') })
+  const error = await captureError(() => closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest(), host: fixture.host,
+  }))
+  equal(error.message, 'transport outcome unknown')
+  equal(fixture.state.closeMutations, 1)
+  equal(fixture.state.issueReads, 1)
+}
+
+{
+  const fixture = createTerminalCloseFixture({ closeResponseMismatch: true })
+  const error = await captureError(() => closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest(), host: fixture.host,
+  }))
+  equal(error.message, 'task_issue_close_response_invalid')
+  equal(fixture.state.closeMutations, 1)
+  equal(fixture.state.issueReads, 1)
+}
+
+{
+  const fixture = createTerminalCloseFixture({ closeRefetchMismatch: true })
+  const error = await captureError(() => closeCanonicalTaskIssueAfterTerminalCleanupV1({
+    request: terminalCloseRequest(), host: fixture.host,
+  }))
+  equal(error.message, 'task_issue_close_resource_mismatch')
+  equal(fixture.state.closeMutations, 1)
+  equal(fixture.state.issueReads, 2)
 }
 
 const allChecks = [check('validate', 15368), check('build-preview', 15368), check('Cloudflare Pages', 85455)]
@@ -1974,12 +2225,16 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
     repository: REPOSITORY, prNumber: PR, exactHead: HEAD, body: reviewBody,
   })
   await host.publishTaskIssueComment({ repository: REPOSITORY, taskIssue: TASK, body: reviewBody })
+  await host.closeTaskIssue({ repository: REPOSITORY, taskIssue: TASK })
   equal(observed[0].url, `https://api.github.com/repos/${REPOSITORY}/pulls/${PR}/reviews`)
   equal(observed[0].options.method, 'POST')
   equal(observed[0].options.body, JSON.stringify({ body: reviewBody, event: 'APPROVE', commit_id: HEAD }))
   equal(observed[1].url, `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}/comments`)
   equal(observed[1].options.method, 'POST')
   equal(observed[1].options.body, JSON.stringify({ body: reviewBody }))
+  equal(observed[2].url, `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`)
+  equal(observed[2].options.method, 'PATCH')
+  equal(observed[2].options.body, JSON.stringify({ state: 'closed', state_reason: 'completed' }))
 }
 {
   const originalGhToken = process.env.GH_TOKEN
@@ -2429,15 +2684,17 @@ ok(runnerSource.includes('serializeCanonicalTaskIssueBodyV1'))
 ok(runnerSource.includes('publishCanonicalTaskIssueV1'))
 ok(runnerSource.includes('createTaskIssue'))
 ok(runnerSource.includes('patchTaskIssueBody'))
-equal((runnerSource.match(/method: 'PATCH'/g) ?? []).length, 1)
+equal((runnerSource.match(/method: 'PATCH'/g) ?? []).length, 2)
 ok(runnerSource.includes("diagnosticOperation: 'CANONICAL_TASK_CREATE_MUTATION'"))
 ok(runnerSource.includes("diagnosticOperation: 'CANONICAL_TASK_PATCH_MUTATION'"))
+ok(runnerSource.includes("diagnosticOperation: 'TASK_ISSUE_CLOSE_MUTATION'"))
 ok(runnerSource.includes("authenticatedActor.login !== admittedRequest.product_owner_login"))
 ok(runnerSource.includes("resource.author_association !== 'OWNER'"))
 ok(runnerSource.includes("throw new Error('github_token_ambiguous')"))
 equal(runnerSource.includes('context.token ?? process.env.GH_TOKEN'), false)
 equal(runnerSource.includes('token = process.env.GH_TOKEN'), false)
 ok(runnerSource.includes("valueAfter('--create-canonical-task-issue-file')"))
+ok(runnerSource.includes("valueAfter('--close-canonical-task-after-cleanup-file')"))
 ok(runnerSource.includes("valueAfter('--serialize-canonical-task-body-file')"))
 ok(runnerSource.includes("args.includes('--publication-body-output-file')"))
 ok(runnerSource.includes('writeProtectedPublicationBodyFileV1'))
