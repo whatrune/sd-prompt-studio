@@ -9,6 +9,7 @@ import {
   writeSync,
 } from 'node:fs'
 import { createHash } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -356,10 +357,50 @@ const resolveGitHubTokenV1 = (environment) => {
 export const createProductionHostV1 = (options = {}) => {
   const fetchImpl = options.fetchImpl ?? globalThis.fetch
   const environment = options.environment ?? process.env
+  const spawnGh = options.spawnSync ?? spawnSync
+  const ghExecutable = options.ghExecutable ?? 'gh'
   const token = Object.hasOwn(options, 'token')
     ? options.token
     : resolveGitHubTokenV1(environment)
   if (typeof token !== 'string' || token.length === 0) throw new Error('github_token_missing')
+  if (typeof spawnGh !== 'function' || typeof ghExecutable !== 'string' || ghExecutable.length === 0) {
+    throw new Error('github_direct_transport_invalid')
+  }
+  const ghEnvironment = {}
+  for (const key of Object.keys(environment)) {
+    if (key !== 'GH_TOKEN' && key !== 'GITHUB_TOKEN') ghEnvironment[key] = environment[key]
+  }
+  ghEnvironment.GH_TOKEN = token
+  const directGhApiMutation = ({ route, payload }) => {
+    let result
+    try {
+      result = spawnGh(
+        ghExecutable,
+        ['api', route, '--method', 'POST', '--input', '-'],
+        {
+          encoding: 'utf8',
+          env: ghEnvironment,
+          input: JSON.stringify(payload),
+          windowsHide: true,
+        },
+      )
+    } catch {
+      throw new Error('review_publication_direct_gh_outcome_unknown')
+    }
+    if (
+      result === null || typeof result !== 'object' || result.error !== undefined ||
+      result.status !== 0 || (result.signal !== null && result.signal !== undefined)
+    ) throw new Error('review_publication_direct_gh_outcome_unknown')
+    try {
+      const resource = JSON.parse(typeof result.stdout === 'string' ? result.stdout : `${result.stdout ?? ''}`)
+      if (resource === null || typeof resource !== 'object' || Array.isArray(resource)) {
+        throw new Error('invalid_resource')
+      }
+      return resource
+    } catch {
+      throw new Error('review_publication_direct_gh_response_invalid')
+    }
+  }
   return Object.freeze({
   api: (route) => request(`${API_ROOT}/${route}`, {}, { fetchImpl, token }),
   refetchContinuationEvent: async ({ cursor }) => {
@@ -411,39 +452,30 @@ export const createProductionHostV1 = (options = {}) => {
       !REPOSITORY.test(repository ?? '') || !Number.isSafeInteger(prNumber) || prNumber < 1 ||
       !FULL_SHA.test(exactHead ?? '') || typeof body !== 'string' || body.length === 0
     ) throw new Error('review_publication_request_invalid')
-    const response = await request(
-      `${API_ROOT}/repos/${repository}/pulls/${prNumber}/reviews`,
-      {
-        method: 'POST',
-        body: JSON.stringify({ body, event: 'APPROVE', commit_id: exactHead }),
-      },
-      { diagnosticOperation: 'REVIEW_AUTHORITY_MUTATION', fetchImpl, token },
-    )
-    return response.body
+    return directGhApiMutation({
+      route: `repos/${repository}/pulls/${prNumber}/reviews`,
+      payload: { body, event: 'APPROVE', commit_id: exactHead },
+    })
   },
   publishTaskIssueComment: async ({ repository, taskIssue, body }) => {
     if (
       !REPOSITORY.test(repository ?? '') || !Number.isSafeInteger(taskIssue) || taskIssue < 1 ||
       typeof body !== 'string' || body.length === 0
     ) throw new Error('review_publication_request_invalid')
-    const response = await request(
-      `${API_ROOT}/repos/${repository}/issues/${taskIssue}/comments`,
-      { method: 'POST', body: JSON.stringify({ body }) },
-      { diagnosticOperation: 'REVIEW_AUTHORITY_MUTATION', fetchImpl, token },
-    )
-    return response.body
+    return directGhApiMutation({
+      route: `repos/${repository}/issues/${taskIssue}/comments`,
+      payload: { body },
+    })
   },
   publishTaskAssignmentComment: async ({ repository, taskIssue, body }) => {
     if (
       !REPOSITORY.test(repository ?? '') || !Number.isSafeInteger(taskIssue) || taskIssue < 1 ||
       typeof body !== 'string' || body.length === 0
     ) throw new Error('review_assignment_materialization_request_invalid')
-    const response = await request(
-      `${API_ROOT}/repos/${repository}/issues/${taskIssue}/comments`,
-      { method: 'POST', body: JSON.stringify({ body }) },
-      { diagnosticOperation: 'REVIEW_ASSIGNMENT_MUTATION', fetchImpl, token },
-    )
-    return response.body
+    return directGhApiMutation({
+      route: `repos/${repository}/issues/${taskIssue}/comments`,
+      payload: { body },
+    })
   },
   resolveReviewThread: async ({ threadId }) => {
     if (typeof threadId !== 'string' || threadId.length === 0) {

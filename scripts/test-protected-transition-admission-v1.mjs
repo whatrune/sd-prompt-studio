@@ -2247,31 +2247,104 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(fixture.state.mergeMutations, 0)
 }
 {
-  const observed = []
+  const ghCalls = []
+  const issueCommentResource = (id, body) => ({
+    id,
+    body,
+    html_url: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${id}`,
+    user: { login: 'whatrune' },
+  })
   const host = createProductionHostV1({
     token: 'test-token',
+    environment: {
+      GH_TOKEN: 'caller-gh-token-must-not-flow',
+      GITHUB_TOKEN: 'caller-github-token-must-not-flow',
+      SAFE_ENVIRONMENT_VALUE: 'preserved',
+    },
+    ghExecutable: 'exact-gh',
+    spawnSync: (executable, args, options) => {
+      ghCalls.push({ executable, args, options })
+      const payload = JSON.parse(options.input)
+      return {
+        status: 0,
+        signal: null,
+        stdout: JSON.stringify(issueCommentResource(9500 + ghCalls.length, payload.body)),
+        stderr: '',
+      }
+    },
     fetchImpl: async (url, options) => {
-      observed.push({ url, options })
-      return new Response(JSON.stringify({ id: observed.length }), {
+      return new Response(JSON.stringify({ id: 1 }), {
         status: 200,
-        headers: { 'x-github-request-id': `REQ:REVIEW:${observed.length}` },
+        headers: { 'x-github-request-id': 'REQ:NON-REVIEW' },
       })
+    },
+  })
+  const assignmentBody = 'canonical V2 logical assignment'
+  await host.publishTaskAssignmentComment({ repository: REPOSITORY, taskIssue: TASK, body: assignmentBody })
+  await host.publishTaskIssueComment({ repository: REPOSITORY, taskIssue: TASK, body: reviewBody })
+  equal(ghCalls.length, 2)
+  for (const call of ghCalls) {
+    equal(call.executable, 'exact-gh')
+    equal(call.args.join(' '), `api repos/${REPOSITORY}/issues/${TASK}/comments --method POST --input -`)
+    equal(call.options.encoding, 'utf8')
+    equal(call.options.windowsHide, true)
+    equal(call.options.env.GH_TOKEN, 'test-token')
+    equal(Object.hasOwn(call.options.env, 'GITHUB_TOKEN'), false)
+    equal(call.options.env.SAFE_ENVIRONMENT_VALUE, 'preserved')
+    equal(JSON.stringify(call.options).includes('caller-gh-token-must-not-flow'), false)
+    equal(JSON.stringify(call.options).includes('caller-github-token-must-not-flow'), false)
+  }
+  equal(ghCalls[0].options.input, JSON.stringify({ body: assignmentBody }))
+  equal(ghCalls[1].options.input, JSON.stringify({ body: reviewBody }))
+}
+{
+  const calls = []
+  const host = createProductionHostV1({
+    token: 'test-token',
+    environment: {},
+    spawnSync: (executable, args, options) => {
+      calls.push({ executable, args, options })
+      return { status: 0, signal: null, stdout: JSON.stringify({ id: 9601 }), stderr: '' }
     },
   })
   await host.publishPullRequestReview({
     repository: REPOSITORY, prNumber: PR, exactHead: HEAD, body: reviewBody,
   })
-  await host.publishTaskIssueComment({ repository: REPOSITORY, taskIssue: TASK, body: reviewBody })
-  await host.closeTaskIssue({ repository: REPOSITORY, taskIssue: TASK })
-  equal(observed[0].url, `https://api.github.com/repos/${REPOSITORY}/pulls/${PR}/reviews`)
-  equal(observed[0].options.method, 'POST')
-  equal(observed[0].options.body, JSON.stringify({ body: reviewBody, event: 'APPROVE', commit_id: HEAD }))
-  equal(observed[1].url, `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}/comments`)
-  equal(observed[1].options.method, 'POST')
-  equal(observed[1].options.body, JSON.stringify({ body: reviewBody }))
-  equal(observed[2].url, `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`)
-  equal(observed[2].options.method, 'PATCH')
-  equal(observed[2].options.body, JSON.stringify({ state: 'closed', state_reason: 'completed' }))
+  equal(calls.length, 1)
+  equal(calls[0].args.join(' '), `api repos/${REPOSITORY}/pulls/${PR}/reviews --method POST --input -`)
+  equal(calls[0].options.input, JSON.stringify({ body: reviewBody, event: 'APPROVE', commit_id: HEAD }))
+}
+for (const response of [
+  { status: 1, signal: null, stdout: '', stderr: 'Authorization: Bearer must-not-leak' },
+  { status: null, signal: 'SIGTERM', stdout: '', stderr: '' },
+  { status: 0, signal: null, stdout: '{invalid-json', stderr: '' },
+]) {
+  let mutationAttempts = 0
+  let fetchAttempts = 0
+  const host = createProductionHostV1({
+    token: 'direct-transport-secret',
+    environment: {},
+    spawnSync: () => {
+      mutationAttempts += 1
+      return response
+    },
+    fetchImpl: async () => {
+      fetchAttempts += 1
+      throw new Error('alternate_fetch_transport_used')
+    },
+  })
+  const error = await captureError(() => host.publishTaskAssignmentComment({
+    repository: REPOSITORY, taskIssue: TASK, body: 'assignment',
+  }))
+  equal(
+    ['review_publication_direct_gh_outcome_unknown', 'review_publication_direct_gh_response_invalid']
+      .includes(error.message),
+    true,
+  )
+  equal(mutationAttempts, 1)
+  equal(fetchAttempts, 0)
+  equal(error.message.includes('direct-transport-secret'), false)
+  equal(error.message.includes('must-not-leak'), false)
 }
 {
   const originalGhToken = process.env.GH_TOKEN
