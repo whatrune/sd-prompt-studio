@@ -1,0 +1,301 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-022-C",
+  "blind_condition_label": "COND-03",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "left_hand_visibility",
+    "right_hand_visibility",
+    "left_hand_frame_boundary",
+    "right_hand_frame_boundary",
+    "left_hand_occlusion_source",
+    "right_hand_occlusion_source",
+    "arm_placement_observation",
+    "hand_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-03: complete bilateral hand visibility=6/6; both hands fully inside frame=6/6.",
+      "Opaque condition COND-03: arms alongside torso=6/6; assessable=6/6; ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes/bytes/paths, and visible pixels; requested framing, run mapping, prompts, seeds, PromptTag IDs, and emitted phrases were withheld.",
+      "The 24-panel opaque observation record was frozen before mapping disclosure at SHA-256 7660d0a287a97cdbf65bc41706d5a9d883d50942dde81058a7e09f97d800e1cd.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen axis value, evidence note, or confidence.",
+      "Prompt compliance, boundary thresholds, matched comparisons, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "ankle",
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hands_visible_framing_interaction_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The entire head is visible, while the lower legs continue through the bottom edge near the ankles.",
+        "Both hands are fully visible beside the shorts."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hands_visible_framing_interaction_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The head is fully contained and the lower edge crosses the thighs below the shorts.",
+        "Both hands remain unobstructed and fully inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "knee",
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hands_visible_framing_interaction_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible floor appears above the head, while the legs are truncated near knee level.",
+        "Both hands are fully identifiable beside the shorts."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "ankle",
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hands_visible_framing_interaction_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete head is visible and the lower legs reach the bottom edge near the ankles.",
+        "Both complete hands are visible alongside the torso."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "proximal_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hands_visible_framing_interaction_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The full head is contained, while the lower edge intersects the upper thighs just below the shorts.",
+        "Both hands and fingertips are visible beside the hips."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "distal_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "hands_visible_framing_interaction_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The head remains below the top edge, and the lower edge cuts the thighs above the knees.",
+        "Both hands are fully visible and separated from the frame edges."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "full_body": 2,
+        "cowboy_shot": 4
+      },
+      "upper_crop_boundary": {
+        "above_head": 6
+      },
+      "lower_crop_boundary": {
+        "ankle": 2,
+        "mid_thigh": 1,
+        "knee": 1,
+        "proximal_thigh": 1,
+        "distal_thigh": 1
+      },
+      "left_hand_visibility": {
+        "fully_visible": 6
+      },
+      "right_hand_visibility": {
+        "fully_visible": 6
+      },
+      "left_hand_frame_boundary": {
+        "fully_inside_frame": 6
+      },
+      "right_hand_frame_boundary": {
+        "fully_inside_frame": 6
+      },
+      "left_hand_occlusion_source": {
+        "none": 6
+      },
+      "right_hand_occlusion_source": {
+        "none": 6
+      },
+      "arm_placement_observation": {
+        "alongside_torso": 6
+      },
+      "hand_assessability": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "hands_visible_framing_interaction_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
