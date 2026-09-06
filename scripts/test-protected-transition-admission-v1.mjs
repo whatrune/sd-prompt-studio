@@ -1615,6 +1615,21 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(fixture.state.pullReviewMutations, 0)
 }
 
+// A completed ordinary Fresh exact-HEAD Review does not require continuation diagnostic transport.
+{
+  const fixture = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
+  const { refetchContinuationEvent: unusedDiagnostic, ...hostWithoutContinuationDiagnostics } = fixture.host
+  equal(typeof unusedDiagnostic, 'function')
+  const result = await ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: hostWithoutContinuationDiagnostics,
+  })
+  equal(result.state, 'MERGE_READY')
+  equal(result.exact_head, HEAD)
+  equal(result.assignment_materialization_mutation_count, 1)
+  equal(result.publication_mutation_count, 1)
+  equal(fixture.state.findingEventReads, 0)
+}
+
 // Replacement Fresh Review resolves only the exact consumed finding threads before canonical Review publication.
 {
   const thread = { id: 'PRRT_corrected_thread', isResolved: false, isOutdated: false }
