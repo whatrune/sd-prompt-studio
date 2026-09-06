@@ -76,6 +76,9 @@ const NORMAL_TASK_EXECUTION_LEGACY_OPERATION_FIELDS = Object.freeze([
 const NORMAL_TASK_EXECUTION_OPERATION_FIELDS = Object.freeze([
   'worktree_creation', 'validated_tree_commit', 'unchanged_publication', 'corrected_thread_resolution',
 ])
+const NORMAL_TASK_EXECUTION_AUTO_CLOSE_OPERATION_FIELDS = Object.freeze([
+  ...NORMAL_TASK_EXECUTION_OPERATION_FIELDS, 'task_issue_closure',
+])
 const NORMAL_TASK_EXECUTION_WORKTREE_FIELDS = Object.freeze([
   'operation_count', 'exact_registered_path_required', 'fresh_remote_main_required',
 ])
@@ -96,13 +99,28 @@ const NORMAL_TASK_EXECUTION_THREAD_RESOLUTION_FIELDS = Object.freeze([
   'activation', 'operation_count_per_thread', 'consumed_finding_cursor_required',
   'replacement_fresh_review_required', 'exact_thread_identity_required', 'direct_refetch_required',
 ])
-const NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES = Object.freeze([
+const NORMAL_TASK_EXECUTION_TASK_ISSUE_CLOSURE_FIELDS = Object.freeze([
+  'activation', 'policy', 'operation_count', 'exact_task_issue_required',
+  'completed_state_reason_required', 'body_preservation_required', 'direct_refetch_required',
+])
+const NORMAL_TASK_EXECUTION_LEGACY_FORBIDDEN_CHANGES = Object.freeze([
   'scope_expansion', 'rebase', 'amend', 'ready_mutation', 'merge', 'retry', 'issue_closure',
 ])
-const CANONICAL_TASK_BODY_REQUEST_FIELDS = Object.freeze([
+const NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES = Object.freeze([
+  'scope_expansion', 'rebase', 'amend', 'ready_mutation', 'merge', 'retry',
+])
+const TASK_ISSUE_CLOSURE_POLICIES = Object.freeze(['AUTO_CLOSE_COMPLETED', 'KEEP_OPEN'])
+const CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS = Object.freeze([
   'title', 'repository', 'objective', 'markdown', 'authorized_paths', 'head_branch',
   'worktree_path', 'expected_base', 'authorized_actor', 'permitted_surface',
   'ready_allowed', 'product_owner_login',
+])
+const CANONICAL_TASK_BODY_REQUEST_FIELDS = Object.freeze([
+  ...CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS, 'task_issue_closure_policy',
+])
+const POST_MERGE_TASK_CLOSE_REQUEST_FIELDS = Object.freeze([
+  'repository', 'task_issue', 'pull_request', 'exact_head', 'head_branch', 'worktree_path',
+  'local_main_sync_result', 'worktree_cleanup_result',
 ])
 const CANONICAL_TASK_BODY_MODES = Object.freeze(['UNBOUND_CREATE', 'BOUND_FINAL'])
 const CANONICAL_TASK_SELF_BINDING_FIELDS = Object.freeze([
@@ -377,6 +395,17 @@ export const createProductionHostV1 = (options = {}) => {
     )
     return response.body
   },
+  closeTaskIssue: async ({ repository, taskIssue }) => {
+    if (
+      !REPOSITORY.test(repository ?? '') || !Number.isSafeInteger(taskIssue) || taskIssue < 1
+    ) throw new Error('task_issue_close_request_invalid')
+    const response = await request(
+      `${API_ROOT}/repos/${repository}/issues/${taskIssue}`,
+      { method: 'PATCH', body: JSON.stringify({ state: 'closed', state_reason: 'completed' }) },
+      { diagnosticOperation: 'TASK_ISSUE_CLOSE_MUTATION', fetchImpl, token },
+    )
+    return response.body
+  },
   publishPullRequestReview: async ({ repository, prNumber, exactHead, body }) => {
     if (
       !REPOSITORY.test(repository ?? '') || !Number.isSafeInteger(prNumber) || prNumber < 1 ||
@@ -551,7 +580,8 @@ const canonicalTaskBodyModeV1 = (mode) => {
 }
 
 const canonicalTaskBodyRequestV1 = (request) => {
-  if (!exactKeys(request, CANONICAL_TASK_BODY_REQUEST_FIELDS)) {
+  if (![CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS, CANONICAL_TASK_BODY_REQUEST_FIELDS]
+    .some((fields) => exactKeys(request, fields))) {
     throw new Error('canonical_task_body_request_invalid')
   }
   let authorizedPaths
@@ -579,9 +609,15 @@ const canonicalTaskBodyRequestV1 = (request) => {
     typeof request.authorized_actor !== 'string' ||
     !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/u.test(request.authorized_actor) ||
     !['PULL_REQUEST_REVIEW', 'TASK_ISSUE_COMMENT'].includes(request.permitted_surface) ||
+    (Object.hasOwn(request, 'task_issue_closure_policy') &&
+      !TASK_ISSUE_CLOSURE_POLICIES.includes(request.task_issue_closure_policy)) ||
     request.ready_allowed !== false || request.product_owner_login !== 'whatrune'
   ) throw new Error('canonical_task_body_request_invalid')
-  return Object.freeze({ ...request, authorized_paths: authorizedPaths })
+  return Object.freeze({
+    ...request,
+    authorized_paths: authorizedPaths,
+    task_issue_closure_policy: request.task_issue_closure_policy ?? 'AUTO_CLOSE_COMPLETED',
+  })
 }
 
 const canonicalTaskIssueNumberV1 = ({ mode, taskIssue }) => {
@@ -643,6 +679,10 @@ const canonicalReviewPublicationPredelegationV2 = ({ request, taskIssue }) => {
 
 const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => {
   const taskUrl = `https://github.com/${request.repository}/issues/${taskIssue}`
+  const issueClosurePolicy = request.task_issue_closure_policy
+  const forbiddenChanges = issueClosurePolicy === 'KEEP_OPEN'
+    ? NORMAL_TASK_EXECUTION_LEGACY_FORBIDDEN_CHANGES
+    : NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES
   return Object.freeze({
     task_id: `TASK-${taskIssue}-NORMAL-EXECUTION-PREDELEGATION`,
     record_type: 'task_assignment',
@@ -654,7 +694,7 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
     supporting_records: 'not_applicable',
     requested_by: 'Product Owner',
     assigned_role: 'Bounded Normal Task Execution Host',
-    purpose: 'Predelegate exact-base worktree admission, one validated-tree commit per execution identity, and one unchanged non-Draft publication.',
+    purpose: 'Predelegate exact-base worktree admission, one validated-tree commit per execution identity, one unchanged non-Draft publication, and the exact terminal Task Issue closure policy.',
     background: 'Terminal continuation events activate closed operations but are not independent authority.',
     input_documents: 'Shared Role Execution Contract, Delegation and Result Contract, Integrated Lead Charter, and BOUNDED_EXECUTION_IDENTITY_V1.',
     allowed_changes: Object.freeze({
@@ -699,11 +739,20 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
           exact_thread_identity_required: true,
           direct_refetch_required: true,
         }),
+        task_issue_closure: Object.freeze({
+          activation: 'POST_MERGE_VERIFICATION_LOCAL_MAIN_SYNC_AND_TERMINAL_CLEANUP_PASS',
+          policy: issueClosurePolicy,
+          operation_count: 1,
+          exact_task_issue_required: true,
+          completed_state_reason_required: true,
+          body_preservation_required: true,
+          direct_refetch_required: true,
+        }),
       }),
       fallback_allowed: false,
     }),
-    forbidden_changes: NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES,
-    expected_outputs: 'One admitted worktree, one exact validated-tree commit per execution identity, and one unchanged non-Draft publication.',
+    forbidden_changes: forbiddenChanges,
+    expected_outputs: 'One admitted worktree, one exact validated-tree commit per execution identity, one unchanged non-Draft publication, and the admitted terminal Task Issue closure outcome.',
     validation: 'Exact Task, branch, registered worktree, remote-main base, execution identity, HEAD, scope, review, remote ref, and pull-request refetch binding.',
     completion_conditions: 'The reviewed exact commit is published once to one non-Draft PR and the current-HEAD check wait is established.',
     escalation_conditions: 'Any authority, identity, base, scope, tree, review, remote-ref, publication, or mutation ambiguity.',
@@ -725,14 +774,20 @@ const classifyNormalTaskExecutionPredelegationV1 = (body) => {
   if (
     !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
     !exactKeys(grant, NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS) ||
-    ![NORMAL_TASK_EXECUTION_LEGACY_OPERATION_FIELDS, NORMAL_TASK_EXECUTION_OPERATION_FIELDS]
+    ![
+      NORMAL_TASK_EXECUTION_LEGACY_OPERATION_FIELDS,
+      NORMAL_TASK_EXECUTION_OPERATION_FIELDS,
+      NORMAL_TASK_EXECUTION_AUTO_CLOSE_OPERATION_FIELDS,
+    ]
       .some((fields) => exactKeys(operations, fields)) ||
     !exactKeys(operations?.worktree_creation, NORMAL_TASK_EXECUTION_WORKTREE_FIELDS) ||
     ![NORMAL_TASK_EXECUTION_LEGACY_COMMIT_FIELDS, NORMAL_TASK_EXECUTION_COMMIT_FIELDS]
       .some((fields) => exactKeys(operations?.validated_tree_commit, fields)) ||
     !exactKeys(operations?.unchanged_publication, NORMAL_TASK_EXECUTION_PUBLICATION_FIELDS) ||
     (operations?.corrected_thread_resolution !== undefined &&
-      !exactKeys(operations.corrected_thread_resolution, NORMAL_TASK_EXECUTION_THREAD_RESOLUTION_FIELDS))
+      !exactKeys(operations.corrected_thread_resolution, NORMAL_TASK_EXECUTION_THREAD_RESOLUTION_FIELDS)) ||
+    (operations?.task_issue_closure !== undefined &&
+      !exactKeys(operations.task_issue_closure, NORMAL_TASK_EXECUTION_TASK_ISSUE_CLOSURE_FIELDS))
   ) throw new Error('normal_task_execution_predelegation_invalid')
   return assignment
 }
@@ -786,6 +841,10 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
   }
   const normalGrant = normalExecutionPredelegation?.allowed_changes
   const normalOperations = normalGrant?.allowed_operations
+  const taskIssueClosure = normalOperations?.task_issue_closure
+  const expectedNormalForbiddenChanges = taskIssueClosure === undefined || taskIssueClosure.policy === 'KEEP_OPEN'
+    ? NORMAL_TASK_EXECUTION_LEGACY_FORBIDDEN_CHANGES
+    : NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES
   const taskUrl = `https://github.com/${taskAuthority.repository}/issues/${taskAuthority.task_issue}`
   if (normalExecutionPredelegation !== null && (
     normalExecutionPredelegation.task_id !== `TASK-${taskAuthority.task_issue}-NORMAL-EXECUTION-PREDELEGATION` ||
@@ -829,8 +888,16 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
       normalOperations.corrected_thread_resolution.exact_thread_identity_required !== true ||
       normalOperations.corrected_thread_resolution.direct_refetch_required !== true
     )) ||
+    (taskIssueClosure !== undefined && (
+      taskIssueClosure.activation !== 'POST_MERGE_VERIFICATION_LOCAL_MAIN_SYNC_AND_TERMINAL_CLEANUP_PASS' ||
+      !TASK_ISSUE_CLOSURE_POLICIES.includes(taskIssueClosure.policy) ||
+      taskIssueClosure.operation_count !== 1 || taskIssueClosure.exact_task_issue_required !== true ||
+      taskIssueClosure.completed_state_reason_required !== true ||
+      taskIssueClosure.body_preservation_required !== true ||
+      taskIssueClosure.direct_refetch_required !== true
+    )) ||
     normalGrant.fallback_allowed !== false ||
-    normalExecutionPredelegation.forbidden_changes.join('\n') !== NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES.join('\n') ||
+    normalExecutionPredelegation.forbidden_changes.join('\n') !== expectedNormalForbiddenChanges.join('\n') ||
     normalGrant.head_branch !== profiles.predelegation.allowed_changes.head_branch ||
     normalGrant.authorized_actor !== profiles.predelegation.allowed_changes.authorized_actor ||
     !samePaths(normalGrant.authorized_paths, profiles.predelegation.allowed_changes.authorized_paths)
@@ -1071,6 +1138,147 @@ export const publishCanonicalTaskIssueV1 = async ({ request, host }) => {
   } finally {
     rmSync(directory, { recursive: true, force: true })
   }
+}
+
+const sameAbsoluteHostPathV1 = (left, right) => {
+  if (typeof left !== 'string' || typeof right !== 'string' || !isAbsolute(left) || !isAbsolute(right)) return false
+  const normalizedLeft = normalize(left)
+  const normalizedRight = normalize(right)
+  return process.platform === 'win32'
+    ? normalizedLeft.toLowerCase() === normalizedRight.toLowerCase()
+    : normalizedLeft === normalizedRight
+}
+
+const validatePostMergeTaskCloseRequestV1 = (request) => {
+  if (
+    !exactKeys(request, POST_MERGE_TASK_CLOSE_REQUEST_FIELDS) ||
+    !REPOSITORY.test(request.repository ?? '') ||
+    !Number.isSafeInteger(request.task_issue) || request.task_issue < 1 ||
+    !Number.isSafeInteger(request.pull_request) || request.pull_request < 1 ||
+    !FULL_SHA.test(request.exact_head ?? '') || !nonEmptyText(request.head_branch) ||
+    !isAbsolute(request.worktree_path ?? '')
+  ) throw new Error('post_merge_task_close_request_invalid')
+  const sync = request.local_main_sync_result
+  const cleanup = request.worktree_cleanup_result
+  if (
+    sync === null || typeof sync !== 'object' || Array.isArray(sync) ||
+    sync.state !== 'PASS' || sync.local_only_commits !== 0 ||
+    !FULL_SHA.test(sync.origin_main ?? '') || sync.local_main_after !== sync.origin_main ||
+    sync.merge_outcome_affected !== false || sync.worktree_cleanup_may_continue !== true ||
+    cleanup === null || typeof cleanup !== 'object' || Array.isArray(cleanup) ||
+    cleanup.state !== 'PASS' || cleanup.reason !== 'task_worktree_cleanup_completed' ||
+    cleanup.branch_refs_preserved !== true || cleanup.merge_outcome_affected !== false ||
+    cleanup.git_common_directory_capability !== 'PROVEN' ||
+    !sameAbsoluteHostPathV1(sync.repository, cleanup.repository) ||
+    !sameAbsoluteHostPathV1(cleanup.retired_worktree, request.worktree_path)
+  ) throw new Error('post_merge_task_close_terminal_gate_invalid')
+  return Object.freeze({ ...request })
+}
+
+const taskIssueClosurePolicyV1 = (normalExecutionPredelegation) => {
+  const closure = normalExecutionPredelegation?.allowed_changes?.allowed_operations?.task_issue_closure
+  return closure === undefined ? 'KEEP_OPEN' : closure.policy
+}
+
+const assertTaskIssueCloseResourceV1 = ({ resource, request, body }) => {
+  if (
+    resource === null || typeof resource !== 'object' || Array.isArray(resource) ||
+    resource.number !== request.task_issue || !nonEmptyText(body) || resource.body !== body ||
+    resource.pull_request !== undefined ||
+    resource.user?.login !== 'whatrune' || resource.author_association !== 'OWNER' ||
+    !['open', 'closed'].includes(resource.state)
+  ) throw new Error('task_issue_close_resource_mismatch')
+  return resource
+}
+
+export const closeCanonicalTaskIssueAfterTerminalCleanupV1 = async ({ request, host }) => {
+  request = validatePostMergeTaskCloseRequestV1(request)
+  if (
+    host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
+    typeof host.closeTaskIssue !== 'function'
+  ) throw new Error('task_issue_close_host_invalid')
+
+  const actor = await host.api('user')
+  const bindTaskIssue = (task) => {
+    const body = task?.body
+    assertTaskIssueCloseResourceV1({ resource: task, request, body })
+    const parsed = parseCanonicalTaskIssueBodyV1({ body, mode: 'BOUND_FINAL' })
+    const taskAuthority = parsed.task_authority
+    const predelegation = parsed.normal_execution_predelegation
+    const grant = predelegation?.allowed_changes
+    const policy = taskIssueClosurePolicyV1(predelegation)
+    if (
+      actor?.login !== 'whatrune' || taskAuthority.task_issue !== request.task_issue ||
+      taskAuthority.repository !== request.repository || taskAuthority.product_owner_login !== 'whatrune'
+    ) throw new Error('task_issue_close_authority_invalid')
+    if (predelegation !== null && (
+      grant.repository !== request.repository || grant.task_issue !== request.task_issue ||
+      grant.authorized_actor !== actor.login || grant.head_branch !== request.head_branch ||
+      !sameAbsoluteHostPathV1(grant.worktree_path, request.worktree_path)
+    )) throw new Error('task_issue_close_authority_invalid')
+    return Object.freeze({ task, body, policy })
+  }
+
+  bindTaskIssue(await host.api(`repos/${request.repository}/issues/${request.task_issue}`))
+
+  const pull = await host.api(`repos/${request.repository}/pulls/${request.pull_request}`)
+  const main = await host.api(`repos/${request.repository}/git/ref/heads/main`)
+  if (
+    pull?.number !== request.pull_request || pull.state !== 'closed' || pull.merged !== true ||
+    pull.head?.sha !== request.exact_head || pull.head?.ref !== request.head_branch ||
+    pull.head?.repo?.full_name !== request.repository || pull.base?.ref !== 'main' ||
+    pull.base?.repo?.full_name !== request.repository || !FULL_SHA.test(pull.merge_commit_sha ?? '') ||
+    main?.ref !== 'refs/heads/main' || !FULL_SHA.test(main?.object?.sha ?? '') ||
+    request.local_main_sync_result.origin_main !== main.object.sha
+  ) throw new Error('task_issue_close_merge_binding_invalid')
+  const comparison = await host.api(
+    `repos/${request.repository}/compare/${pull.merge_commit_sha}...${main.object.sha}`,
+  )
+  if (!['identical', 'ahead'].includes(comparison?.status)) {
+    throw new Error('task_issue_close_merge_binding_invalid')
+  }
+
+  const current = bindTaskIssue(
+    await host.api(`repos/${request.repository}/issues/${request.task_issue}`),
+  )
+  const { task, body, policy } = current
+  if (task.state === 'closed') {
+    return Object.freeze({
+      state: 'PASS', reason: 'task_issue_already_closed', closure_policy: policy,
+      task_issue: request.task_issue, task_url: task.html_url, issue_state: task.state,
+      issue_state_reason: task.state_reason ?? null, mutation_count: 0,
+      body_preserved: true, merge_outcome_affected: false, cleanup_outcome_affected: false,
+    })
+  }
+  if (policy === 'KEEP_OPEN') {
+    return Object.freeze({
+      state: 'PASS', reason: 'task_issue_keep_open', closure_policy: policy,
+      task_issue: request.task_issue, task_url: task.html_url, issue_state: task.state,
+      issue_state_reason: task.state_reason ?? null, mutation_count: 0,
+      body_preserved: true, merge_outcome_affected: false, cleanup_outcome_affected: false,
+    })
+  }
+  if (policy !== 'AUTO_CLOSE_COMPLETED') throw new Error('task_issue_close_authority_invalid')
+
+  const closed = await host.closeTaskIssue({
+    repository: request.repository,
+    taskIssue: request.task_issue,
+  })
+  if (
+    closed?.number !== request.task_issue || closed.state !== 'closed' ||
+    closed.state_reason !== 'completed' || closed.body !== body
+  ) throw new Error('task_issue_close_response_invalid')
+  const refetched = await host.api(`repos/${request.repository}/issues/${request.task_issue}`)
+  assertTaskIssueCloseResourceV1({ resource: refetched, request, body })
+  if (refetched.state !== 'closed' || refetched.state_reason !== 'completed') {
+    throw new Error('task_issue_close_refetch_mismatch')
+  }
+  return Object.freeze({
+    state: 'PASS', reason: 'task_issue_closed_completed', closure_policy: policy,
+    task_issue: request.task_issue, task_url: refetched.html_url, issue_state: refetched.state,
+    issue_state_reason: refetched.state_reason, mutation_count: 1,
+    body_preserved: true, merge_outcome_affected: false, cleanup_outcome_affected: false,
+  })
 }
 
 const isReviewPublicationAssignmentCommentCandidateV2 = (body) => (
@@ -1897,11 +2105,19 @@ if (process.argv[1] !== undefined && pathToFileURL(process.argv[1]).href === imp
     }
   } else {
     const canonicalTaskPublicationFile = valueAfter('--create-canonical-task-issue-file')
+    const postMergeTaskCloseFile = valueAfter('--close-canonical-task-after-cleanup-file')
     const reviewAuthorityPreflightFile = valueAfter('--ensure-review-authority-and-run-preflight-file')
     const preDecisionPreflightFile = valueAfter('--pre-decision-preflight-file')
     if (canonicalTaskPublicationFile !== null) {
       const result = await publishCanonicalTaskIssueV1({
         request: readJson(canonicalTaskPublicationFile),
+        host: createProductionHostV1(),
+      })
+      process.stdout.write(`${JSON.stringify(result)}\n`)
+      process.exitCode = 0
+    } else if (postMergeTaskCloseFile !== null) {
+      const result = await closeCanonicalTaskIssueAfterTerminalCleanupV1({
+        request: readJson(postMergeTaskCloseFile),
         host: createProductionHostV1(),
       })
       process.stdout.write(`${JSON.stringify(result)}\n`)
