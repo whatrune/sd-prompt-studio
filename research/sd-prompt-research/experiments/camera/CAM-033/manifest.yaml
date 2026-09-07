@@ -1,0 +1,105 @@
+schema_version: '1.0'
+run_id: CAM-033
+domain: camera
+condition: upper body baseline replication
+title: CAM-033 — upper body baseline replication
+status: OBSERVED
+created_at: 2026-09-07 16:20:37.808026+00:00
+updated_at: '2026-09-08T01:33:41+09:00'
+research:
+  target_phrase: upper body
+  research_question: Does the CAM-024-C upper-body baseline remain stable under the
+    current frozen runtime?
+  baseline_run_id: CAM-024-C
+  variant_label: upper body baseline replication
+  hypothesis_before_run: The exact CAM-024-C upper-body request will realize upper_body
+    framing in at least 5/6 fresh seeds when all frozen prerequisites pass.
+  frozen_admission:
+    upper_body_realization: observed_framing equals upper_body; knees and feet not
+      visible; lower crop no lower than pelvis and no higher than upper_chest
+    framing_distribution_categories:
+    - full_body
+    - cowboy_shot
+    - upper_body
+    - close_up
+    - unknown
+    prerequisites:
+    - generation provenance 6/6
+    - PNG integrity and 1024x1024 dimensions 6/6
+    - prompt-blind freeze before decode
+    - framing assessable 6/6
+    - ambiguity or artifact at most 1/6
+    stable: all prerequisites and upper_body realization at least 5/6
+    unstable: all prerequisites and upper_body realization at most 4/6
+    inconclusive: any prerequisite failure
+prompt:
+  positive: 1girl, solo, neutral expression, front view, plain fitted sleeveless top,
+    simple studio background, upper body
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+    extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+  changed_phrases:
+  - upper body
+  fixed_phrases:
+  - 1girl
+  - solo
+  - neutral expression
+  - front view
+  - plain fitted sleeveless top
+  - simple studio background
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+  - 1442171659
+  - 1192718663
+  - 2094867664
+  - 1569134326
+  - 1216989611
+  - 8528726
+source:
+  sheet_file: null
+  metadata_file: source/CAM-033_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: null
+outputs:
+  panels:
+  - panels/CAM-033_01.png
+  - panels/CAM-033_02.png
+  - panels/CAM-033_03.png
+  - panels/CAM-033_04.png
+  - panels/CAM-033_05.png
+  - panels/CAM-033_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: 'Generated once through the verified fixed A1111 endpoint under Task #680.
+    Independent prompt-blind observation was frozen before decode. Classification:
+    UPPER_BODY_BASELINE_STABLE. Research evidence only.'
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null
