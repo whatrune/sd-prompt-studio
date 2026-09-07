@@ -331,9 +331,10 @@ const reviewPublicationPredelegation = ({
         operation_count: 1,
         direct_refetch_required: true,
       },
-      canonical_review_comment: {
+      canonical_review_publication: {
         operation_count: 1,
         direct_refetch_required: true,
+        permitted_surface: surface,
       },
     },
     fallback_allowed: false,
@@ -449,12 +450,12 @@ const createReviewRoutingFixture = ({
     user: { login: 'independent-reviewer' },
     body,
   })
-  const taskCommentResource = (id, body = expectedBody) => ({
+  const taskCommentResource = (id, body = expectedBody, login = 'whatrune') => ({
     id,
     issue_url: `https://api.github.com/repos/${REPOSITORY}/issues/${TASK}`,
     html_url: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-${id}`,
     author_association: 'OWNER',
-    user: { login: 'whatrune' },
+    user: { login },
     body,
   })
   for (const [index, item] of existing.entries()) {
@@ -467,7 +468,7 @@ const createReviewRoutingFixture = ({
         surface: actor === pullAuthor ? 'TASK_ISSUE_COMMENT' : 'PULL_REQUEST_REVIEW',
         topOverrides: item.topOverrides,
         grantOverrides: item.grantOverrides,
-      }))))
+      })), actor))
     } else state.taskComments.push(taskCommentResource(id, body))
   }
   const host = {
@@ -582,7 +583,7 @@ const createReviewRoutingFixture = ({
       if (repository !== REPOSITORY || taskIssue !== TASK || body !== expectedAssignmentBody) {
         throw new Error('unexpected_task_assignment_publication')
       }
-      const resource = taskCommentResource(9401, body)
+      const resource = taskCommentResource(9401, body, actor)
       state.taskComments.push(resource)
       if (concurrentEquivalentAssignmentOnCreate) state.taskComments.push(taskCommentResource(9402, body))
       return assignmentResponseMismatch ? { ...resource, html_url: 'https://invalid.example/comment' } : resource
@@ -724,13 +725,18 @@ equal(
 )
 equal(
   parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.allowed_operations
-    .canonical_review_comment.operation_count,
+    .canonical_review_publication.operation_count,
   1,
 )
 equal(
   parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.allowed_operations
-    .canonical_review_comment.direct_refetch_required,
+    .canonical_review_publication.direct_refetch_required,
   true,
+)
+equal(
+  parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.allowed_operations
+    .canonical_review_publication.permitted_surface,
+  'TASK_ISSUE_COMMENT',
 )
 equal(parsedCanonicalTaskBound.task_authority.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
@@ -1658,6 +1664,23 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(fixture.state.pullReviewMutations, 0)
 }
 
+// The second operation is bound to the selected surface and preserves the distinct-actor PR Review route.
+{
+  const fixture = createReviewRoutingFixture({
+    actor: 'independent-reviewer', includeAuthority: false, includePredelegation: true,
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: fixture.host,
+  })
+  equal(result.state, 'MERGE_READY')
+  equal(result.assignment_materialization_mutation_count, 1)
+  equal(result.publication_route, 'PULL_REQUEST_REVIEW')
+  equal(result.publication_mutation_count, 1)
+  equal(fixture.state.assignmentCommentMutations, 1)
+  equal(fixture.state.taskCommentMutations, 0)
+  equal(fixture.state.pullReviewMutations, 1)
+}
+
 // Existing in-flight Tasks retain their already-declared two-resource outcome without a body mutation.
 {
   const fixture = createReviewRoutingFixture({
@@ -1678,18 +1701,30 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
 for (const allowed_operations of [
   {
     logical_assignment_comment: { operation_count: 2, direct_refetch_required: true },
-    canonical_review_comment: { operation_count: 1, direct_refetch_required: true },
+    canonical_review_publication: {
+      operation_count: 1, direct_refetch_required: true, permitted_surface: 'TASK_ISSUE_COMMENT',
+    },
   },
   {
     logical_assignment_comment: { operation_count: 1, direct_refetch_required: true },
-    canonical_review_comment: { operation_count: 0, direct_refetch_required: true },
+    canonical_review_publication: {
+      operation_count: 0, direct_refetch_required: true, permitted_surface: 'TASK_ISSUE_COMMENT',
+    },
   },
   {
     logical_assignment_comment: { operation_count: 1, direct_refetch_required: false },
-    canonical_review_comment: { operation_count: 1, direct_refetch_required: true },
+    canonical_review_publication: {
+      operation_count: 1, direct_refetch_required: true, permitted_surface: 'TASK_ISSUE_COMMENT',
+    },
   },
   {
     logical_assignment_comment: { operation_count: 1, direct_refetch_required: true },
+  },
+  {
+    logical_assignment_comment: { operation_count: 1, direct_refetch_required: true },
+    canonical_review_publication: {
+      operation_count: 1, direct_refetch_required: true, permitted_surface: 'PULL_REQUEST_REVIEW',
+    },
   },
 ]) {
   const fixture = createReviewRoutingFixture({
