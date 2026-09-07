@@ -1,0 +1,289 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-028-C",
+  "blind_condition_label": "COND-02",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "face_detail",
+    "framing_boundary_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [],
+    "analysis_notes": [
+      "Visual axis values, evidence notes, artifacts and confidence are preserved from the independent opaque-panel observation freeze.",
+      "Freeze SHA-256: 967b7abf9713280d32dcf4c8e3af58247ed2d9d45e27a7b3510c67bd4ad1a650; frozen at 2026-09-07T00:38:27.6244640Z before decoding.",
+      "Only canonical run/panel identity and positional axis encoding were projected after decoding.",
+      "Contact load and cross-domain effects were disabled; required contact-load fields remain unclear, without inferred load.",
+      "No prompt alignment or cross-condition assessment is performed in this observation artifact."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Whole crown and torso are visible. Crotch and a tiny separation between thigh tops meet the lower margin, which also cuts the hands. The crop is very close to the pelvis/thigh junction. Knees and feet are absent.",
+        "Eye outlines, irises, nose and mouth are individually distinguishable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete crown and torso. Crotch sits very near the bottom with only the beginnings of separate thighs visible beneath it. Hands meet the bottom edge. Knees and feet are not visible.",
+        "Eye outlines, irises, nose and mouth are individually distinguishable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head and torso. The trouser crotch and very short upper-thigh segments appear above the lower edge; hands are cut by that edge. Knees and feet are outside the picture.",
+        "Eye outlines, irises, nose and mouth are individually distinguishable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete crown with a narrow margin. Full torso, waistband and crotch are visible; the crop passes through the uppermost thighs and fingertips. Knees and feet are absent.",
+        "Eye outlines, irises, nose and mouth are individually distinguishable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head, torso, pelvis and hands fit. The lower edge intersects both upper thighs a short distance below the crotch. Knees and feet are not shown.",
+        "Eye outlines, irises, nose and mouth are individually distinguishable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "upper_body",
+        "head_partial",
+        "pelvis",
+        "partial",
+        "visible",
+        "partial",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Crown is clipped at the top. Shoulders, torso and waistband are present. Bottom cuts the trouser front below the waistband without showing the crotch or separate thighs; knees and feet are absent.",
+        "Eye outlines, irises, nose and mouth are individually distinguishable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "Independent image-only observation; interpretation is outside this artifact.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "upper_body": 6
+      },
+      "upper_crop_boundary": {
+        "above_head": 5,
+        "head_partial": 1
+      },
+      "lower_crop_boundary": {
+        "proximal_thigh": 5,
+        "pelvis": 1
+      },
+      "head_visibility": {
+        "visible": 5,
+        "partial": 1
+      },
+      "torso_visibility": {
+        "visible": 6
+      },
+      "pelvis_visibility": {
+        "visible": 5,
+        "partial": 1
+      },
+      "knees_visibility": {
+        "not_visible": 6
+      },
+      "feet_visibility": {
+        "not_visible": 6
+      },
+      "face_detail": {
+        "medium_high": 5,
+        "high": 1
+      },
+      "framing_boundary_assessable": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_framing_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

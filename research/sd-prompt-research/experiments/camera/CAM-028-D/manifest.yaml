@@ -1,0 +1,86 @@
+schema_version: '1.0'
+run_id: CAM-028-D
+domain: camera
+condition: cowboy shot + plain floor
+title: CAM-028-D — cowboy shot + plain floor
+status: OBSERVED
+created_at: 2026-09-07 00:34:05.587000+00:00
+updated_at: '2026-09-07T09:46:37+09:00'
+research:
+  target_phrase: plain floor
+  research_question: Does plain floor materially reduce requested upper-body or cowboy-shot
+    framing realization relative to exact CAM-024 prompt controls?
+  baseline_run_id: CAM-024-B
+  variant_label: cowboy shot + plain floor
+  hypothesis_before_run: An explicit floor term may encourage wider composition.
+prompt:
+  positive: 1girl, solo, neutral expression, front view, plain fitted sleeveless top,
+    simple studio background, cowboy shot, plain floor
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+    extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
+  changed_phrases:
+  - cowboy shot
+  - plain floor
+  fixed_phrases:
+  - 1girl
+  - solo
+  - neutral expression
+  - front view
+  - plain fitted sleeveless top
+  - simple studio background
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+  - 1389362108
+  - 478894930
+  - 985206744
+  - 407336407
+  - 209185824
+  - 632588351
+source:
+  sheet_file: null
+  metadata_file: source/CAM-028-D_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 6
+  original_filename: null
+outputs:
+  panels:
+  - panels/CAM-028-D_01.png
+  - panels/CAM-028-D_02.png
+  - panels/CAM-028-D_03.png
+  - panels/CAM-028-D_04.png
+  - panels/CAM-028-D_05.png
+  - panels/CAM-028-D_06.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: 'Generated directly through verified fixed A1111 endpoint under Task #666.
+    Blind observation pending.'
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null
