@@ -15,9 +15,7 @@ For Non-Draft Merge-only Lifecycle V1, one authenticated GitHub Pull Request Rev
 
 ## Review Admission
 
-Before publication, Integrated Lead MAY dispatch one task-local Independent Review of a completed implementation only as the unchanged-publication gate defined by the Shared Role Execution Contract. That review MUST bind the canonical Task, branch, registered worktree, authorized scope, clean exact commit, complete validation, and implementation Result Handoff. Its `APPROVE / 0 / 0 / 0` result permits only separately authorized publication of the exact reviewed commit. It is not a Simplified V1 Review Decision, cannot close a post-publication finding, and cannot satisfy Merge admission.
-
-After non-Draft publication and current-HEAD checks PASS, the reviewer MUST perform the authoritative Fresh Review through the PR-bound admission below. Publication, a prepublication approval, or byte identity alone MUST NOT substitute for that Fresh Review.
+After non-Draft publication and current-HEAD checks PASS, Independent Review MUST perform the authoritative Fresh Review through the PR-bound admission below. Implementation completion, validation, publication, and byte identity do not substitute for Fresh Review. There is no separate prepublication Review gate.
 
 At review start and immediately before recording the decision, the reviewer MUST fresh-fetch:
 
@@ -116,3 +114,5 @@ The reviewer MUST publish one canonical terminal result:
 - blocked when review cannot complete because required authority or evidence is unavailable.
 
 This result completes only the Review Task. Approve, Merge, finding closure, metadata correction, and artifact completion remain separate authorities and records.
+
+Normal Task execution follows the [Shared Role Execution Contract](13-shared-role-execution-contract.md#normal-task-lifecycle). Task start authorizes the bounded normal path; Fresh Review and exact live checks gate direct Review publication. MERGE_READY stops for the Product Owner Merge Decision. No separate assignment publication or prepublication Review is required.

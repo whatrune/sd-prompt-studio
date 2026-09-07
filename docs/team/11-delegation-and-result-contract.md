@@ -52,17 +52,9 @@ Task Assignmentは作業開始前に、共通identity fieldと次を含む。
 
 AssignmentにはRepositoryのTask Assignment Templateを使用できる。会話内の補足がauthority、Contract、scope判断を含む場合、direct canonical recordへ累積する。
 
-### Logical Review-publication Assignment V2
-
-A Canonical Task MAY contain one stable Product Owner `REVIEW_AUTHORITY_PUBLICATION` predelegation. It authorizes only post-Fresh-Review exact-assignment derivation; it does not itself authorize Review publication. The derived exact assignment remains a `task_assignment` and is written as one complete top-level Task comment with `canonical_record: GITHUB_RESOURCE`. The successful CREATE response and direct refetch bind the physical comment ID and URL; the comment is never PATCHed and does not contain a self-referential URL.
-
-Its logical identity is the ordered tuple `repository`, `task_issue`, `pull_request`, `exact_head`, `protected_action`, `authorized_actor`, `permitted_surface`, and the closed Review decision fields. Base, branch, scope, predelegation identity, and the remaining assignment fields are canonical semantic payload. Multiple comments with the same logical identity and byte-identical canonical semantic payload represent one logical authority and are deterministically collapsed. A differing payload under that identity is a conflict. Historical HEAD/base records are non-applicable to current publication, malformed or wrong-actor records fail closed, and legacy direct Task-body exact assignments remain readable when uniquely valid.
-
 ### Normal Task Execution Predelegation V1
 
-A new Canonical Task contains one stable Product Owner `NORMAL_TASK_EXECUTION` predelegation using the existing `task_assignment` shape. It binds the exact repository, Task, initial fresh base, branch, canonical registered worktree path, sorted cumulative scope, authorized actor, and `BOUNDED_EXECUTION_IDENTITY_V1`. Its closed operations are: one exact registered-worktree creation; one exact validated-tree commit per distinct admitted execution identity, including a same-task correction identity; one unchanged initial branch push plus one non-Draft PR creation after prepublication `APPROVE / 0 / 0 / 0`; and one exact successor push per reviewed same-task correction identity to that existing PR. Before commit or publication, the protected host MUST refetch the exact consumed continuation event and bind its canonical Result Handoff or Independent Review; caller-supplied result fields are never admitted.
-
-The predelegation is protected-action authority only for those closed operations. The terminal cursor is activation state, not authority. A commit grant does not authorize push or PR creation, and publication does not authorize rebase, amend, another commit, scope expansion, Ready, Merge, retry, Issue closure, or another PR. The predelegated base is the initial authority anchor. A current remote-main descendant may be rebound only after exact ancestry and changed-path proof; disjoint advancement is admitted, while overlap with the authorized scope or divergence stops for compatibility reconciliation. Initial publication requires the remote branch to be absent; correction publication requires the existing exact Task PR and an exact remote-head lease, performs no PR-create mutation, and directly refetches the successor HEAD. Architecture or scope change and semantic base conflict remain explicit decision boundaries.
+The normal-execution predelegation uses the existing task_assignment shape and binds repository, Task, initial base, branch, registered worktree, cumulative scope, actor and execution identity. It grants only the closed normal operations defined by the shared contract, not scope expansion, another PR, arbitrary thread resolution, automatic Merge or retry. Validation and fresh exact live state activate commit/publication; no consumed terminal-event file or prepublication Review is required. Corrections preserve the existing PR and use an exact remote-head lease. Any base advancement requires fresh compatibility validation; semantic overlap remains fail-closed.
 
 ### Bounded Execution Identity V1
 
@@ -88,8 +80,6 @@ This projection is not a new record schema, authority, Task-state, generation, o
 ## Result Handoff Contract
 
 Result Handoffは共通identity fieldと次を含む。
-
-This section owns the general, human-facing Result Handoff contract. The protected `COMMIT_VALIDATED_TREE` terminal machine handoff is a closed executable subtype: `scripts/run-bootstrap-publication-operator-v1.mjs` is its sole shape owner and exports the canonical projector, serializer, and validator. An Implementer whose terminal result will be consumed by `COMMIT_VALIDATED_TREE` MUST emit that projector's object directly. It MUST NOT translate Role names, reconstruct fields from this general table, or wrap a narrative handoff as the protected machine record. The commit consumer validates the same exported owner and fails closed; this document deliberately does not duplicate that machine field list.
 
 | Field | Required meaning |
 | --- | --- |
@@ -129,3 +119,5 @@ Review Result Handoffは、該当する場合に`reviewed_full_head`とfinding c
 - Applicable Taskが一つもない場合に`completed`を使用しない。
 
 この契約は新しいJSON Schema、Database、Bot、Workflow、CLIを要求しない。
+
+Normal Task execution follows the Shared Role Execution Contract's Normal Task Lifecycle section. Task start authorizes the bounded normal path; Fresh Review and exact live checks gate direct Review publication. MERGE_READY stops for the Product Owner Merge Decision. No separate assignment publication or prepublication Review is required.
