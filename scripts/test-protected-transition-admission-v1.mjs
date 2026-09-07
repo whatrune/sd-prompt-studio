@@ -1615,6 +1615,37 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(fixture.state.pullReviewMutations, 0)
 }
 
+// A closed Fresh Review is semantic publication input; continuation identities are optional diagnostics.
+{
+  const fixture = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
+  const { refetchContinuationEvent: unusedDiagnostic, ...hostWithoutContinuationDiagnostics } = fixture.host
+  equal(typeof unusedDiagnostic, 'function')
+  const result = await ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: hostWithoutContinuationDiagnostics,
+  })
+  equal(result.state, 'MERGE_READY')
+  equal(result.exact_head, HEAD)
+  equal(result.assignment_materialization_mutation_count, 1)
+  equal(result.publication_mutation_count, 1)
+  equal(fixture.state.findingEventReads, 0)
+}
+
+// Optional diagnostics do not weaken exact semantic-input binding or zero-count admission.
+for (const review_input of [
+  undefined,
+  { ...reviewInput(), reviewed_head: BASE },
+  { ...reviewInput(), blocking: 1 },
+  { ...reviewInput(), remaining: 1 },
+  { ...reviewInput(), unknown: 1 },
+]) {
+  const fixture = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
+  const error = await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput({ review_input }), host: fixture.host,
+  }))
+  ok(['review_invalid', 'review_publication_binding_invalid'].includes(error.message))
+  equal(fixture.state.assignmentCommentMutations + fixture.state.taskCommentMutations + fixture.state.pullReviewMutations, 0)
+}
+
 // Replacement Fresh Review resolves only the exact consumed finding threads before canonical Review publication.
 {
   const thread = { id: 'PRRT_corrected_thread', isResolved: false, isOutdated: false }
