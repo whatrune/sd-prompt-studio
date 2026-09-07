@@ -1047,3 +1047,9 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-07T23:20:39+09:00'
   path: experiments/camera/CAM-032-D
+- run_id: CAM-033
+  domain: camera
+  title: CAM-033 — upper body baseline replication
+  status: OBSERVED
+  updated_at: '2026-09-08T01:33:41+09:00'
+  path: experiments/camera/CAM-033
