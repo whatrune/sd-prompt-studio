@@ -5,7 +5,7 @@ condition: upper body baseline
 title: CAM-028-A — upper body baseline
 status: OBSERVED
 created_at: 2026-09-07 00:32:17.335000+00:00
-updated_at: '2026-09-07T09:46:37+09:00'
+updated_at: '2026-09-07T10:17:29+09:00'
 research:
   target_phrase: plain floor
   research_question: Does plain floor materially reduce requested upper-body or cowboy-shot

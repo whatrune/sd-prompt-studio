@@ -56,7 +56,7 @@ provenance_binding:
   execution_instance_id: a09a5e3b-f8b4-4453-86ff-0d9e8e97fe08
   endpoint: http://192.168.0.6:7860
   endpoint_fallback_used: false
-  blind_freeze_sha256: 967b7abf9713280d32dcf4c8e3af58247ed2d9d45e27a7b3510c67bd4ad1a650
+  blind_freeze_sha256: 5cf78db4f61c5d03890013d41ca937eb8129d021d9e45dfa2ee5bceecde6b312
   response_parameters_exact: true
   parsed_info_sampler_exact: true
   infotext_sampler_schedule_exact: true
@@ -1114,6 +1114,6 @@ panels:
       infotext: null
 prompt_blind_record_reference:
   owner_path: research/sd-prompt-research/experiments/camera/CAM-028-A/source/CAM-028-A_metadata.yaml
-  freeze_sha256: 967b7abf9713280d32dcf4c8e3af58247ed2d9d45e27a7b3510c67bd4ad1a650
+  freeze_sha256: 5cf78db4f61c5d03890013d41ca937eb8129d021d9e45dfa2ee5bceecde6b312
   mapping_sha256: f970ed3933d45f7b1cf2c1b51ee6e568f4cf7615af686451313b75a0d9475945
   observer_input_sha256: ec1dd6311382dc01b61096aee4b40a7be09734c340ef49632538ebf029a5e31d

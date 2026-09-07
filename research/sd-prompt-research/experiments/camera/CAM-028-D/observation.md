@@ -10,7 +10,7 @@
   - none_observed
 - Analysis Notes:
   - Visual axis values, evidence notes, artifacts and confidence are preserved from the independent opaque-panel observation freeze.
-  - Freeze SHA-256: 967b7abf9713280d32dcf4c8e3af58247ed2d9d45e27a7b3510c67bd4ad1a650; frozen at 2026-09-07T00:38:27.6244640Z before decoding.
+  - Freeze SHA-256: 5cf78db4f61c5d03890013d41ca937eb8129d021d9e45dfa2ee5bceecde6b312; frozen at 2026-09-07T01:11:55.7191223Z before decoding.
   - Only canonical run/panel identity and positional axis encoding were projected after decoding.
   - Contact load and cross-domain effects were disabled; required contact-load fields remain unclear, without inferred load.
   - No prompt alignment or cross-condition assessment is performed in this observation artifact.
@@ -42,7 +42,7 @@
 
 ### Panel 2
 
-- Observed Framing: upper_body
+- Observed Framing: cowboy_shot
 - Upper Crop Boundary: above_head
 - Lower Crop Boundary: proximal_thigh
 - Head Visibility: visible
@@ -65,7 +65,7 @@
 
 ### Panel 3
 
-- Observed Framing: upper_body
+- Observed Framing: cowboy_shot
 - Upper Crop Boundary: above_head
 - Lower Crop Boundary: proximal_thigh
 - Head Visibility: visible
@@ -88,7 +88,7 @@
 
 ### Panel 4
 
-- Observed Framing: upper_body
+- Observed Framing: cowboy_shot
 - Upper Crop Boundary: above_head
 - Lower Crop Boundary: proximal_thigh
 - Head Visibility: visible
@@ -111,7 +111,7 @@
 
 ### Panel 5
 
-- Observed Framing: upper_body
+- Observed Framing: cowboy_shot
 - Upper Crop Boundary: above_head
 - Lower Crop Boundary: proximal_thigh
 - Head Visibility: visible
@@ -134,7 +134,7 @@
 
 ### Panel 6
 
-- Observed Framing: upper_body
+- Observed Framing: cowboy_shot
 - Upper Crop Boundary: head_partial
 - Lower Crop Boundary: proximal_thigh
 - Head Visibility: partial
@@ -157,7 +157,7 @@
 
 ## Computed Aggregate
 
-- Observed Framing: upper_body=6/6
+- Observed Framing: cowboy_shot=5/6, upper_body=1/6
 - Upper Crop Boundary: above_head=4/6, head_partial=2/6
 - Lower Crop Boundary: pelvis=1/6, proximal_thigh=5/6
 - Head Visibility: partial=2/6, visible=4/6

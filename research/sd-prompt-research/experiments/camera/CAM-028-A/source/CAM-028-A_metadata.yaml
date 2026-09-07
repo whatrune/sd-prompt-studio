@@ -56,7 +56,7 @@ provenance_binding:
   execution_instance_id: a09a5e3b-f8b4-4453-86ff-0d9e8e97fe08
   endpoint: http://192.168.0.6:7860
   endpoint_fallback_used: false
-  blind_freeze_sha256: 967b7abf9713280d32dcf4c8e3af58247ed2d9d45e27a7b3510c67bd4ad1a650
+  blind_freeze_sha256: 5cf78db4f61c5d03890013d41ca937eb8129d021d9e45dfa2ee5bceecde6b312
   response_parameters_exact: true
   parsed_info_sampler_exact: true
   infotext_sampler_schedule_exact: true
@@ -1117,11 +1117,11 @@ prompt_blind_record_owner:
   owner_path: research/sd-prompt-research/experiments/camera/CAM-028-A/source/CAM-028-A_metadata.yaml
   serialization: exact_utf8
   freeze:
-    sha256: 967b7abf9713280d32dcf4c8e3af58247ed2d9d45e27a7b3510c67bd4ad1a650
+    sha256: 5cf78db4f61c5d03890013d41ca937eb8129d021d9e45dfa2ee5bceecde6b312
     utf8_payload: "{\n  \"conditions\": [\n    {\n      \"condition\": \"COND-01\"\
       ,\n      \"panels\": [\n        {\n          \"panel\": \"P-26d4097c8764\",\n\
       \          \"axis_values\": [\n            {\n              \"axis\": \"observed_framing\"\
-      ,\n              \"value\": \"upper_body\"\n            },\n            {\n\
+      ,\n              \"value\": \"cowboy_shot\"\n            },\n            {\n\
       \              \"axis\": \"upper_crop_boundary\",\n              \"value\":\
       \ \"above_head\"\n            },\n            {\n              \"axis\": \"\
       lower_crop_boundary\",\n              \"value\": \"proximal_thigh\"\n      \
@@ -1146,7 +1146,7 @@ prompt_blind_record_owner:
       artifacts\": [\n            \"none\"\n          ],\n          \"confidence\"\
       : \"medium\"\n        },\n        {\n          \"panel\": \"P-55d339e2a09e\"\
       ,\n          \"axis_values\": [\n            {\n              \"axis\": \"observed_framing\"\
-      ,\n              \"value\": \"upper_body\"\n            },\n            {\n\
+      ,\n              \"value\": \"cowboy_shot\"\n            },\n            {\n\
       \              \"axis\": \"upper_crop_boundary\",\n              \"value\":\
       \ \"above_head\"\n            },\n            {\n              \"axis\": \"\
       lower_crop_boundary\",\n              \"value\": \"proximal_thigh\"\n      \
@@ -1195,7 +1195,7 @@ prompt_blind_record_owner:
       \ ],\n          \"confidence\": \"medium\"\n        },\n        {\n        \
       \  \"panel\": \"P-da296c34feb4\",\n          \"axis_values\": [\n          \
       \  {\n              \"axis\": \"observed_framing\",\n              \"value\"\
-      : \"upper_body\"\n            },\n            {\n              \"axis\": \"\
+      : \"cowboy_shot\"\n            },\n            {\n              \"axis\": \"\
       upper_crop_boundary\",\n              \"value\": \"head_partial\"\n        \
       \    },\n            {\n              \"axis\": \"lower_crop_boundary\",\n \
       \             \"value\": \"proximal_thigh\"\n            },\n            {\n\
@@ -1219,7 +1219,7 @@ prompt_blind_record_owner:
       : [\n            \"none\"\n          ],\n          \"confidence\": \"medium\"\
       \n        },\n        {\n          \"panel\": \"P-f1cd29f838f5\",\n        \
       \  \"axis_values\": [\n            {\n              \"axis\": \"observed_framing\"\
-      ,\n              \"value\": \"upper_body\"\n            },\n            {\n\
+      ,\n              \"value\": \"cowboy_shot\"\n            },\n            {\n\
       \              \"axis\": \"upper_crop_boundary\",\n              \"value\":\
       \ \"above_head\"\n            },\n            {\n              \"axis\": \"\
       lower_crop_boundary\",\n              \"value\": \"proximal_thigh\"\n      \
@@ -1243,7 +1243,7 @@ prompt_blind_record_owner:
       \   \"artifacts\": [\n            \"none\"\n          ],\n          \"confidence\"\
       : \"high\"\n        },\n        {\n          \"panel\": \"P-ca2dd68ea3e4\",\n\
       \          \"axis_values\": [\n            {\n              \"axis\": \"observed_framing\"\
-      ,\n              \"value\": \"upper_body\"\n            },\n            {\n\
+      ,\n              \"value\": \"cowboy_shot\"\n            },\n            {\n\
       \              \"axis\": \"upper_crop_boundary\",\n              \"value\":\
       \ \"above_head\"\n            },\n            {\n              \"axis\": \"\
       lower_crop_boundary\",\n              \"value\": \"proximal_thigh\"\n      \
@@ -1269,7 +1269,7 @@ prompt_blind_record_owner:
       \      \"condition\": \"COND-02\",\n      \"panels\": [\n        {\n       \
       \   \"panel\": \"P-83a53e23ea9c\",\n          \"axis_values\": [\n         \
       \   {\n              \"axis\": \"observed_framing\",\n              \"value\"\
-      : \"upper_body\"\n            },\n            {\n              \"axis\": \"\
+      : \"cowboy_shot\"\n            },\n            {\n              \"axis\": \"\
       upper_crop_boundary\",\n              \"value\": \"above_head\"\n          \
       \  },\n            {\n              \"axis\": \"lower_crop_boundary\",\n   \
       \           \"value\": \"proximal_thigh\"\n            },\n            {\n \
@@ -1293,8 +1293,8 @@ prompt_blind_record_owner:
       \ \"none\"\n          ],\n          \"confidence\": \"high\"\n        },\n \
       \       {\n          \"panel\": \"P-b13c7a443529\",\n          \"axis_values\"\
       : [\n            {\n              \"axis\": \"observed_framing\",\n        \
-      \      \"value\": \"upper_body\"\n            },\n            {\n          \
-      \    \"axis\": \"upper_crop_boundary\",\n              \"value\": \"above_head\"\
+      \      \"value\": \"cowboy_shot\"\n            },\n            {\n         \
+      \     \"axis\": \"upper_crop_boundary\",\n              \"value\": \"above_head\"\
       \n            },\n            {\n              \"axis\": \"lower_crop_boundary\"\
       ,\n              \"value\": \"proximal_thigh\"\n            },\n           \
       \ {\n              \"axis\": \"head_visibility\",\n              \"value\":\
@@ -1341,7 +1341,7 @@ prompt_blind_record_owner:
       \ ],\n          \"confidence\": \"medium\"\n        },\n        {\n        \
       \  \"panel\": \"P-ab82f45fff1e\",\n          \"axis_values\": [\n          \
       \  {\n              \"axis\": \"observed_framing\",\n              \"value\"\
-      : \"upper_body\"\n            },\n            {\n              \"axis\": \"\
+      : \"cowboy_shot\"\n            },\n            {\n              \"axis\": \"\
       upper_crop_boundary\",\n              \"value\": \"above_head\"\n          \
       \  },\n            {\n              \"axis\": \"lower_crop_boundary\",\n   \
       \           \"value\": \"proximal_thigh\"\n            },\n            {\n \
@@ -1365,7 +1365,7 @@ prompt_blind_record_owner:
       \ ],\n          \"confidence\": \"high\"\n        },\n        {\n          \"\
       panel\": \"P-7a80bd3cc1ef\",\n          \"axis_values\": [\n            {\n\
       \              \"axis\": \"observed_framing\",\n              \"value\": \"\
-      upper_body\"\n            },\n            {\n              \"axis\": \"upper_crop_boundary\"\
+      cowboy_shot\"\n            },\n            {\n              \"axis\": \"upper_crop_boundary\"\
       ,\n              \"value\": \"above_head\"\n            },\n            {\n\
       \              \"axis\": \"lower_crop_boundary\",\n              \"value\":\
       \ \"proximal_thigh\"\n            },\n            {\n              \"axis\"\
@@ -1389,8 +1389,8 @@ prompt_blind_record_owner:
       \ \"none\"\n          ],\n          \"confidence\": \"high\"\n        },\n \
       \       {\n          \"panel\": \"P-ba016f36a571\",\n          \"axis_values\"\
       : [\n            {\n              \"axis\": \"observed_framing\",\n        \
-      \      \"value\": \"upper_body\"\n            },\n            {\n          \
-      \    \"axis\": \"upper_crop_boundary\",\n              \"value\": \"above_head\"\
+      \      \"value\": \"cowboy_shot\"\n            },\n            {\n         \
+      \     \"axis\": \"upper_crop_boundary\",\n              \"value\": \"above_head\"\
       \n            },\n            {\n              \"axis\": \"lower_crop_boundary\"\
       ,\n              \"value\": \"proximal_thigh\"\n            },\n           \
       \ {\n              \"axis\": \"head_visibility\",\n              \"value\":\
