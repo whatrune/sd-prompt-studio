@@ -33,14 +33,11 @@ const cleanupHostContractFailure = 'worktree lifecycle must contain exactly one 
 const entryGuard = baselineContents.get('AGENTS.md');
 const handoffTemplate = baselineContents.get('docs/team/06-handoff-template.md');
 const delegationContract = baselineContents.get('docs/team/11-delegation-and-result-contract.md');
-if (!entryGuard.includes('canonical machine object projected by `scripts/run-bootstrap-publication-operator-v1.mjs`')) {
-  throw new Error('AGENTS.md: protected commit handoff producer must point to the canonical executable owner');
+if (!entryGuard.includes('#normal-task-lifecycle')) {
+  throw new Error('AGENTS.md: normal execution must reference the shared lifecycle owner');
 }
-if (!handoffTemplate.includes('human-facing template is not the protected terminal machine handoff')) {
-  throw new Error('docs/team/06-handoff-template.md: human and protected machine handoffs must remain distinct');
-}
-if (!delegationContract.includes('sole shape owner and exports the canonical projector, serializer, and validator')) {
-  throw new Error('docs/team/11-delegation-and-result-contract.md: protected machine handoff must have one executable owner');
+if (!delegationContract.includes('no consumed terminal-event file or prepublication Review is required')) {
+  throw new Error('normal execution must not require duplicate handoff/Review authority');
 }
 
 const expectedOwners = new Map(Object.entries({

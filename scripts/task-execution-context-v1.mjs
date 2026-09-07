@@ -213,7 +213,7 @@ export function admitParallelExecutionsV1(left, right, options = {}) {
 }
 
 const correctionContinuationKindsV1 = new Set([
-  'REVIEW_FINDING', 'CORRECTION_IMPLEMENTATION_COMPLETE', 'PREPUBLICATION_REVIEW_APPROVE',
+  'REVIEW_FINDING', 'CORRECTION_IMPLEMENTATION_COMPLETE',
   'PUBLICATION_COMPLETE', 'CORRECTION_CHECKS_PASS', 'REVIEW_APPROVE',
 ])
 
@@ -221,15 +221,15 @@ const normalizeCorrectionContinuationContextV1 = (value) => {
   if (value === null) return null
   if (
     value === null || typeof value !== 'object' || Array.isArray(value) ||
-    Object.keys(value).sort().join('\0') !== ['active_thread_ids', 'finding_cursor', 'finding_head'].sort().join('\0') ||
-    typeof value.finding_cursor !== 'string' || value.finding_cursor.length === 0 ||
+    Object.keys(value).filter((key) => key !== 'finding_cursor').sort().join('\0') !== ['active_thread_ids', 'finding_head'].sort().join('\0') ||
+    (value.finding_cursor != null && (typeof value.finding_cursor !== 'string' || value.finding_cursor.length === 0)) ||
     !SHA_PATTERN.test(value.finding_head ?? '') || !Array.isArray(value.active_thread_ids) ||
     value.active_thread_ids.length === 0 ||
     !value.active_thread_ids.every((item) => typeof item === 'string' && item.length > 0) ||
     new Set(value.active_thread_ids).size !== value.active_thread_ids.length
   ) mismatch('correction_continuation_context')
   return Object.freeze({
-    finding_cursor: value.finding_cursor,
+    finding_cursor: value.finding_cursor ?? null,
     finding_head: value.finding_head,
     active_thread_ids: Object.freeze([...value.active_thread_ids].sort()),
   })
@@ -240,15 +240,12 @@ const immediateContinuationActionV1 = (terminalKind, owningWorker, correctionCon
     return Object.freeze({ type: 'CREATE_ASSIGNED_WORKTREE_AND_DISPATCH_IMPLEMENTATION' })
   }
   if (terminalKind === 'IMPLEMENTATION_COMPLETE') {
-    return Object.freeze({ type: 'COMMIT_VALIDATED_TREE_AND_DISPATCH_PREPUBLICATION_REVIEW' })
-  }
-  if (terminalKind === 'PREPUBLICATION_REVIEW_APPROVE') {
-    return Object.freeze({ type: 'PUBLISH_REVIEWED_COMMIT_NON_DRAFT' })
+    return Object.freeze({ type: 'COMMIT_VALIDATED_TREE_AND_PUBLISH_NON_DRAFT' })
   }
   if (terminalKind === 'PUBLICATION_COMPLETE') return Object.freeze({ type: 'WAIT_CURRENT_HEAD_CHECKS' })
   if (terminalKind === 'CHECKS_PASS') return Object.freeze({ type: 'DISPATCH_FRESH_REVIEW' })
   if (terminalKind === 'CORRECTION_IMPLEMENTATION_COMPLETE') {
-    return Object.freeze({ type: 'COMMIT_VALIDATED_CORRECTION_AND_DISPATCH_PREPUBLICATION_REVIEW' })
+    return Object.freeze({ type: 'COMMIT_VALIDATED_CORRECTION_AND_PUSH_SUCCESSOR' })
   }
   if (terminalKind === 'CORRECTION_CHECKS_PASS') return Object.freeze({ type: 'DISPATCH_REPLACEMENT_FRESH_REVIEW' })
   if (terminalKind === 'REVIEW_FINDING') {
@@ -270,17 +267,17 @@ export function projectAutomatedReviewToMergeReadyContinuationV1({
   identityMatches,
   owningWorker = null,
   observedAt,
-  terminalCursor,
+  terminalCursor = null,
   consumedCursor = null,
   correctionContext = null,
 }) {
   const admittedCorrectionContext = normalizeCorrectionContinuationContextV1(correctionContext)
   if (
     admittedCorrectionContext === null && correctionContinuationKindsV1.has(terminalKind) &&
-    terminalKind !== 'REVIEW_FINDING' && terminalKind !== 'PREPUBLICATION_REVIEW_APPROVE' &&
+    terminalKind !== 'REVIEW_FINDING' &&
     terminalKind !== 'PUBLICATION_COMPLETE' && terminalKind !== 'REVIEW_APPROVE'
   ) mismatch('correction_continuation_context')
-  const cursorValid = typeof terminalCursor === 'string' && terminalCursor.length > 0
+  const cursorValid = (terminalCursor === null || (typeof terminalCursor === 'string' && terminalCursor.length > 0))
     && (consumedCursor === null || (typeof consumedCursor === 'string' && consumedCursor.length > 0))
   const noAdvance = () => Object.freeze({
     outcome: 'NO_ADVANCE',
@@ -289,7 +286,7 @@ export function projectAutomatedReviewToMergeReadyContinuationV1({
     consumed_cursor: consumedCursor,
   })
   if (waitTerminal !== true || identityMatches !== true || !Number.isSafeInteger(observedAt) || observedAt < 0
-    || !cursorValid || terminalCursor === consumedCursor) {
+    || !cursorValid || (terminalCursor !== null && terminalCursor === consumedCursor)) {
     return noAdvance()
   }
   if (terminalKind === 'PRE_DECISION_PASS') {

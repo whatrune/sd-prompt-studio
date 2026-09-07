@@ -297,11 +297,10 @@ function observed(id = identity(), overrides = {}) {
   })
   const expected = [
     ['TASK_ADMITTED', 'CREATE_ASSIGNED_WORKTREE_AND_DISPATCH_IMPLEMENTATION'],
-    ['IMPLEMENTATION_COMPLETE', 'COMMIT_VALIDATED_TREE_AND_DISPATCH_PREPUBLICATION_REVIEW'],
-    ['PREPUBLICATION_REVIEW_APPROVE', 'PUBLISH_REVIEWED_COMMIT_NON_DRAFT'],
+    ['IMPLEMENTATION_COMPLETE', 'COMMIT_VALIDATED_TREE_AND_PUBLISH_NON_DRAFT'],
     ['PUBLICATION_COMPLETE', 'WAIT_CURRENT_HEAD_CHECKS'],
     ['CHECKS_PASS', 'DISPATCH_FRESH_REVIEW'],
-    ['CORRECTION_IMPLEMENTATION_COMPLETE', 'COMMIT_VALIDATED_CORRECTION_AND_DISPATCH_PREPUBLICATION_REVIEW'],
+    ['CORRECTION_IMPLEMENTATION_COMPLETE', 'COMMIT_VALIDATED_CORRECTION_AND_PUSH_SUCCESSOR'],
     ['CORRECTION_CHECKS_PASS', 'DISPATCH_REPLACEMENT_FRESH_REVIEW'],
     ['REVIEW_FINDING', 'FOLLOW_UP_OWNING_WORKER'],
     ['REVIEW_APPROVE', 'ENSURE_REVIEW_AUTHORITY_AND_RUN_PREFLIGHT'],
@@ -321,7 +320,7 @@ function observed(id = identity(), overrides = {}) {
   equal(actionFor('REVIEW_APPROVE', { identityMatches: false }).actions.length, 0)
   equal(actionFor('REVIEW_FINDING', { owningWorker: null }).actions.length, 0)
   equal(actionFor('CHECKS_PASS', { observedAt: -1 }).actions.length, 0)
-  equal(actionFor('CHECKS_PASS', { terminalCursor: null }).actions.length, 0)
+  equal(actionFor('CHECKS_PASS', { terminalCursor: null }).actions.length, 1)
 }
 
 // Existing wait cursor identity makes terminal continuation exactly-once without durable state.
@@ -337,15 +336,15 @@ function observed(id = identity(), overrides = {}) {
   })
   const implementation = project('IMPLEMENTATION_COMPLETE', 'cursor-implementation', null)
   equal(implementation.actions.length, 1)
-  equal(implementation.actions[0].type, 'COMMIT_VALIDATED_TREE_AND_DISPATCH_PREPUBLICATION_REVIEW')
+  equal(implementation.actions[0].type, 'COMMIT_VALIDATED_TREE_AND_PUBLISH_NON_DRAFT')
   equal(implementation.consumed_cursor, 'cursor-implementation')
   equal(project('IMPLEMENTATION_COMPLETE', 'cursor-implementation', implementation.consumed_cursor).actions.length, 0)
 
-  const publication = project('PREPUBLICATION_REVIEW_APPROVE', 'cursor-publication', implementation.consumed_cursor)
+  const publication = project('PUBLICATION_COMPLETE', 'cursor-publication', implementation.consumed_cursor)
   equal(publication.actions.length, 1)
-  equal(publication.actions[0].type, 'PUBLISH_REVIEWED_COMMIT_NON_DRAFT')
+  equal(publication.actions[0].type, 'WAIT_CURRENT_HEAD_CHECKS')
   equal(publication.consumed_cursor, 'cursor-publication')
-  equal(project('PREPUBLICATION_REVIEW_APPROVE', 'cursor-publication', publication.consumed_cursor).actions.length, 0)
+  equal(project('PUBLICATION_COMPLETE', 'cursor-publication', publication.consumed_cursor).actions.length, 0)
 
   const finding = project('REVIEW_FINDING', 'cursor-finding', publication.consumed_cursor)
   equal(finding.actions.length, 1)
@@ -420,7 +419,7 @@ function observed(id = identity(), overrides = {}) {
     consumedCursor: first.consumed_cursor,
     correctionContext: context,
   })
-  equal(correctionCommit.actions[0].type, 'COMMIT_VALIDATED_CORRECTION_AND_DISPATCH_PREPUBLICATION_REVIEW')
+  equal(correctionCommit.actions[0].type, 'COMMIT_VALIDATED_CORRECTION_AND_PUSH_SUCCESSOR')
   equal(correctionCommit.actions[0].correction_context.finding_cursor, correction.continuation_cursor)
   const replacementApproval = projectAutomatedReviewToMergeReadyContinuationV1({
     waitTerminal: true,

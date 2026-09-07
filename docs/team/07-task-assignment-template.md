@@ -18,7 +18,7 @@ This non-normative template captures task-specific assignment inputs and expecte
 - record_type: task_assignment
 - authoring_role:
 - authority_source:
-- canonical_record: direct GitHub Issue body or top-level comment URL that exposes the complete Assignment; `GITHUB_RESOURCE` only for the closed logical Review-publication assignment route whose successful CREATE response is immediately direct-refetched
+- canonical_record: direct GitHub Issue body or top-level comment URL that exposes the complete Assignment
 - prior_record_url:
 - cumulative_scope / supersede_scope:
 - supporting_records: repository-relative path at full 40-character commit SHA | not_applicable
@@ -51,9 +51,7 @@ This non-normative template captures task-specific assignment inputs and expecte
 - Completion conditions:
 - Escalation conditions:
 
-For a logical Review-publication exact assignment, also record the stable predelegation identity and the closed exact grant. Do not record a `wait_threads` cursor: it is wake-up state, not authority. The consumer derives the logical identity from repository + Task + PR + HEAD + protected action + actor + surface + decision and treats only byte-identical canonical semantic payloads as equivalent.
-
-For a normal-execution predelegation, use the same `task_assignment` record and bind the exact repository, Task, initial fresh base, branch, canonical worktree path, sorted authorized paths, actor, and `BOUNDED_EXECUTION_IDENTITY_V1`. List the three closed operations separately: exact worktree creation once; exact validated-tree commit once per admitted execution identity; and unchanged reviewed-commit push plus one non-Draft PR creation. State explicitly that the cursor is activation only, the protected host must refetch its consumed terminal Result Handoff or Independent Review before mutation, and caller-supplied result data is not admitted. The initial base is the authority anchor; a freshly observed descendant `origin/main` may rebind only when its changed paths are disjoint from the Task scope, while overlap or divergence requires compatibility authority. Scope change, rebase, amend, Ready, Merge, retry, and Issue closure remain forbidden.
+For a normal-execution predelegation, bind the exact repository, Task, initial fresh base, branch, registered worktree, sorted authorized paths, actor, and execution identity. Task start grants validated scoped commit, unchanged push/one non-Draft PR, bounded same-Task corrections, direct canonical Review publication after Fresh APPROVE, and any explicit terminal closure policy. The shared contract owns all live admission and mutation limits. Wait/event identities are optional diagnostics, not protected authority.
 
 ## Scope
 
@@ -95,3 +93,5 @@ git diff --check
 - Product Owner approval required:
 - Next owner:
 ````
+
+Normal Task execution follows the [Shared Role Execution Contract](13-shared-role-execution-contract.md#normal-task-lifecycle). Task start authorizes the bounded normal path; Fresh Review and exact live checks gate direct Review publication. MERGE_READY stops for the Product Owner Merge Decision. No separate assignment publication or prepublication Review is required.

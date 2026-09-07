@@ -29,10 +29,9 @@ import {
   createProductionHostV1,
   ensureReviewAuthorityAndRunPreflightV1,
   parseCanonicalTaskIssueBodyV1,
-  projectReviewPublicationLogicalAssignmentIdentityV2,
-  projectReviewPublicationLogicalAssignmentSemanticPayloadV2,
   proveCanonicalTaskIssueSelfBindingDeltaV1,
   publishCanonicalTaskIssueV1,
+  publishCanonicalMergeDecisionV1,
   serializeCanonicalTaskIssueBodyV1,
   writeProtectedPublicationBodyFileV1,
 } from './run-protected-transition-admission-v1.mjs'
@@ -1540,640 +1539,26 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(fixture.state.mergeMutations, 0)
 }
 
-// Semantic approval alone never grants the separate protected publication action.
+
+const directFixture = (options = {}) => createReviewRoutingFixture({includeAuthority:false, includePredelegation:true, ...options})
 {
-  const fixture = createReviewRoutingFixture({ includeAuthority: false })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: fixture.host,
-  }))).message, 'review_publication_predelegation_required')
-  equal(fixture.state.taskCommentMutations + fixture.state.pullReviewMutations, 0)
+ const f=directFixture(); delete f.host.publishTaskAssignmentComment; delete f.host.refetchContinuationEvent;
+ const r=await ensureReviewAuthorityAndRunPreflightV1({request:reviewRoutingInput(),host:f.host});
+ equal(r.state,'MERGE_READY'); equal(f.state.taskCommentMutations,1); equal(r.assignment_materialization_mutation_count,0);
+ const reused=await ensureReviewAuthorityAndRunPreflightV1({request:reviewRoutingInput(),host:f.host});
+ equal(reused.publication_mutation_count,0); equal(f.state.taskCommentMutations,1);
 }
-
-// An exact Product Owner Task Assignment admits the self-authored compatibility surface.
-{
-  const fixture = createReviewRoutingFixture()
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
-  equal(result.state, 'MERGE_READY')
-  equal(result.publication_route, 'TASK_ISSUE_COMMENT')
-  equal(result.publication_mutation_count, 1)
-  equal(result.review_kind, 'TASK_ISSUE_COMMENT')
-  equal(result.exact_head, HEAD)
-  equal(fixture.state.taskCommentMutations, 1)
-  equal(fixture.state.pullReviewMutations, 0)
-  equal(result.preflight.review_actor, 'whatrune')
-  equal(result.publication_authority_record, `https://github.com/${REPOSITORY}/issues/${TASK}`)
+for(const options of [
+ {finalHead:'f'.repeat(40)}, {finalBase:'e'.repeat(40)}, {finalActor:'other'},
+ {includePredelegation:false}, {existing:[{kind:'TASK_ISSUE_COMMENT'},{kind:'TASK_ISSUE_COMMENT'}]},
+]){
+ const f=directFixture(options); await captureError(()=>ensureReviewAuthorityAndRunPreflightV1({request:reviewRoutingInput(),host:f.host}));
+ equal(f.state.taskCommentMutations,0); equal(f.state.assignmentCommentMutations,0);
 }
-
-// A separately actor-bound Task Assignment preserves the normal PR APPROVE route.
-{
-  const fixture = createReviewRoutingFixture({ actor: 'independent-reviewer' })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
-  equal(result.state, 'MERGE_READY')
-  equal(result.publication_route, 'PULL_REQUEST_REVIEW')
-  equal(result.publication_mutation_count, 1)
-  equal(result.review_kind, 'PULL_REQUEST_REVIEW')
-  equal(fixture.state.pullReviewMutations, 1)
-  equal(fixture.state.taskCommentMutations, 0)
-  equal(result.preflight.review_actor, 'independent-reviewer')
+for(const options of [{publicationError:new Error('ambiguous')},{refetchMismatch:true},{refetchActorMismatch:true}]){
+ const f=directFixture(options); await captureError(()=>ensureReviewAuthorityAndRunPreflightV1({request:reviewRoutingInput(),host:f.host}));
+ equal(f.state.taskCommentMutations,1);
 }
-
-// Exactly one byte-identical current-HEAD authority is reused without publication.
-{
-  const fixture = createReviewRoutingFixture({
-    existing: [{ kind: 'TASK_ISSUE_COMMENT' }], includeAuthority: false,
-  })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
-  equal(result.state, 'MERGE_READY')
-  equal(result.publication_route, 'REUSED')
-  equal(result.publication_mutation_count, 0)
-  equal(result.review_kind, 'TASK_ISSUE_COMMENT')
-  equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
-  equal(result.publication_authority_record, null)
-}
-
-// A concurrently published exact authority is reused during the final mutation-boundary recheck.
-{
-  const fixture = createReviewRoutingFixture({ authorityAppearsBeforeMutation: true })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
-  equal(result.publication_route, 'REUSED')
-  equal(result.publication_mutation_count, 0)
-  equal(result.review_id, 9299)
-  equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
-}
-
-// V2 derives assignment authority from stable predelegation plus a complete fresh-state guard.
-{
-  const fixture = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
-  equal(result.state, 'MERGE_READY')
-  equal(result.assignment_materialization_mutation_count, 1)
-  equal(result.logical_assignment_resource_count, 1)
-  equal(result.publication_mutation_count, 1)
-  equal(result.publication_authority_record, `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-9401`)
-  equal(fixture.state.assignmentCommentMutations, 1)
-  equal(fixture.state.taskCommentMutations, 1)
-  equal(fixture.state.pullReviewMutations, 0)
-}
-
-// A closed Fresh Review is semantic publication input; continuation identities are optional diagnostics.
-{
-  const fixture = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
-  const { refetchContinuationEvent: unusedDiagnostic, ...hostWithoutContinuationDiagnostics } = fixture.host
-  equal(typeof unusedDiagnostic, 'function')
-  const result = await ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: hostWithoutContinuationDiagnostics,
-  })
-  equal(result.state, 'MERGE_READY')
-  equal(result.exact_head, HEAD)
-  equal(result.assignment_materialization_mutation_count, 1)
-  equal(result.publication_mutation_count, 1)
-  equal(fixture.state.findingEventReads, 0)
-}
-
-// Optional diagnostics do not weaken exact semantic-input binding or zero-count admission.
-for (const review_input of [
-  undefined,
-  { ...reviewInput(), reviewed_head: BASE },
-  { ...reviewInput(), blocking: 1 },
-  { ...reviewInput(), remaining: 1 },
-  { ...reviewInput(), unknown: 1 },
-]) {
-  const fixture = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
-  const error = await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput({ review_input }), host: fixture.host,
-  }))
-  ok(['review_invalid', 'review_publication_binding_invalid'].includes(error.message))
-  equal(fixture.state.assignmentCommentMutations + fixture.state.taskCommentMutations + fixture.state.pullReviewMutations, 0)
-}
-
-// Replacement Fresh Review resolves only the exact consumed finding threads before canonical Review publication.
-{
-  const thread = { id: 'PRRT_corrected_thread', isResolved: false, isOutdated: false }
-  const findingEvent = reviewFindingEvent({ activeThreadIds: [thread.id] })
-  const fixture = createReviewRoutingFixture({
-    includeAuthority: false,
-    authorityBody: canonicalReviewCorrectionTaskBody(),
-    threads: [thread],
-    findingEvent,
-  })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput({
-      correction_context: {
-        finding_cursor: findingEvent.continuation_cursor,
-        finding_head: '4'.repeat(40),
-        active_thread_ids: [thread.id],
-      },
-    }),
-    host: fixture.host,
-  })
-  equal(result.state, 'MERGE_READY')
-  equal(result.thread_resolution_mutation_count, 1)
-  equal(fixture.state.threadResolutionMutations, 1)
-  equal(thread.isResolved, true)
-  equal(result.publication_mutation_count, 1)
-  equal(fixture.state.findingEventReads, 1)
-}
-
-{
-  const newThread = { id: 'PRRT_new_live_finding', isResolved: false, isOutdated: false }
-  const findingEvent = reviewFindingEvent({ activeThreadIds: ['PRRT_prior_finding'] })
-  const fixture = createReviewRoutingFixture({
-    includeAuthority: false,
-    authorityBody: canonicalReviewCorrectionTaskBody(),
-    threads: [newThread],
-    findingEvent,
-  })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput({
-      correction_context: {
-        finding_cursor: findingEvent.continuation_cursor,
-        finding_head: '4'.repeat(40),
-        active_thread_ids: ['PRRT_prior_finding'],
-      },
-    }),
-    host: fixture.host,
-  })
-  equal(result.state, 'CORRECTION_REQUIRED')
-  equal(result.active_thread_ids.join(','), newThread.id)
-  equal(result.thread_resolution_mutation_count, 0)
-  equal(fixture.state.threadResolutionMutations, 0)
-  equal(fixture.state.taskCommentMutations, 0)
-}
-
-{
-  const resolved = { id: 'PRRT_already_resolved', isResolved: true, isOutdated: false }
-  const findingEvent = reviewFindingEvent({ activeThreadIds: [resolved.id] })
-  const fixture = createReviewRoutingFixture({
-    includeAuthority: false,
-    authorityBody: legacyReviewCorrectionTaskBody(),
-    threads: [resolved],
-    findingEvent,
-  })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput({
-      correction_context: {
-        finding_cursor: findingEvent.continuation_cursor,
-        finding_head: '4'.repeat(40),
-        active_thread_ids: [resolved.id],
-      },
-    }),
-    host: fixture.host,
-  })
-  equal(result.state, 'MERGE_READY')
-  equal(result.thread_resolution_mutation_count, 0)
-  equal(fixture.state.threadResolutionMutations, 0)
-  equal(fixture.state.findingEventReads, 1)
-}
-
-{
-  const thread = { id: 'PRRT_legacy_requires_mutation', isResolved: false, isOutdated: false }
-  const findingEvent = reviewFindingEvent({ activeThreadIds: [thread.id] })
-  const fixture = createReviewRoutingFixture({
-    includeAuthority: false,
-    authorityBody: legacyReviewCorrectionTaskBody(),
-    threads: [thread],
-    findingEvent,
-  })
-  const error = await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput({
-      correction_context: {
-        finding_cursor: findingEvent.continuation_cursor,
-        finding_head: '4'.repeat(40),
-        active_thread_ids: [thread.id],
-      },
-    }),
-    host: fixture.host,
-  }))
-  equal(error.message, 'review_thread_resolution_authority_invalid')
-  equal(fixture.state.threadResolutionMutations, 0)
-  equal(fixture.state.taskCommentMutations, 0)
-}
-
-{
-  const thread = { id: 'PRRT_refetched_finding', isResolved: false, isOutdated: false }
-  const findingEvent = reviewFindingEvent({ activeThreadIds: [thread.id] })
-  const fixture = createReviewRoutingFixture({
-    includeAuthority: false,
-    authorityBody: canonicalReviewCorrectionTaskBody(),
-    threads: [thread],
-    findingEvent,
-  })
-  const error = await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput({
-      correction_context: {
-        finding_cursor: findingEvent.continuation_cursor,
-        finding_head: '4'.repeat(40),
-        active_thread_ids: ['PRRT_caller_substitute'],
-      },
-    }),
-    host: fixture.host,
-  }))
-  equal(error.message, 'review_correction_binding_invalid')
-  equal(fixture.state.threadResolutionMutations, 0)
-  equal(fixture.state.taskCommentMutations, 0)
-}
-
-// The logical key excludes physical resource identity and base, while the semantic payload retains both binding data.
-{
-  const exact = resourceReviewPublicationAssignment()
-  const staleBase = resourceReviewPublicationAssignment({ grantOverrides: { expected_base: '4'.repeat(40) } })
-  equal(
-    JSON.stringify(projectReviewPublicationLogicalAssignmentIdentityV2(exact.allowed_changes)),
-    JSON.stringify(projectReviewPublicationLogicalAssignmentIdentityV2(staleBase.allowed_changes)),
-  )
-  equal(
-    JSON.stringify(projectReviewPublicationLogicalAssignmentSemanticPayloadV2(exact)) ===
-      JSON.stringify(projectReviewPublicationLogicalAssignmentSemanticPayloadV2(staleBase)),
-    false,
-  )
-}
-
-// Physically duplicated but byte-identical assignment records collapse into one logical authority.
-{
-  const fixture = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-    existing: [{ kind: 'TASK_ASSIGNMENT' }, { kind: 'TASK_ASSIGNMENT' }],
-  })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
-  equal(result.state, 'MERGE_READY')
-  equal(result.assignment_materialization_mutation_count, 0)
-  equal(result.logical_assignment_resource_count, 2)
-  equal(result.publication_authority_record, `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-9200`)
-  equal(fixture.state.assignmentCommentMutations, 0)
-  equal(fixture.state.taskCommentMutations, 1)
-}
-
-// An equivalent concurrent CREATE is collapsed after direct refetch and re-enumeration.
-{
-  const fixture = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-    concurrentEquivalentAssignmentOnCreate: true,
-  })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
-  equal(result.state, 'MERGE_READY')
-  equal(result.assignment_materialization_mutation_count, 1)
-  equal(result.logical_assignment_resource_count, 2)
-  equal(fixture.state.assignmentCommentMutations, 1)
-  equal(fixture.state.taskCommentMutations, 1)
-}
-
-// Stable predelegation and a uniquely valid legacy Task-body exact assignment coexist structurally.
-{
-  const body = `${taskBodyWithReviewPublicationPredelegation()}\n${yamlBlock(reviewPublicationAssignment())}`
-  const fixture = createReviewRoutingFixture({ authorityBody: body })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
-  equal(result.state, 'MERGE_READY')
-  equal(result.assignment_materialization_mutation_count, 0)
-  equal(result.publication_authority_record, `https://github.com/${REPOSITORY}/issues/${TASK}`)
-  equal(fixture.state.assignmentCommentMutations, 0)
-}
-
-// An equivalent assignment that appears at the final pre-CREATE enumeration is reused with zero CREATE.
-{
-  const fixture = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-    assignmentAppearsBeforeCreate: true,
-  })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: fixture.host })
-  equal(result.state, 'MERGE_READY')
-  equal(result.assignment_materialization_mutation_count, 0)
-  equal(fixture.state.assignmentCommentMutations, 0)
-  equal(result.publication_authority_record, `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-9410`)
-}
-
-// A same-logical-identity payload conflict remains fail-closed; an old HEAD/base record is historical and non-applicable.
-{
-  const conflict = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-    existing: [
-      { kind: 'TASK_ASSIGNMENT' },
-      { kind: 'TASK_ASSIGNMENT', grantOverrides: { expected_base: '4'.repeat(40) } },
-    ],
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: conflict.host,
-  }))).message, 'review_publication_authority_conflict')
-  equal(conflict.state.assignmentCommentMutations + conflict.state.taskCommentMutations, 0)
-
-  const historical = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-    existing: [{
-      kind: 'TASK_ASSIGNMENT',
-      grantOverrides: { exact_head: '4'.repeat(40), expected_base: '5'.repeat(40), review: reviewInput('4'.repeat(40)) },
-    }],
-  })
-  const result = await ensureReviewAuthorityAndRunPreflightV1({ request: reviewRoutingInput(), host: historical.host })
-  equal(result.state, 'MERGE_READY')
-  equal(result.assignment_materialization_mutation_count, 1)
-  equal(result.logical_assignment_resource_count, 1)
-}
-
-// Malformed and wrong-actor bookkeeping records are not silently ignored.
-{
-  const malformed = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-    existing: [{
-      kind: 'TASK_ASSIGNMENT',
-      body: '```yaml\nrecord_type: task_assignment\nallowed_changes:\n  protected_action: REVIEW_AUTHORITY_PUBLICATION\n```\n',
-    }],
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: malformed.host,
-  }))).message, 'review_publication_authority_malformed')
-  const wrongActor = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-    existing: [{ kind: 'TASK_ASSIGNMENT', grantOverrides: { authorized_actor: 'other-actor' } }],
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: wrongActor.host,
-  }))).message, 'review_publication_authority_invalid')
-}
-
-// Assignment CREATE is single-attempt, refetched exactly, and never retried after ambiguity.
-{
-  const ambiguous = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-    assignmentError: new Error('github_mutation_outcome_ambiguous'),
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: ambiguous.host,
-  }))).message, 'github_mutation_outcome_ambiguous')
-  equal(ambiguous.state.assignmentCommentMutations, 1)
-  equal(ambiguous.state.taskCommentMutations + ambiguous.state.pullReviewMutations, 0)
-
-  const mismatch = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-    assignmentRefetchMismatch: true,
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: mismatch.host,
-  }))).message, 'review_assignment_materialization_refetch_mismatch')
-  equal(mismatch.state.assignmentCommentMutations, 1)
-  equal(mismatch.state.taskCommentMutations, 0)
-}
-
-// Checks, active threads, and mergeability fail before assignment or Review mutation.
-{
-  const failedCheck = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
-  failedCheck.host.graphql = async (query, variables) => {
-    if (query.includes('query SimplifiedChecks')) {
-      return { repository: { object: { oid: HEAD, statusCheckRollup: { contexts: {
-        nodes: [check('validate', 15368, { conclusion: 'FAILURE' }), check('build-preview', 15368), check('Cloudflare Pages', 85455)],
-        pageInfo: { hasNextPage: false, endCursor: null },
-      } } } } }
-    }
-    return createFixture().host.graphql(query, variables)
-  }
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: failedCheck.host,
-  }))).message, 'required_check_not_successful:validate')
-  equal(failedCheck.state.assignmentCommentMutations + failedCheck.state.taskCommentMutations, 0)
-
-  const blocked = createReviewRoutingFixture({ includeAuthority: false, includePredelegation: true })
-  blocked.host.graphql = async (query, variables) => {
-    if (query.includes('query SimplifiedThreads')) {
-      return { repository: { pullRequest: {
-        number: PR, state: 'OPEN', isDraft: false, merged: false, headRefOid: HEAD,
-        mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN',
-        reviewThreads: { nodes: [{ id: 'active-thread', isResolved: false, isOutdated: false }], pageInfo: { hasNextPage: false, endCursor: null } },
-      } } }
-    }
-    return createFixture().host.graphql(query, variables)
-  }
-  const correction = await ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: blocked.host,
-  })
-  equal(correction.state, 'CORRECTION_REQUIRED')
-  equal(correction.reason, 'blocking_review_threads_present')
-  equal(correction.continuation_kind, 'REVIEW_FINDING')
-  equal(correction.repository, REPOSITORY)
-  equal(correction.task_issue, TASK)
-  equal(correction.pull_request, PR)
-  equal(correction.exact_head, HEAD)
-  equal(correction.expected_base, BASE)
-  equal(correction.active_thread_ids.join(','), 'active-thread')
-  equal(correction.assignment_materialization_mutation_count, 0)
-  equal(correction.publication_mutation_count, 0)
-  ok(/^review-finding-[0-9a-f]{64}$/.test(correction.continuation_cursor))
-  equal(blocked.state.assignmentCommentMutations + blocked.state.taskCommentMutations, 0)
-
-  const blockedDuringAssignmentMaterialization = createReviewRoutingFixture({
-    includeAuthority: false,
-    includePredelegation: true,
-  })
-  let threadReads = 0
-  blockedDuringAssignmentMaterialization.host.graphql = async (query, variables) => {
-    if (query.includes('query SimplifiedThreads')) {
-      threadReads += 1
-      if (threadReads === 2) {
-        return { repository: { pullRequest: {
-          number: PR, state: 'OPEN', isDraft: false, merged: false, headRefOid: HEAD,
-          mergeable: 'MERGEABLE', mergeStateStatus: 'CLEAN',
-          reviewThreads: { nodes: [{ id: 'assignment-race-thread', isResolved: false, isOutdated: false }], pageInfo: { hasNextPage: false, endCursor: null } },
-        } } }
-      }
-    }
-    return createFixture().host.graphql(query, variables)
-  }
-  const assignmentRace = await ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: blockedDuringAssignmentMaterialization.host,
-  })
-  equal(assignmentRace.state, 'CORRECTION_REQUIRED')
-  equal(assignmentRace.active_thread_ids.join(','), 'assignment-race-thread')
-  equal(assignmentRace.assignment_materialization_mutation_count, 0)
-  equal(assignmentRace.publication_mutation_count, 0)
-  equal(blockedDuringAssignmentMaterialization.state.assignmentCommentMutations, 0)
-  equal(blockedDuringAssignmentMaterialization.state.taskCommentMutations, 0)
-}
-
-// The shared publication guard exposes only current mechanical evidence and performs no mutation.
-{
-  const fixture = createFixture()
-  const snapshot = await acquireSimplifiedReviewPublicationPreflightV2({
-    request: {
-      repository: REPOSITORY,
-      task_issue: TASK,
-      pull_request: PR,
-      exact_head: HEAD,
-      expected_base: BASE,
-      authorized_paths: PATHS,
-    },
-    host: fixture.host,
-  })
-  equal(snapshot.exact_head, HEAD)
-  equal(snapshot.head_branch, BRANCH)
-  equal(snapshot.required_checks.length, 3)
-  equal(snapshot.thread_ids.length, 0)
-  equal(fixture.state.mergeMutations, 0)
-}
-
-// Duplicate, conflicting, and malformed authority fail closed before a mutation.
-{
-  const duplicate = createReviewRoutingFixture({
-    existing: [{ kind: 'PULL_REQUEST_REVIEW' }, { kind: 'TASK_ISSUE_COMMENT' }], includeAuthority: false,
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: duplicate.host,
-  }))).message, 'review_authority_duplicate')
-  equal(duplicate.state.pullReviewMutations + duplicate.state.taskCommentMutations, 0)
-
-  const conflict = createReviewRoutingFixture({
-    existing: [{ kind: 'TASK_ISSUE_COMMENT', body: `${serializeSimplifiedReviewV1(reviewInput())}\n` }],
-    includeAuthority: false,
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: conflict.host,
-  }))).message, 'review_authority_conflict')
-  equal(conflict.state.pullReviewMutations + conflict.state.taskCommentMutations, 0)
-
-  const malformed = createReviewRoutingFixture({
-    existing: [{ kind: 'TASK_ISSUE_COMMENT', body: '# Review\n\n```json\n{"record_type": "simplified_independent_review_v1"}\n```\n' }],
-    includeAuthority: false,
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: malformed.host,
-  }))).message, 'review_authority_malformed')
-  equal(malformed.state.pullReviewMutations + malformed.state.taskCommentMutations, 0)
-}
-
-// Every action binding is exact; mismatches stop before publication.
-{
-  const invalidGrants = [
-    { repository: 'other/repository' },
-    { task_issue: TASK + 1 },
-    { pull_request: PR + 1 },
-    { exact_head: BASE },
-    { head_branch: 'codex/wrong-branch' },
-    { expected_base: HEAD },
-    { authorized_paths: ['AGENTS.md'] },
-    { authorized_actor: 'other-actor' },
-    { permitted_surface: 'PULL_REQUEST_REVIEW' },
-    { review: { ...reviewInput(), unknown: 1 } },
-    { operation_count: 2 },
-    { fallback_allowed: true },
-  ]
-  for (const grantOverrides of invalidGrants) {
-    const fixture = createReviewRoutingFixture({ authorityGrantOverrides: grantOverrides })
-    equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-      request: reviewRoutingInput(), host: fixture.host,
-    }))).message, 'review_publication_authority_invalid')
-    equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
-  }
-  const wrongOwner = createReviewRoutingFixture({ issueAuthorAssociation: 'NONE' })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: wrongOwner.host,
-  }))).message, 'review_publication_authority_invalid')
-  equal(wrongOwner.state.pullReviewMutations + wrongOwner.state.taskCommentMutations, 0)
-
-  const wrongDistinctSurface = createReviewRoutingFixture({
-    actor: 'independent-reviewer', authorityGrantOverrides: { permitted_surface: 'TASK_ISSUE_COMMENT' },
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: wrongDistinctSurface.host,
-  }))).message, 'review_publication_authority_invalid')
-  equal(wrongDistinctSurface.state.pullReviewMutations + wrongDistinctSurface.state.taskCommentMutations, 0)
-
-  for (const topOverrides of [
-    { authoring_role: 'Independent Reviewer' },
-    { authority_source: 'https://github.com/whatrune/sd-prompt-studio/issues/1' },
-    { record_type: 'result_handoff' },
-  ]) {
-    const fixture = createReviewRoutingFixture({ authorityTopOverrides: topOverrides })
-    equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-      request: reviewRoutingInput(), host: fixture.host,
-    }))).message, 'review_publication_authority_invalid')
-    equal(fixture.state.pullReviewMutations + fixture.state.taskCommentMutations, 0)
-  }
-}
-
-// Duplicate or malformed publication assignments do not grant mutation authority.
-{
-  const assignment = taskBodyWithReviewPublicationAssignment()
-  const yamlBlock = assignment.slice(assignment.indexOf('```yaml'))
-  const duplicate = createReviewRoutingFixture({ authorityBody: `${assignment}\n${yamlBlock}` })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: duplicate.host,
-  }))).message, 'review_publication_authority_duplicate')
-  equal(duplicate.state.pullReviewMutations + duplicate.state.taskCommentMutations, 0)
-
-  const malformed = createReviewRoutingFixture({
-    authorityBody: `${serializeSimplifiedTaskAuthorityV1(taskInput)}\n\`\`\`yaml\nauthority_kind: REVIEW_AUTHORITY_PUBLICATION\n  malformed\n\`\`\`\n`,
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: malformed.host,
-  }))).message, 'review_publication_authority_malformed')
-  equal(malformed.state.pullReviewMutations + malformed.state.taskCommentMutations, 0)
-}
-
-// HEAD/base/actor are read again immediately before the publication mutation.
-{
-  const headDrift = createReviewRoutingFixture({ finalHead: '4'.repeat(40) })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: headDrift.host,
-  }))).message, 'review_publication_final_binding_invalid')
-  equal(headDrift.state.pullReviewMutations + headDrift.state.taskCommentMutations, 0)
-
-  const baseDrift = createReviewRoutingFixture({ finalBase: '5'.repeat(40) })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: baseDrift.host,
-  }))).message, 'review_publication_final_binding_invalid')
-  equal(baseDrift.state.pullReviewMutations + baseDrift.state.taskCommentMutations, 0)
-
-  const actorDrift = createReviewRoutingFixture({ finalActor: 'other-actor' })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: actorDrift.host,
-  }))).message, 'review_publication_authority_invalid')
-  equal(actorDrift.state.pullReviewMutations + actorDrift.state.taskCommentMutations, 0)
-
-  const authorityRemoved = createReviewRoutingFixture({
-    finalAuthorityBody: serializeSimplifiedTaskAuthorityV1(taskInput),
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: authorityRemoved.host,
-  }))).message, 'review_publication_authority_required')
-  equal(authorityRemoved.state.pullReviewMutations + authorityRemoved.state.taskCommentMutations, 0)
-}
-
-// A distinct-actor PR publication failure never falls back to the Task comment route.
-{
-  const fixture = createReviewRoutingFixture({
-    actor: 'independent-reviewer',
-    publicationError: new Error('github_http_403:forbidden'),
-  })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: fixture.host,
-  }))).message, 'github_http_403:forbidden')
-  equal(fixture.state.pullReviewMutations, 1)
-  equal(fixture.state.taskCommentMutations, 0)
-}
-
-// Publication is not admitted unless the exact created resource refetches byte-identically.
-{
-  const fixture = createReviewRoutingFixture({ refetchMismatch: true })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: fixture.host,
-  }))).message, 'review_authority_conflict')
-  equal(fixture.state.taskCommentMutations, 1)
-  equal(fixture.state.pullReviewMutations, 0)
-}
-{
-  const fixture = createReviewRoutingFixture({ refetchActorMismatch: true })
-  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
-    request: reviewRoutingInput(), host: fixture.host,
-  }))).message, 'review_publication_refetch_mismatch')
-  equal(fixture.state.taskCommentMutations, 1)
-  equal(fixture.state.pullReviewMutations, 0)
-}
-
 // Blockers/UNKNOWN and exact Task/PR/HEAD binding remain closed serializer/preflight predicates.
 {
   const fixture = createReviewRoutingFixture()
@@ -2313,10 +1698,8 @@ for (const review_input of [
       })
     },
   })
-  const assignmentBody = 'canonical V2 logical assignment'
-  await host.publishTaskAssignmentComment({ repository: REPOSITORY, taskIssue: TASK, body: assignmentBody })
   await host.publishTaskIssueComment({ repository: REPOSITORY, taskIssue: TASK, body: reviewBody })
-  equal(ghCalls.length, 2)
+  equal(ghCalls.length, 1)
   for (const call of ghCalls) {
     equal(call.executable, 'exact-gh')
     equal(call.args.join(' '), `api --hostname github.com repos/${REPOSITORY}/issues/${TASK}/comments --method POST --input -`)
@@ -2333,8 +1716,7 @@ for (const review_input of [
     equal(JSON.stringify(call.options).includes('caller-enterprise-token-must-not-flow'), false)
     equal(JSON.stringify(call.options).includes('caller-github-enterprise-token-must-not-flow'), false)
   }
-  equal(ghCalls[0].options.input, JSON.stringify({ body: assignmentBody }))
-  equal(ghCalls[1].options.input, JSON.stringify({ body: reviewBody }))
+  equal(ghCalls[0].options.input, JSON.stringify({ body: reviewBody }))
 }
 {
   const calls = []
@@ -2372,7 +1754,7 @@ for (const response of [
       throw new Error('alternate_fetch_transport_used')
     },
   })
-  const error = await captureError(() => host.publishTaskAssignmentComment({
+  const error = await captureError(() => host.publishTaskIssueComment({
     repository: REPOSITORY, taskIssue: TASK, body: 'assignment',
   }))
   equal(
@@ -2745,6 +2127,67 @@ for (const response of [
   equal(fixture.state.mergeMutations, 0)
 }
 
+
+// The PO's semantic Merge instruction activates record publication, never local Merge.
+const decisionPublicationFixture = (options = {}) => {
+  const fixture = createFixture(options)
+  const originalApi = fixture.host.api
+  const comments = []
+  let attempts = 0
+  fixture.host.api = async (route) => {
+    if (route === 'user') return { login: 'whatrune' }
+    if (route === `repos/${REPOSITORY}/issues/${TASK}/comments?per_page=100&page=1`) return comments
+    if (route === `repos/${REPOSITORY}/issues/comments/9901`) return comments[0]
+    return originalApi(route)
+  }
+  fixture.host.publishTaskIssueComment = async ({ repository, taskIssue, body }) => {
+    attempts += 1
+    equal(repository, REPOSITORY)
+    equal(taskIssue, TASK)
+    if (options.ambiguous) throw new Error('ambiguous_decision_create')
+    const record = { id: 9901, html_url: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-9901`, user: { login: 'whatrune' }, body }
+    comments.push(record)
+    return record
+  }
+  return { ...fixture, comments, attempts: () => attempts }
+}
+{
+  const fixture = decisionPublicationFixture()
+  const input = { repository: REPOSITORY, decision: decisionInput(), host: fixture.host }
+  const result = await publishCanonicalMergeDecisionV1(input)
+  equal(result.state, 'COMPLETED')
+  equal(result.mutation_count, 1)
+  equal(result.exact_head, HEAD)
+  equal(fixture.attempts(), 1)
+  equal(fixture.state.mergeMutations, 0)
+  equal((await publishCanonicalMergeDecisionV1(input)).mutation_count, 0)
+  equal(fixture.attempts(), 1)
+  fixture.comments.push({ ...fixture.comments[0], id: 9902 })
+  await assert.rejects(() => publishCanonicalMergeDecisionV1(input), /merge_decision_duplicate/)
+  assertions += 1
+  equal(fixture.attempts(), 1)
+}
+for (const options of [
+  { head: 'f'.repeat(40) }, { main: 'f'.repeat(40) }, { draft: true },
+  { reviewHead: 'f'.repeat(40) }, { paths: ['AGENTS.md'] },
+  { threads: [{ id: 'thread', isResolved: false, isOutdated: false }] },
+  { checks: [check('validate', 15368, { conclusion: 'FAILURE' })] },
+  { mergeable: 'CONFLICTING' },
+]) {
+  const fixture = decisionPublicationFixture(options)
+  await assert.rejects(() => publishCanonicalMergeDecisionV1({ repository: REPOSITORY, decision: decisionInput(), host: fixture.host }))
+  assertions += 1
+  equal(fixture.attempts(), 0)
+  equal(fixture.state.mergeMutations, 0)
+}
+{
+  const fixture = decisionPublicationFixture({ ambiguous: true })
+  await assert.rejects(() => publishCanonicalMergeDecisionV1({ repository: REPOSITORY, decision: decisionInput(), host: fixture.host }), /ambiguous_decision_create/)
+  assertions += 1
+  equal(fixture.attempts(), 1)
+  equal(fixture.state.mergeMutations, 0)
+}
+
 const workflow = readFileSync(new URL('../.github/workflows/protected-transition-admission-v1.yml', import.meta.url), 'utf8')
 const workflowDocument = parseDocument(workflow)
 equal(workflowDocument.errors.length, 0)
@@ -2825,9 +2268,9 @@ ok(preflightSource.includes('host.mergePullRequest'))
 ok(runnerSource.includes("valueAfter('--pre-decision-preflight-file')"))
 ok(runnerSource.includes('acquireSimplifiedPreDecisionPreflightV1'))
 ok(runnerSource.includes('acquireSimplifiedReviewPublicationPreflightV2'))
-ok(runnerSource.includes('projectReviewPublicationLogicalAssignmentIdentityV2'))
-ok(runnerSource.includes('publishTaskAssignmentComment'))
-ok(runnerSource.includes("canonical_record: 'GITHUB_RESOURCE'"))
+equal(runnerSource.includes('projectReviewPublicationLogicalAssignmentIdentityV2'), false)
+equal(runnerSource.includes('publishTaskAssignmentComment'), false)
+
 equal(runnerSource.includes('fresh_review_terminal_cursor'), false)
 ok(runnerSource.includes('serializeCanonicalTaskIssueBodyV1'))
 ok(runnerSource.includes('publishCanonicalTaskIssueV1'))
@@ -2849,22 +2292,19 @@ ok(runnerSource.includes("args.includes('--publication-body-output-file')"))
 ok(runnerSource.includes('writeProtectedPublicationBodyFileV1'))
 equal(runnerSource.includes(".join(' ')"), false)
 ok(agentsSource.includes('## Immediate Terminal Continuation'))
-ok(agentsSource.includes('wait_threads'))
 ok(agentsSource.includes('same owning Worker'))
 ok(agentsSource.includes('at most 10 seconds'))
-ok(integratedLeadSource.includes('checks PASS dispatches Fresh Review'))
-ok(integratedLeadSource.includes('correction checks PASS dispatches replacement Fresh Review'))
-ok(integratedLeadSource.includes('read-only pre-Decision preflight'))
-ok(integratedLeadSource.includes('wake-up cursor; it is not publication authority'))
-ok(integratedLeadSource.includes('canonical semantic payloads are byte-identical'))
-ok(automationOverviewSource.includes('supplies no publication authority'))
-ok(automationOverviewSource.includes('Multiple physical comments with that identity'))
-ok(taskAssignmentTemplateSource.includes('Do not record a `wait_threads` cursor'))
-ok(delegationSource.includes('### Logical Review-publication Assignment V2'))
+ok(integratedLeadSource.includes('Integrated Lead owns continuation'))
+ok(integratedLeadSource.includes('direct canonical Review publication'))
+ok(automationOverviewSource.includes('No assignment comment is created'))
+ok(taskAssignmentTemplateSource.includes('Wait/event identities are optional diagnostics'))
+ok(delegationSource.includes('no consumed terminal-event file or prepublication Review is required'))
 ok(sharedRoleSource.includes('Fresh Review `CHANGES_REQUIRED` prohibit stage advance'))
-ok(sharedRoleSource.includes('one deterministic `REVIEW_FINDING` cursor'))
-ok(sharedRoleSource.includes('terminal cursor is a wake-up signal only'))
 ok(sharedRoleSource.includes('zero active unresolved non-outdated threads'))
+ok(sharedRoleSource.includes('No prepublication Independent Review'))
+ok(sharedRoleSource.includes('publishCanonicalMergeDecisionV1'))
+equal(runnerSource.includes('CODEX_CONTINUATION_EVENT_FILE'), false)
+equal(runnerSource.includes('refetchContinuationEvent'), false)
 equal((preflightSource.match(/const initial = await acquireLiveSnapshot/g) ?? []).length, 1)
 equal((preflightSource.match(/const final = await acquireLiveSnapshot/g) ?? []).length, 1)
 ok(runnerSource.includes("method: 'PUT'"))
