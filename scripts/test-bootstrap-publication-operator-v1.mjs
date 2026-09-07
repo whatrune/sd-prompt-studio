@@ -56,7 +56,6 @@ const NORMAL_TASK_BODY = serializeCanonicalTaskIssueBodyV1({
     worktree_path: worktree,
     expected_base: PARENT,
     authorized_actor: 'whatrune',
-    permitted_surface: 'TASK_ISSUE_COMMENT',
     ready_allowed: false,
     product_owner_login: 'whatrune',
   },
