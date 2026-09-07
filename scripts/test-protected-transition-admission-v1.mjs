@@ -2149,7 +2149,8 @@ const decisionPublicationFixture = (options = {}) => {
   fixture.host.api = async (route) => {
     if (route === 'user') return { login: 'whatrune' }
     if (route === `repos/${REPOSITORY}/issues/${TASK}/comments?per_page=100&page=1`) return comments
-    if (route === `repos/${REPOSITORY}/issues/comments/9901`) return comments[0]
+    const commentMatch = route.match(new RegExp(`^repos/${REPOSITORY}/issues/comments/(\\d+)$`))
+    if (commentMatch) return comments.find(({ id }) => id === Number(commentMatch[1]))
     return originalApi(route)
   }
   fixture.host.publishTaskIssueComment = async ({ repository, taskIssue, body }) => {
@@ -2162,6 +2163,26 @@ const decisionPublicationFixture = (options = {}) => {
     return record
   }
   return { ...fixture, comments, attempts: () => attempts }
+}
+{
+  const staleDecision = decisionInput({
+    expected_base: 'e'.repeat(40),
+    review_id: REVIEW + 1,
+    review_url: `https://github.com/${REPOSITORY}/pull/${PR}#pullrequestreview-${REVIEW + 1}`,
+  })
+  const staleBody = serializeSimplifiedMergeDecisionV1(staleDecision)
+  const fixture = decisionPublicationFixture()
+  fixture.comments.push({
+    id: 9800,
+    html_url: `https://github.com/${REPOSITORY}/issues/${TASK}#issuecomment-9800`,
+    user: { login: 'whatrune' },
+    body: staleBody,
+  })
+  const result = await publishCanonicalMergeDecisionV1({ repository: REPOSITORY, decision: decisionInput(), host: fixture.host })
+  equal(result.state, 'COMPLETED')
+  equal(result.mutation_count, 1)
+  equal(result.comment_id, 9901)
+  equal(fixture.attempts(), 1)
 }
 {
   const fixture = decisionPublicationFixture()

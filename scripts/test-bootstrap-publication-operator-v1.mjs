@@ -87,9 +87,14 @@ const normalRequestV1 = (operation, expectedHead, overrides = {}) => {
     expected_pr: null,
     expected_remote_head: null,
     execution_instance_id: NORMAL_INSTANCE,
-    validation_results: [{ command: 'focused validation', result: 'PASS', exact_head: expectedHead }],
     operation_count: 1,
     ...overrides,
+  }
+  if (!Object.hasOwn(overrides, 'validation_results')) {
+    const validationHead = operation === 'COMMIT_VALIDATED_TREE'
+      ? request.expected_head
+      : (request.expected_remote_head ?? request.expected_base)
+    request.validation_results = [{ command: 'focused validation', result: 'PASS', exact_head: validationHead }]
   }
   if (request.expected_pr !== null && request.correction_context === null) {
     request.correction_context = NORMAL_CORRECTION_CONTEXT
@@ -404,6 +409,22 @@ const makeNormalHostV1 = ({
   check(host.metrics.push === 1 && host.metrics.createPull === 1, 'P unchanged publication performs each mutation once')
   check(host.metrics.createdPull.draft === false, 'P normal Task publication creates a non-Draft PR')
   check(!host.metrics.apiCalls.some(({ method }) => method === 'PATCH'), 'P normal publication does not insert legacy Task-state or PATCH the PR')
+}
+
+{
+  const host = makeNormalHostV1({ initialHead: PUSHED })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_VALIDATED_COMMIT', PUSHED, {
+      validation_results: [{ command: 'focused validation', result: 'PASS', exact_head: PARENT }],
+    }), host,
+  )
+  check(result.status === 'SUCCESS', 'P publication reuses admitted validation evidence bound to the pre-commit HEAD')
+  const relabeled = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('PUBLISH_VALIDATED_COMMIT', PUSHED, {
+      validation_results: [{ command: 'focused validation', result: 'PASS', exact_head: PUSHED }],
+    }), makeNormalHostV1({ initialHead: PUSHED }),
+  )
+  check(relabeled.reason === 'normal_task_execution_request_value_invalid', 'P publication rejects validation evidence relabeled to the resulting commit HEAD')
 }
 
 {

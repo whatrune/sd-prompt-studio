@@ -1733,7 +1733,13 @@ export const publishCanonicalMergeDecisionV1 = async ({ repository, decision, ho
     for (const comment of comments) {
       if (typeof comment?.body !== 'string' || !comment.body.includes('simplified_merge_decision_v1')) continue
       const value = parseSimplifiedMergeDecisionV1(comment.body)
-      if (value.task_issue !== admitted.task_issue || value.pull_request !== admitted.pull_request || value.exact_head !== admitted.exact_head) continue
+      if (
+        value.task_issue !== admitted.task_issue || value.pull_request !== admitted.pull_request ||
+        value.exact_head !== admitted.exact_head || value.expected_base !== admitted.expected_base ||
+        !samePaths(value.authorized_paths, admitted.authorized_paths) ||
+        value.review_kind !== admitted.review_kind || value.review_id !== admitted.review_id ||
+        value.review_url !== admitted.review_url
+      ) continue
       if (comment.user?.login !== 'whatrune' || comment.body !== body) throw new Error('merge_decision_conflict')
       matches.push(comment)
     }

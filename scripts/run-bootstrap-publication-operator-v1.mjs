@@ -103,7 +103,12 @@ const parseNormalTaskExecutionRequestV1 = (request) => {
     !(request.expected_pr === null || positiveInteger(request.expected_pr)) ||
     !(request.expected_remote_head === null || FULL_HEAD.test(request.expected_remote_head ?? '')) ||
     typeof request.execution_instance_id !== 'string' || request.execution_instance_id.length === 0 ||
-    !assertPassingValidationResultsV1(request.validation_results, request.expected_head) ||
+    !assertPassingValidationResultsV1(
+      request.validation_results,
+      request.operation === 'COMMIT_VALIDATED_TREE'
+        ? request.expected_head
+        : (request.expected_remote_head ?? request.expected_base),
+    ) ||
     request.operation_count !== 1
   ) throw new Error('normal_task_execution_request_value_invalid')
   if (
