@@ -1,0 +1,282 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-029-C",
+  "blind_condition_label": "COND-03",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "face_detail",
+    "framing_boundary_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [],
+    "analysis_notes": [
+      "Visual axis values, evidence notes, artifacts and confidence are preserved from the independent opaque-panel observation freeze.",
+      "Freeze SHA-256: 5539073977f5afaf1232a537e753ebf6c6efb63225c90d8353fbee7270900520; frozen at 2026-09-07T02:24:19.6709250Z before decoding.",
+      "Only canonical run/panel identity and positional axis encoding were projected after decoding.",
+      "Contact load and cross-domain effects were disabled; required contact-load fields remain unclear, without inferred load.",
+      "No prompt alignment or cross-condition assessment is performed in this observation artifact."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The subject is visible through the pelvis and shorts; both thighs are cut before the knees."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "cowboy_shot",
+        "head_partial",
+        "mid_thigh",
+        "partial",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The crown is clipped; the lower edge cuts the thighs above the knees while torso and pelvis remain visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "proximal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The upper body and pelvis are complete; the lower edge clips the uppermost thighs."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The full head, torso, and pelvis are shown; the frame ends across the thighs before the knees."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The complete head, torso, and pelvis are visible; both thighs are cropped above the knees."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Generous space appears above the head; the subject is visible through the pelvis and cut at mid-thigh."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "Independent image-only observation; interpretation is outside this artifact.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "cowboy_shot": 6
+      },
+      "upper_crop_boundary": {
+        "above_head": 5,
+        "head_partial": 1
+      },
+      "lower_crop_boundary": {
+        "mid_thigh": 5,
+        "proximal_thigh": 1
+      },
+      "head_visibility": {
+        "visible": 5,
+        "partial": 1
+      },
+      "torso_visibility": {
+        "visible": 6
+      },
+      "pelvis_visibility": {
+        "visible": 6
+      },
+      "knees_visibility": {
+        "not_visible": 6
+      },
+      "feet_visibility": {
+        "not_visible": 6
+      },
+      "face_detail": {
+        "medium_high": 5,
+        "medium": 1
+      },
+      "framing_boundary_assessable": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_framing_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
