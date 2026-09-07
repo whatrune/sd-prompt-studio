@@ -19,7 +19,7 @@ prompt:
   negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
     extra fingers, missing fingers, extra limbs, fused limbs, text, watermark
   changed_phrases:
-  - cowboy_shot
+  - cowboy shot
   - eye level
   fixed_phrases:
   - 1girl
