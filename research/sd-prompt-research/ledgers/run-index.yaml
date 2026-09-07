@@ -972,3 +972,27 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-07T11:32:39+09:00'
   path: experiments/camera/CAM-029-D
+- run_id: CAM-030-A
+  domain: camera
+  title: CAM-030-A — upper body baseline
+  status: OBSERVED
+  updated_at: '2026-09-07T06:50:42.726859Z'
+  path: experiments/camera/CAM-030-A
+- run_id: CAM-030-B
+  domain: camera
+  title: CAM-030-B — upper body + empty seamless studio
+  status: OBSERVED
+  updated_at: '2026-09-07T06:50:42.726859Z'
+  path: experiments/camera/CAM-030-B
+- run_id: CAM-030-C
+  domain: camera
+  title: CAM-030-C — cowboy shot baseline
+  status: OBSERVED
+  updated_at: '2026-09-07T06:50:42.726859Z'
+  path: experiments/camera/CAM-030-C
+- run_id: CAM-030-D
+  domain: camera
+  title: CAM-030-D — cowboy shot + empty seamless studio
+  status: OBSERVED
+  updated_at: '2026-09-07T06:50:42.726859Z'
+  path: experiments/camera/CAM-030-D
