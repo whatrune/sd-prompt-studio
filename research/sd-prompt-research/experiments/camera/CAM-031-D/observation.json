@@ -1,0 +1,304 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-031-D",
+  "blind_condition_label": "COND-4e578084331260b9",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "face_detail",
+    "framing_boundary_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "cowboy_shot=3/6",
+      "full_body=3/6"
+    ],
+    "analysis_notes": [
+      "Visual axis values are projected unchanged from the independently frozen opaque observation record.",
+      "Freeze SHA-256 1ab47d3b14f58656128693cb32f7116585b0242807a0c58551b1e8a864c36812; frozen at 2026-09-07T12:20:19.833Z before decode at 2026-09-07T12:26:10.982Z.",
+      "Only canonical run/panel identity and positional axis encoding were added after decode.",
+      "No prompt alignment or cross-condition interpretation is performed in this observation artifact."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "knee",
+        "visible",
+        "visible",
+        "visible",
+        "partial",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [
+        "none"
+      ],
+      "evidence_notes": [
+        "Frozen visible record: upper boundary above_head, lower boundary knee; head visible, torso visible, pelvis visible, knees partial, feet not_visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [
+        "none"
+      ],
+      "evidence_notes": [
+        "Frozen visible record: upper boundary above_head, lower boundary mid_thigh; head visible, torso visible, pelvis visible, knees not_visible, feet not_visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [
+        "none"
+      ],
+      "evidence_notes": [
+        "Frozen visible record: upper boundary above_head, lower boundary mid_thigh; head visible, torso visible, pelvis visible, knees not_visible, feet not_visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "lower_leg",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [
+        "none"
+      ],
+      "evidence_notes": [
+        "Frozen visible record: upper boundary above_head, lower boundary lower_leg; head visible, torso visible, pelvis visible, knees visible, feet not_visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "partial",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [
+        "none"
+      ],
+      "evidence_notes": [
+        "Frozen visible record: upper boundary above_head, lower boundary feet; head visible, torso visible, pelvis visible, knees visible, feet partial."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "medium_high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [
+        "none"
+      ],
+      "evidence_notes": [
+        "Frozen visible record: upper boundary above_head, lower boundary below_feet; head visible, torso visible, pelvis visible, knees visible, feet visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "medium",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "Independent image-only observation; interpretation is outside this artifact.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "cowboy_shot": 3,
+        "full_body": 3
+      },
+      "upper_crop_boundary": {
+        "above_head": 6
+      },
+      "lower_crop_boundary": {
+        "below_feet": 1,
+        "feet": 1,
+        "knee": 1,
+        "lower_leg": 1,
+        "mid_thigh": 2
+      },
+      "head_visibility": {
+        "visible": 6
+      },
+      "torso_visibility": {
+        "visible": 6
+      },
+      "pelvis_visibility": {
+        "visible": 6
+      },
+      "knees_visibility": {
+        "not_visible": 2,
+        "partial": 1,
+        "visible": 3
+      },
+      "feet_visibility": {
+        "not_visible": 4,
+        "partial": 1,
+        "visible": 1
+      },
+      "face_detail": {
+        "high": 1,
+        "medium_high": 5
+      },
+      "framing_boundary_assessable": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_framing_observation": 6
+    },
+    "secondary_morphology_counts": {
+      "none": 6
+    },
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
