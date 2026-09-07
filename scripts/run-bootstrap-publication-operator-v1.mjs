@@ -133,7 +133,6 @@ const normalizeCorrectionContextV1 = (value) => {
   if (
     !sameFields(value, fields) || (value.finding_cursor != null && (typeof value.finding_cursor !== 'string' || value.finding_cursor.length === 0)) ||
     !FULL_HEAD.test(value.finding_head ?? '') || !Array.isArray(value.active_thread_ids) ||
-    value.active_thread_ids.length === 0 ||
     !value.active_thread_ids.every((item) => typeof item === 'string' && item.length > 0) ||
     new Set(value.active_thread_ids).size !== value.active_thread_ids.length
   ) throw new Error('correction_context_invalid')

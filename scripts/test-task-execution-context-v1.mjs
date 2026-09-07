@@ -295,6 +295,11 @@ function observed(id = identity(), overrides = {}) {
       : null,
     ...overrides,
   })
+  const semanticFinding = actionFor('CORRECTION_IMPLEMENTATION_COMPLETE', {
+    correctionContext: { finding_head: head455, active_thread_ids: [] },
+  })
+  equal(semanticFinding.actions.length, 1)
+  equal(semanticFinding.actions[0].correction_context.finding_cursor, null)
   const expected = [
     ['TASK_ADMITTED', 'CREATE_ASSIGNED_WORKTREE_AND_DISPATCH_IMPLEMENTATION'],
     ['IMPLEMENTATION_COMPLETE', 'COMMIT_VALIDATED_TREE_AND_PUBLISH_NON_DRAFT'],

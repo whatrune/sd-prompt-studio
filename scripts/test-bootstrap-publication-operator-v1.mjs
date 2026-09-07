@@ -272,6 +272,21 @@ const makeNormalHostV1 = ({
 
 {
   const correctionDelta = [PATHS[0]]
+  const host = makeNormalHostV1({ initialHead: PARENT, remoteInitially: PARENT, existingPr: true, changedPaths: correctionDelta })
+  const result = await executeNormalTaskExecutionOperatorV1(
+    normalRequestV1('COMMIT_VALIDATED_TREE', PARENT, {
+      expected_pr: PR_NUMBER,
+      expected_remote_head: PARENT,
+      changed_paths: correctionDelta,
+      correction_context: { finding_head: PARENT, active_thread_ids: [] },
+    }),
+    host,
+  )
+  check(result.status === 'SUCCESS', 'N a semantic Review finding needs no synthetic thread or cursor identity')
+}
+
+{
+  const correctionDelta = [PATHS[0]]
   const host = makeNormalHostV1({
     initialHead: PARENT,
     remoteInitially: PARENT,

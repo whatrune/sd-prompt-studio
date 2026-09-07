@@ -1327,7 +1327,7 @@ const parseReviewPublicationPredelegationV2 = ({ profiles, request, task, actor,
     assignment.canonical_record !== taskUrl || assignment.prior_record_url !== 'not_applicable' ||
     assignment.cumulative_scope !== 'REVIEW_AUTHORITY_PUBLICATION_PREDELEGATION' ||
     assignment.forbidden_changes.join('\n') !== REVIEW_PUBLICATION_PREDELEGATION_FORBIDDEN_CHANGES.join('\n') ||
-    grant.activation !== 'FRESH_EXACT_HEAD_REVIEW_APPROVE' || typeof grant.materialization_only !== 'boolean' ||
+    grant.activation !== 'FRESH_EXACT_HEAD_REVIEW_APPROVE' || grant.materialization_only !== false ||
     grant.repository !== request.repository || grant.task_issue !== request.task_issue ||
     grant.head_branch !== task.head_branch || !samePaths(grant.authorized_paths, request.authorized_paths) ||
     grant.authorized_actor !== actor.login || grant.permitted_surface !== surface ||
@@ -1433,7 +1433,6 @@ const validateReviewRoutingRequest = (request) => {
     if (
       !exactKeys(value, fields) || (value.finding_cursor != null && (typeof value.finding_cursor !== 'string' || value.finding_cursor.length === 0)) ||
       !FULL_SHA.test(value.finding_head ?? '') || !Array.isArray(value.active_thread_ids) ||
-      value.active_thread_ids.length === 0 ||
       !value.active_thread_ids.every((item) => typeof item === 'string' && item.length > 0) ||
       new Set(value.active_thread_ids).size !== value.active_thread_ids.length
     ) throw new Error('review_correction_binding_invalid')
@@ -1540,7 +1539,9 @@ export const ensureReviewAuthorityAndRunPreflightV1 = async ({ request, host }) 
           authorized_paths: request.authorized_paths,
         },
         host,
-        expectedActiveThreadIds: request.correction_context?.active_thread_ids ?? null,
+        expectedActiveThreadIds: (request.correction_context?.active_thread_ids.length ?? 0) > 0
+          ? request.correction_context.active_thread_ids
+          : null,
       }),
     ])
     if (typeof actor?.login !== 'string' || actor.login.length === 0) {

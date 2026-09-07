@@ -224,7 +224,6 @@ const normalizeCorrectionContinuationContextV1 = (value) => {
     Object.keys(value).filter((key) => key !== 'finding_cursor').sort().join('\0') !== ['active_thread_ids', 'finding_head'].sort().join('\0') ||
     (value.finding_cursor != null && (typeof value.finding_cursor !== 'string' || value.finding_cursor.length === 0)) ||
     !SHA_PATTERN.test(value.finding_head ?? '') || !Array.isArray(value.active_thread_ids) ||
-    value.active_thread_ids.length === 0 ||
     !value.active_thread_ids.every((item) => typeof item === 'string' && item.length > 0) ||
     new Set(value.active_thread_ids).size !== value.active_thread_ids.length
   ) mismatch('correction_continuation_context')

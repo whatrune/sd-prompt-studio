@@ -304,13 +304,13 @@ const reviewPublicationPredelegation = ({
   supporting_records: 'not_applicable',
   requested_by: 'Product Owner',
   assigned_role: 'Protected Transition Consumer Host',
-  purpose: 'Predelegate deterministic assignment materialization after Fresh exact-HEAD approval.',
-  background: 'The coordinator cursor wakes this flow but supplies no publication authority.',
+  purpose: 'Predelegate direct canonical Review publication after Fresh exact-HEAD approval.',
+  background: 'Fresh exact state and Review approval activate this direct publication route.',
   input_documents: 'Shared Role Execution Contract, Delegation and Result Contract, and Review Execution Contract.',
   allowed_changes: {
     protected_action: 'REVIEW_AUTHORITY_PUBLICATION',
     activation: 'FRESH_EXACT_HEAD_REVIEW_APPROVE',
-    materialization_only: true,
+    materialization_only: false,
     repository: REPOSITORY,
     task_issue: TASK,
     head_branch: BRANCH,
@@ -1547,6 +1547,18 @@ const directFixture = (options = {}) => createReviewRoutingFixture({includeAutho
  equal(r.state,'MERGE_READY'); equal(f.state.taskCommentMutations,1); equal(r.assignment_materialization_mutation_count,0);
  const reused=await ensureReviewAuthorityAndRunPreflightV1({request:reviewRoutingInput(),host:f.host});
  equal(reused.publication_mutation_count,0); equal(f.state.taskCommentMutations,1);
+}
+{
+ const f=directFixture();
+ const request=reviewRoutingInput({correction_context:{finding_head:HEAD,active_thread_ids:[]}});
+ const result=await ensureReviewAuthorityAndRunPreflightV1({request,host:f.host});
+ equal(result.state,'MERGE_READY'); equal(result.thread_resolution_mutation_count,0);
+}
+{
+ const f=directFixture({predelegationGrantOverrides:{materialization_only:true}});
+ const error=await captureError(()=>ensureReviewAuthorityAndRunPreflightV1({request:reviewRoutingInput(),host:f.host}));
+ equal(error.message,'review_publication_predelegation_invalid');
+ equal(f.state.taskCommentMutations,0); equal(f.state.pullReviewMutations,0); equal(f.state.assignmentCommentMutations,0);
 }
 for(const options of [
  {finalHead:'f'.repeat(40)}, {finalBase:'e'.repeat(40)}, {finalActor:'other'},
