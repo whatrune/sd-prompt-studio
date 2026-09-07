@@ -73,7 +73,6 @@ const canonicalTaskBodyRequest = (overrides = {}) => Object.freeze({
     : join('/workspace', '.worktrees', 'canonical-task-body-serialization-v1'),
   expected_base: BASE,
   authorized_actor: 'whatrune',
-  permitted_surface: 'TASK_ISSUE_COMMENT',
   ready_allowed: false,
   product_owner_login: 'whatrune',
   ...overrides,
@@ -688,6 +687,7 @@ equal(
 )
 equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.task_issue, 526)
 equal(parsedCanonicalTaskBound.review_publication_predelegation.task_id, 'TASK-526-REVIEW-PUBLICATION-PREDELEGATION')
+equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.permitted_surface, 'TASK_ISSUE_COMMENT')
 equal(parsedCanonicalTaskBound.task_authority.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
 equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
@@ -716,6 +716,10 @@ equal(
 ok(parsedKeepOpenCanonicalTaskBody.normal_execution_predelegation.forbidden_changes.includes('issue_closure'))
 throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({ task_issue_closure_policy: 'INVALID' }),
+  mode: 'UNBOUND_CREATE',
+}), /canonical_task_body_request_invalid/)
+throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({ permitted_surface: 'PULL_REQUEST_REVIEW' }),
   mode: 'UNBOUND_CREATE',
 }), /canonical_task_body_request_invalid/)
 const legacyCanonicalTaskBody = canonicalTaskBoundBody.replace(
@@ -1047,6 +1051,7 @@ const createCanonicalTaskPublicationHost = ({
   equal(final.task_authority.task_issue, 526)
   equal(final.normal_execution_predelegation.allowed_changes.task_issue, 526)
   equal(final.review_publication_predelegation.allowed_changes.task_issue, 526)
+  equal(final.review_publication_predelegation.allowed_changes.permitted_surface, 'TASK_ISSUE_COMMENT')
 }
 
 {
