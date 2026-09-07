@@ -311,7 +311,7 @@ const reviewPublicationPredelegation = ({
   allowed_changes: {
     protected_action: 'REVIEW_AUTHORITY_PUBLICATION',
     activation: 'FRESH_EXACT_HEAD_REVIEW_APPROVE',
-    materialization_only: true,
+    materialization_only: false,
     repository: REPOSITORY,
     task_issue: TASK,
     head_branch: BRANCH,
@@ -326,7 +326,16 @@ const reviewPublicationPredelegation = ({
       remaining: 0,
       unknown: 0,
     },
-    operation_count: 1,
+    allowed_operations: {
+      logical_assignment_comment: {
+        operation_count: 1,
+        direct_refetch_required: true,
+      },
+      canonical_review_comment: {
+        operation_count: 1,
+        direct_refetch_required: true,
+      },
+    },
     fallback_allowed: false,
     ...grantOverrides,
   },
@@ -369,6 +378,19 @@ const yamlBlock = (value) => `\`\`\`yaml\n${JSON.stringify(value, null, 2)}\n\`\
 const taskBodyWithReviewPublicationPredelegation = (options = {}) => (
   `${serializeSimplifiedTaskAuthorityV1(taskInput)}\n${yamlBlock(reviewPublicationPredelegation(options))}`
 )
+
+const taskBodyWithLegacyReviewPublicationPredelegation = (options = {}) => {
+  const assignment = reviewPublicationPredelegation(options)
+  const { allowed_operations: omittedOperations, ...grant } = assignment.allowed_changes
+  return `${serializeSimplifiedTaskAuthorityV1(taskInput)}\n${yamlBlock({
+    ...assignment,
+    allowed_changes: {
+      ...grant,
+      materialization_only: true,
+      operation_count: 1,
+    },
+  })}`
+}
 
 const taskBodyWithReviewPublicationAssignment = (options = {}) => (
   `${serializeSimplifiedTaskAuthorityV1(taskInput)}\n\`\`\`yaml\n${JSON.stringify(reviewPublicationAssignment(options), null, 2)}\n\`\`\`\n`
@@ -689,6 +711,27 @@ equal(
 )
 equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.task_issue, 526)
 equal(parsedCanonicalTaskBound.review_publication_predelegation.task_id, 'TASK-526-REVIEW-PUBLICATION-PREDELEGATION')
+equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.materialization_only, false)
+equal(
+  parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.allowed_operations
+    .logical_assignment_comment.operation_count,
+  1,
+)
+equal(
+  parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.allowed_operations
+    .logical_assignment_comment.direct_refetch_required,
+  true,
+)
+equal(
+  parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.allowed_operations
+    .canonical_review_comment.operation_count,
+  1,
+)
+equal(
+  parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.allowed_operations
+    .canonical_review_comment.direct_refetch_required,
+  true,
+)
 equal(parsedCanonicalTaskBound.task_authority.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
 equal(parsedCanonicalTaskBound.review_publication_predelegation.allowed_changes.authorized_paths.join('\n'), [...CANONICAL_TASK_PATHS].sort().join('\n'))
@@ -1613,6 +1656,54 @@ throws(() => evaluateRequiredChecksV1({ checks: [check('validate', 15368), check
   equal(fixture.state.assignmentCommentMutations, 1)
   equal(fixture.state.taskCommentMutations, 1)
   equal(fixture.state.pullReviewMutations, 0)
+}
+
+// Existing in-flight Tasks retain their already-declared two-resource outcome without a body mutation.
+{
+  const fixture = createReviewRoutingFixture({
+    includeAuthority: false,
+    authorityBody: taskBodyWithLegacyReviewPublicationPredelegation(),
+  })
+  const result = await ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: fixture.host,
+  })
+  equal(result.state, 'MERGE_READY')
+  equal(result.assignment_materialization_mutation_count, 1)
+  equal(result.publication_mutation_count, 1)
+  equal(fixture.state.assignmentCommentMutations, 1)
+  equal(fixture.state.taskCommentMutations, 1)
+}
+
+// Both predelegated mutations are explicit, exactly-once, and direct-refetch-bound.
+for (const allowed_operations of [
+  {
+    logical_assignment_comment: { operation_count: 2, direct_refetch_required: true },
+    canonical_review_comment: { operation_count: 1, direct_refetch_required: true },
+  },
+  {
+    logical_assignment_comment: { operation_count: 1, direct_refetch_required: true },
+    canonical_review_comment: { operation_count: 0, direct_refetch_required: true },
+  },
+  {
+    logical_assignment_comment: { operation_count: 1, direct_refetch_required: false },
+    canonical_review_comment: { operation_count: 1, direct_refetch_required: true },
+  },
+  {
+    logical_assignment_comment: { operation_count: 1, direct_refetch_required: true },
+  },
+]) {
+  const fixture = createReviewRoutingFixture({
+    includeAuthority: false,
+    includePredelegation: true,
+    predelegationGrantOverrides: { allowed_operations },
+  })
+  equal((await captureError(() => ensureReviewAuthorityAndRunPreflightV1({
+    request: reviewRoutingInput(), host: fixture.host,
+  }))).message, 'review_publication_predelegation_invalid')
+  equal(
+    fixture.state.assignmentCommentMutations + fixture.state.taskCommentMutations + fixture.state.pullReviewMutations,
+    0,
+  )
 }
 
 // A closed Fresh Review is semantic publication input; continuation identities are optional diagnostics.

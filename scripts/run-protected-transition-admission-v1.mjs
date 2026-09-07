@@ -52,10 +52,21 @@ const RESOURCE_REVIEW_PUBLICATION_GRANT_FIELDS = Object.freeze([
   ...REVIEW_PUBLICATION_GRANT_FIELDS,
   'predelegation_task_id',
 ])
-const REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS = Object.freeze([
+const LEGACY_REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS = Object.freeze([
   'protected_action', 'activation', 'materialization_only', 'repository',
   'task_issue', 'head_branch', 'authorized_paths', 'authorized_actor',
   'permitted_surface', 'required_review', 'operation_count', 'fallback_allowed',
+])
+const REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS = Object.freeze([
+  'protected_action', 'activation', 'materialization_only', 'repository',
+  'task_issue', 'head_branch', 'authorized_paths', 'authorized_actor',
+  'permitted_surface', 'required_review', 'allowed_operations', 'fallback_allowed',
+])
+const REVIEW_PUBLICATION_PREDELEGATION_OPERATION_FIELDS = Object.freeze([
+  'logical_assignment_comment', 'canonical_review_comment',
+])
+const REVIEW_PUBLICATION_PREDELEGATION_OPERATION_BINDING_FIELDS = Object.freeze([
+  'operation_count', 'direct_refetch_required',
 ])
 const REVIEW_PUBLICATION_PREDELEGATION_REVIEW_FIELDS = Object.freeze([
   'record_type', 'reviewer_role', 'decision', 'blocking', 'remaining', 'unknown',
@@ -589,7 +600,10 @@ const classifyReviewPublicationTaskAssignmentsV2 = (body) => {
       !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
       grant?.protected_action !== 'REVIEW_AUTHORITY_PUBLICATION'
     ) throw new Error('review_publication_authority_malformed')
-    if (exactKeys(grant, REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS)) {
+    if (
+      exactKeys(grant, REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS) ||
+      exactKeys(grant, LEGACY_REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS)
+    ) {
       predelegations.push(assignment)
     } else if (
       exactKeys(grant, REVIEW_PUBLICATION_GRANT_FIELDS) ||
@@ -685,7 +699,7 @@ const canonicalReviewPublicationPredelegationV2 = ({ request, taskIssue }) => {
     allowed_changes: Object.freeze({
       protected_action: 'REVIEW_AUTHORITY_PUBLICATION',
       activation: 'FRESH_EXACT_HEAD_REVIEW_APPROVE',
-      materialization_only: true,
+      materialization_only: false,
       repository: request.repository,
       task_issue: taskIssue,
       head_branch: request.head_branch,
@@ -700,7 +714,16 @@ const canonicalReviewPublicationPredelegationV2 = ({ request, taskIssue }) => {
         remaining: 0,
         unknown: 0,
       }),
-      operation_count: 1,
+      allowed_operations: Object.freeze({
+        logical_assignment_comment: Object.freeze({
+          operation_count: 1,
+          direct_refetch_required: true,
+        }),
+        canonical_review_comment: Object.freeze({
+          operation_count: 1,
+          direct_refetch_required: true,
+        }),
+      }),
       fallback_allowed: false,
     }),
     forbidden_changes: REVIEW_PUBLICATION_PREDELEGATION_FORBIDDEN_CHANGES,
@@ -1340,9 +1363,23 @@ const parseReviewPublicationPredelegationV2 = ({ profiles, request, task, actor,
   const assignment = profiles.predelegation
   if (assignment === null) throw new Error('review_publication_predelegation_required')
   const grant = assignment.allowed_changes
+  const legacyGrant = exactKeys(grant, LEGACY_REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS)
+  const completedGrant = exactKeys(grant, REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS)
+  if (!legacyGrant && !completedGrant) throw new Error('review_publication_authority_malformed')
   if (!exactKeys(grant.required_review, REVIEW_PUBLICATION_PREDELEGATION_REVIEW_FIELDS)) {
     throw new Error('review_publication_authority_malformed')
   }
+  if (completedGrant && (
+    !exactKeys(grant.allowed_operations, REVIEW_PUBLICATION_PREDELEGATION_OPERATION_FIELDS) ||
+    !REVIEW_PUBLICATION_PREDELEGATION_OPERATION_FIELDS.every((operation) => (
+      exactKeys(
+        grant.allowed_operations[operation],
+        REVIEW_PUBLICATION_PREDELEGATION_OPERATION_BINDING_FIELDS,
+      ) &&
+      grant.allowed_operations[operation].operation_count === 1 &&
+      grant.allowed_operations[operation].direct_refetch_required === true
+    ))
+  )) throw new Error('review_publication_predelegation_invalid')
   const taskUrl = `https://github.com/${request.repository}/issues/${request.task_issue}`
   validateReviewPublicationAssignmentCommonV2({ assignment, task, taskUrl })
   const review = parseSimplifiedReviewV1(request.review_body)
@@ -1353,16 +1390,25 @@ const parseReviewPublicationPredelegationV2 = ({ profiles, request, task, actor,
     assignment.canonical_record !== taskUrl || assignment.prior_record_url !== 'not_applicable' ||
     assignment.cumulative_scope !== 'REVIEW_AUTHORITY_PUBLICATION_PREDELEGATION' ||
     assignment.forbidden_changes.join('\n') !== REVIEW_PUBLICATION_PREDELEGATION_FORBIDDEN_CHANGES.join('\n') ||
-    grant.activation !== 'FRESH_EXACT_HEAD_REVIEW_APPROVE' || grant.materialization_only !== true ||
+    grant.activation !== 'FRESH_EXACT_HEAD_REVIEW_APPROVE' ||
+    (legacyGrant ? grant.materialization_only !== true : grant.materialization_only !== false) ||
     grant.repository !== request.repository || grant.task_issue !== request.task_issue ||
     grant.head_branch !== task.head_branch || !samePaths(grant.authorized_paths, request.authorized_paths) ||
     grant.authorized_actor !== actor.login || grant.permitted_surface !== surface ||
     required.record_type !== review.record_type || required.reviewer_role !== review.reviewer_role ||
     required.decision !== review.decision || required.blocking !== review.blocking ||
     required.remaining !== review.remaining || required.unknown !== review.unknown ||
-    grant.operation_count !== 1 || grant.fallback_allowed !== false
+    (legacyGrant ? grant.operation_count !== 1 : false) || grant.fallback_allowed !== false
   ) throw new Error('review_publication_predelegation_invalid')
-  return Object.freeze({ task_id: assignment.task_id, canonical_record: taskUrl })
+  return Object.freeze({
+    task_id: assignment.task_id,
+    canonical_record: taskUrl,
+    allowed_operations: Object.freeze({
+      logical_assignment_comment: Object.freeze({ operation_count: 1, direct_refetch_required: true }),
+      canonical_review_comment: Object.freeze({ operation_count: 1, direct_refetch_required: true }),
+    }),
+    legacy_projection: legacyGrant,
+  })
 }
 
 const parseReviewPublicationTaskAssignmentV2 = ({
