@@ -1053,3 +1053,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-08T01:33:41+09:00'
   path: experiments/camera/CAM-033
+- run_id: CAM-034-A
+  domain: camera
+  title: CAM-034-A — upper body CAM-024/CAM-033 control
+  status: OBSERVED
+  updated_at: '2026-09-08T00:36:10Z'
+  path: experiments/camera/CAM-034-A
+- run_id: CAM-034-B
+  domain: camera
+  title: CAM-034-B — upper body + standing, barefoot, black shorts
+  status: OBSERVED
+  updated_at: '2026-09-08T00:36:10Z'
+  path: experiments/camera/CAM-034-B
