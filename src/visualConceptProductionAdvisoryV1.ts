@@ -10,8 +10,10 @@ const SOURCE_KEYS = ['binding_record_type', 'binding_version', 'binding_sha256',
 const COVERAGE_KEYS = ['active_prompt_tag_count', 'mapped_active_prompt_tag_count', 'unmapped_active_prompt_tag_count']
 const MAPPING_KEYS = ['prompt_tag_id', 'concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
 const CONSTRAINT_CONCEPT_KEYS = ['concept_id', 'concept_label', 'concept_module', 'concept_type', 'concept_status']
-const ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'trigger_prompt_tags', 'advisory_status', 'confidence', 'model_profile', 'explanation']
+const HAND_ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'trigger_prompt_tags', 'advisory_status', 'confidence', 'model_profile', 'explanation']
+const FRAMING_ADVISORY_EFFECT_KEYS = ['advisory_id', 'effect_id', 'target_concept_id', 'required_prompt_tag', 'factor_prompt_tags', 'risky_prompt_tag_combinations', 'advisory_status', 'confidence', 'model_profile', 'explanation']
 const ADVISORY_TRIGGER_KEYS = ['prompt_tag_id', 'prompt', 'category', 'slot']
+const DERIVED_ADVISORY_TRIGGER_KEYS = [...ADVISORY_TRIGGER_KEYS, 'base_prompt_tag_id', 'color_modifier']
 const ADVISORY_EXPLANATION_KEYS = ['summary', 'source_run_ids']
 const SHA256 = /^[0-9a-f]{64}$/
 const EXPECTED_MAPPINGS = [
@@ -27,17 +29,45 @@ const EXPECTED_MAPPINGS = [
   ['v192-bent-knees', 'configuration.knee.bent'],
 ] as const
 const EXPECTED_CONSTRAINT_CONCEPT_IDS = ['visibility.feet', 'visibility.hands', 'visibility.head'] as const
-const EXPECTED_ADVISORY_EFFECT_ID = 'unmodeled.pose_body_overlap.hand_visibility' as const
-const EXPECTED_ADVISORY_ID = 'hand_visibility_risk' as const
-const EXPECTED_ADVISORY_TRIGGER = Object.freeze({
+const EXPECTED_HAND_ADVISORY_EFFECT_ID = 'unmodeled.pose_body_overlap.hand_visibility' as const
+const EXPECTED_HAND_ADVISORY_ID = 'hand_visibility_risk' as const
+const EXPECTED_HAND_ADVISORY_TRIGGER = Object.freeze({
   prompt_tag_id: 'pos-hands-behind-back',
   prompt: 'hands behind back',
   category: 'pose',
   slot: 'hand_action',
 })
-const EXPECTED_ADVISORY_SOURCE_RUN_IDS = [
+const EXPECTED_HAND_ADVISORY_SOURCE_RUN_IDS = [
   'CAM-018-A', 'CAM-018-B', 'CAM-018-C', 'CAM-018-D',
   'CAM-019-A', 'CAM-019-B', 'CAM-019-C',
+] as const
+const EXPECTED_FRAMING_ADVISORY_EFFECT_ID = 'unmodeled.prompt_interaction.upper_body_framing_cam038' as const
+const EXPECTED_FRAMING_ADVISORY_ID = 'upper_body_framing_widening_risk' as const
+const EXPECTED_FRAMING_REQUIRED_PROMPT_TAG = Object.freeze({
+  prompt_tag_id: 'cam-upper-body',
+  prompt: 'upper body',
+  category: 'camera',
+  slot: 'camera_framing',
+})
+const EXPECTED_FRAMING_FACTOR_PROMPT_TAGS = Object.freeze([
+  Object.freeze({ prompt_tag_id: 'pos-standing', prompt: 'standing', category: 'pose', slot: 'body_posture' }),
+  Object.freeze({ prompt_tag_id: 'clo-barefoot', prompt: 'barefoot', category: 'clothes', slot: 'footwear' }),
+  Object.freeze({
+    prompt_tag_id: 'derived-color-clo-shorts-black',
+    prompt: 'black shorts',
+    category: 'clothes',
+    slot: 'bottoms',
+    base_prompt_tag_id: 'clo-shorts',
+    color_modifier: 'black',
+  }),
+] as const)
+const EXPECTED_FRAMING_RISKY_COMBINATIONS = Object.freeze([
+  Object.freeze(['pos-standing', 'clo-barefoot']),
+  Object.freeze(['clo-barefoot', 'derived-color-clo-shorts-black']),
+] as const)
+const EXPECTED_FRAMING_ADVISORY_SOURCE_RUN_IDS = [
+  'CAM-038-A', 'CAM-038-B', 'CAM-038-C', 'CAM-038-D',
+  'CAM-038-E', 'CAM-038-F', 'CAM-038-G', 'CAM-038-H',
 ] as const
 
 type CatalogMapping = {
@@ -50,10 +80,19 @@ type CatalogMapping = {
 }
 
 type CatalogConstraintConcept = Omit<CatalogMapping, 'prompt_tag_id'>
-type CatalogAdvisoryTrigger = typeof EXPECTED_ADVISORY_TRIGGER
-type CatalogAdvisoryEffect = {
-  advisory_id: typeof EXPECTED_ADVISORY_ID
-  effect_id: typeof EXPECTED_ADVISORY_EFFECT_ID
+type CatalogAdvisoryTrigger = {
+  readonly prompt_tag_id: string
+  readonly prompt: string
+  readonly category: string
+  readonly slot: string
+}
+type CatalogDerivedAdvisoryTrigger = CatalogAdvisoryTrigger & {
+  readonly base_prompt_tag_id: string
+  readonly color_modifier: string
+}
+type CatalogHandAdvisoryEffect = {
+  advisory_id: typeof EXPECTED_HAND_ADVISORY_ID
+  effect_id: typeof EXPECTED_HAND_ADVISORY_EFFECT_ID
   target_concept_id: 'visibility.hands'
   trigger_prompt_tags: readonly CatalogAdvisoryTrigger[]
   advisory_status: 'ADVISORY_ONLY'
@@ -61,8 +100,28 @@ type CatalogAdvisoryEffect = {
   model_profile: 'model.novaanimexl_ilv190'
   explanation: {
     summary: string
-    source_run_ids: typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS
+    source_run_ids: readonly string[]
   }
+}
+type CatalogFramingAdvisoryEffect = {
+  advisory_id: typeof EXPECTED_FRAMING_ADVISORY_ID
+  effect_id: typeof EXPECTED_FRAMING_ADVISORY_EFFECT_ID
+  target_concept_id: 'camera.framing.upper_body'
+  required_prompt_tag: CatalogAdvisoryTrigger
+  factor_prompt_tags: readonly (CatalogAdvisoryTrigger | CatalogDerivedAdvisoryTrigger)[]
+  risky_prompt_tag_combinations: readonly (readonly string[])[]
+  advisory_status: 'ADVISORY_ONLY'
+  confidence: 'high'
+  model_profile: 'model.novaanimexl_ilv190'
+  explanation: {
+    summary: string
+    source_run_ids: readonly string[]
+  }
+}
+type CatalogAdvisoryEffect = CatalogHandAdvisoryEffect | CatalogFramingAdvisoryEffect
+type MatchedAdvisoryEffect = {
+  effect: CatalogAdvisoryEffect
+  triggerPromptTags: readonly (CatalogAdvisoryTrigger | CatalogDerivedAdvisoryTrigger)[]
 }
 
 export type VisualConceptCompilerConstraintMetadataV1 = {
@@ -75,24 +134,29 @@ export type VisualConceptCompilerConstraintMetadataV1 = {
 }
 
 export type VisualConceptCompilerAdvisoryInspectionEntryV1 = {
-  advisory_type: typeof EXPECTED_ADVISORY_ID
+  advisory_type: typeof EXPECTED_HAND_ADVISORY_ID | typeof EXPECTED_FRAMING_ADVISORY_ID
   trigger_context: {
-    required_visible_region_concept_ids: readonly ['visibility.hands']
-    trigger_prompt_tags: readonly CatalogAdvisoryTrigger[]
+    required_visible_region_concept_ids: VisualConceptCompilerConstraintIntentV1['required_visible_region_concept_ids']
+    required_prompt_tags: readonly CatalogAdvisoryTrigger[]
+    trigger_prompt_tags: readonly (CatalogAdvisoryTrigger | CatalogDerivedAdvisoryTrigger)[]
   }
   supporting_identity: {
-    target_concept_id: 'visibility.hands'
-    effect_id: typeof EXPECTED_ADVISORY_EFFECT_ID
+    target_concept_id: 'visibility.hands' | 'camera.framing.upper_body'
+    effect_id: typeof EXPECTED_HAND_ADVISORY_EFFECT_ID | typeof EXPECTED_FRAMING_ADVISORY_EFFECT_ID
     model_profile: 'model.novaanimexl_ilv190'
   }
   evidence: {
     status: 'ADVISORY_ONLY'
     confidence: 'high'
-    source_run_ids: typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS
+    source_run_ids: readonly string[]
   }
   explanation: { summary: string }
+  presentation: {
+    warning: string
+    recommendation: string
+  }
   recommendation: {
-    suggestion_type: 'review_current_pose'
+    suggestion_type: 'review_current_pose' | 'review_current_framing'
     message: string
     replacement_prompt_tag_id: null
     automatic_action: false
@@ -141,21 +205,28 @@ const nonEmptyString = (value: unknown): value is string => typeof value === 'st
 const nonNegativeInteger = (value: unknown): value is number => Number.isSafeInteger(value) && Number(value) >= 0
 const constraintMetadata = (
   requested: VisualConceptCompilerConstraintIntentV1,
-  advisoryEffects: readonly CatalogAdvisoryEffect[] = [],
+  advisoryMatches: readonly MatchedAdvisoryEffect[] = [],
 ): VisualConceptCompilerConstraintMetadataV1 => Object.freeze({
   record_type: 'visual_concept_compiler_constraint_metadata_v1',
   version: 1,
   requested,
   observed_generated_visibility: null,
-  advisory_effects: Object.freeze([...advisoryEffects]),
+  advisory_effects: Object.freeze(advisoryMatches.map(match => match.effect)),
   advisory_inspection: Object.freeze({
     record_type: 'visual_concept_compiler_advisory_inspection_v1',
     version: 1,
-    entries: Object.freeze(advisoryEffects.map(effect => Object.freeze({
+    entries: Object.freeze(advisoryMatches.map(({ effect, triggerPromptTags }) => Object.freeze({
       advisory_type: effect.advisory_id,
       trigger_context: Object.freeze({
-        required_visible_region_concept_ids: Object.freeze(['visibility.hands'] as const),
-        trigger_prompt_tags: Object.freeze(effect.trigger_prompt_tags.map(trigger => Object.freeze({ ...trigger }))),
+        required_visible_region_concept_ids: Object.freeze(
+          effect.advisory_id === EXPECTED_HAND_ADVISORY_ID ? ['visibility.hands'] as const : [],
+        ),
+        required_prompt_tags: Object.freeze(
+          effect.advisory_id === EXPECTED_FRAMING_ADVISORY_ID
+            ? [Object.freeze({ ...effect.required_prompt_tag })]
+            : [],
+        ),
+        trigger_prompt_tags: Object.freeze(triggerPromptTags.map(trigger => Object.freeze({ ...trigger }))),
       }),
       supporting_identity: Object.freeze({
         target_concept_id: effect.target_concept_id,
@@ -165,12 +236,25 @@ const constraintMetadata = (
       evidence: Object.freeze({
         status: effect.advisory_status,
         confidence: effect.confidence,
-        source_run_ids: Object.freeze([...effect.explanation.source_run_ids]) as typeof EXPECTED_ADVISORY_SOURCE_RUN_IDS,
+        source_run_ids: Object.freeze([...effect.explanation.source_run_ids]),
       }),
       explanation: Object.freeze({ summary: effect.explanation.summary }),
+      presentation: Object.freeze(effect.advisory_id === EXPECTED_HAND_ADVISORY_ID
+        ? {
+            warning: 'Hand visibility may be reduced by the current pose or arm placement.',
+            recommendation: 'Review current pose or arm placement.',
+          }
+        : {
+            warning: 'Upper-body framing may widen with the current term combination.',
+            recommendation: 'Review the current framing and selected terms.',
+          }),
       recommendation: Object.freeze({
-        suggestion_type: 'review_current_pose' as const,
-        message: 'Review the current pose or arm placement when complete hand visibility is required; no replacement is selected automatically.',
+        suggestion_type: effect.advisory_id === EXPECTED_HAND_ADVISORY_ID
+          ? 'review_current_pose' as const
+          : 'review_current_framing' as const,
+        message: effect.advisory_id === EXPECTED_HAND_ADVISORY_ID
+          ? 'Review the current pose or arm placement when complete hand visibility is required; no replacement is selected automatically.'
+          : 'Review the current upper-body framing and selected term combination; no framing or PromptTag change is selected automatically.',
         replacement_prompt_tag_id: null,
         automatic_action: false as const,
       }),
@@ -193,7 +277,7 @@ function unavailable(reason: 'catalog_contract_invalid' | 'projection_input_inva
   })
 }
 
-function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping>; advisoryEffect: CatalogAdvisoryEffect } | null {
+function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping>; handAdvisoryEffect: CatalogHandAdvisoryEffect; framingAdvisoryEffect: CatalogFramingAdvisoryEffect } | null {
   if (!isRecord(value) || !exactKeys(value, ROOT_KEYS)
     || value.record_type !== 'visual_concept_production_advisory_catalog_v1'
     || value.version !== 1
@@ -212,7 +296,7 @@ function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping
     || !Array.isArray(value.mappings) || value.mappings.length !== EXPECTED_MAPPINGS.length
     || value.coverage.mapped_active_prompt_tag_count !== value.mappings.length
     || !Array.isArray(value.constraint_concepts) || value.constraint_concepts.length !== EXPECTED_CONSTRAINT_CONCEPT_IDS.length
-    || !Array.isArray(value.advisory_effects) || value.advisory_effects.length !== 1
+    || !Array.isArray(value.advisory_effects) || value.advisory_effects.length !== 2
     || !Array.isArray(value.relations) || value.relations.length !== 0) return null
 
   const mappings = new Map<string, CatalogMapping>()
@@ -240,28 +324,62 @@ function validateCatalog(value: unknown): { mappings: Map<string, CatalogMapping
       || candidate.concept_type !== 'visibility'
       || (candidate.concept_status !== 'provisional' && candidate.concept_status !== 'confirmed')) return null
   }
-  const effect = value.advisory_effects[0]
-  if (!isRecord(effect) || !exactKeys(effect, ADVISORY_EFFECT_KEYS)
-    || effect.advisory_id !== EXPECTED_ADVISORY_ID
-    || effect.effect_id !== EXPECTED_ADVISORY_EFFECT_ID
-    || effect.target_concept_id !== 'visibility.hands'
-    || !Array.isArray(effect.trigger_prompt_tags)
-    || effect.trigger_prompt_tags.length !== 1
-    || !effect.trigger_prompt_tags.every(trigger => isRecord(trigger)
+  const handEffect = value.advisory_effects[0]
+  if (!isRecord(handEffect) || !exactKeys(handEffect, HAND_ADVISORY_EFFECT_KEYS)
+    || handEffect.advisory_id !== EXPECTED_HAND_ADVISORY_ID
+    || handEffect.effect_id !== EXPECTED_HAND_ADVISORY_EFFECT_ID
+    || handEffect.target_concept_id !== 'visibility.hands'
+    || !Array.isArray(handEffect.trigger_prompt_tags)
+    || handEffect.trigger_prompt_tags.length !== 1
+    || !handEffect.trigger_prompt_tags.every(trigger => isRecord(trigger)
       && exactKeys(trigger, ADVISORY_TRIGGER_KEYS)
-      && trigger.prompt_tag_id === EXPECTED_ADVISORY_TRIGGER.prompt_tag_id
-      && trigger.prompt === EXPECTED_ADVISORY_TRIGGER.prompt
-      && trigger.category === EXPECTED_ADVISORY_TRIGGER.category
-      && trigger.slot === EXPECTED_ADVISORY_TRIGGER.slot)
-    || effect.advisory_status !== 'ADVISORY_ONLY'
-    || effect.confidence !== 'high'
-    || effect.model_profile !== 'model.novaanimexl_ilv190'
-    || !isRecord(effect.explanation) || !exactKeys(effect.explanation, ADVISORY_EXPLANATION_KEYS)
-    || !nonEmptyString(effect.explanation.summary)
-    || !Array.isArray(effect.explanation.source_run_ids)
-    || effect.explanation.source_run_ids.length !== EXPECTED_ADVISORY_SOURCE_RUN_IDS.length
-    || effect.explanation.source_run_ids.some((runId, index) => runId !== EXPECTED_ADVISORY_SOURCE_RUN_IDS[index])) return null
-  return { mappings, advisoryEffect: effect as CatalogAdvisoryEffect }
+      && trigger.prompt_tag_id === EXPECTED_HAND_ADVISORY_TRIGGER.prompt_tag_id
+      && trigger.prompt === EXPECTED_HAND_ADVISORY_TRIGGER.prompt
+      && trigger.category === EXPECTED_HAND_ADVISORY_TRIGGER.category
+      && trigger.slot === EXPECTED_HAND_ADVISORY_TRIGGER.slot)
+    || handEffect.advisory_status !== 'ADVISORY_ONLY'
+    || handEffect.confidence !== 'high'
+    || handEffect.model_profile !== 'model.novaanimexl_ilv190'
+    || !isRecord(handEffect.explanation) || !exactKeys(handEffect.explanation, ADVISORY_EXPLANATION_KEYS)
+    || !nonEmptyString(handEffect.explanation.summary)
+    || !Array.isArray(handEffect.explanation.source_run_ids)
+    || handEffect.explanation.source_run_ids.length !== EXPECTED_HAND_ADVISORY_SOURCE_RUN_IDS.length
+    || handEffect.explanation.source_run_ids.some((runId, index) => runId !== EXPECTED_HAND_ADVISORY_SOURCE_RUN_IDS[index])) return null
+
+  const framingEffect = value.advisory_effects[1]
+  if (!isRecord(framingEffect) || !exactKeys(framingEffect, FRAMING_ADVISORY_EFFECT_KEYS)
+    || framingEffect.advisory_id !== EXPECTED_FRAMING_ADVISORY_ID
+    || framingEffect.effect_id !== EXPECTED_FRAMING_ADVISORY_EFFECT_ID
+    || framingEffect.target_concept_id !== 'camera.framing.upper_body'
+    || !isRecord(framingEffect.required_prompt_tag)
+    || !exactKeys(framingEffect.required_prompt_tag, ADVISORY_TRIGGER_KEYS)
+    || Object.entries(EXPECTED_FRAMING_REQUIRED_PROMPT_TAG).some(([key, expected]) => (framingEffect.required_prompt_tag as Record<string, unknown>)[key] !== expected)
+    || !Array.isArray(framingEffect.factor_prompt_tags)
+    || framingEffect.factor_prompt_tags.length !== EXPECTED_FRAMING_FACTOR_PROMPT_TAGS.length
+    || framingEffect.factor_prompt_tags.some((trigger, index) => {
+      const expected = EXPECTED_FRAMING_FACTOR_PROMPT_TAGS[index]
+      return !isRecord(trigger)
+        || !exactKeys(trigger, index === 2 ? DERIVED_ADVISORY_TRIGGER_KEYS : ADVISORY_TRIGGER_KEYS)
+        || Object.entries(expected).some(([key, expectedValue]) => trigger[key] !== expectedValue)
+    })
+    || !Array.isArray(framingEffect.risky_prompt_tag_combinations)
+    || framingEffect.risky_prompt_tag_combinations.length !== EXPECTED_FRAMING_RISKY_COMBINATIONS.length
+    || framingEffect.risky_prompt_tag_combinations.some((combination, index) => !Array.isArray(combination)
+      || combination.length !== EXPECTED_FRAMING_RISKY_COMBINATIONS[index].length
+      || combination.some((promptTagId, termIndex) => promptTagId !== EXPECTED_FRAMING_RISKY_COMBINATIONS[index][termIndex]))
+    || framingEffect.advisory_status !== 'ADVISORY_ONLY'
+    || framingEffect.confidence !== 'high'
+    || framingEffect.model_profile !== 'model.novaanimexl_ilv190'
+    || !isRecord(framingEffect.explanation) || !exactKeys(framingEffect.explanation, ADVISORY_EXPLANATION_KEYS)
+    || !nonEmptyString(framingEffect.explanation.summary)
+    || !Array.isArray(framingEffect.explanation.source_run_ids)
+    || framingEffect.explanation.source_run_ids.length !== EXPECTED_FRAMING_ADVISORY_SOURCE_RUN_IDS.length
+    || framingEffect.explanation.source_run_ids.some((runId, index) => runId !== EXPECTED_FRAMING_ADVISORY_SOURCE_RUN_IDS[index])) return null
+  return {
+    mappings,
+    handAdvisoryEffect: handEffect as CatalogHandAdvisoryEffect,
+    framingAdvisoryEffect: framingEffect as CatalogFramingAdvisoryEffect,
+  }
 }
 
 const validTag = (tag: unknown): tag is SelectedTag => isRecord(tag)
@@ -270,6 +388,20 @@ const validTag = (tag: unknown): tag is SelectedTag => isRecord(tag)
   && typeof tag.prompt === 'string'
   && nonEmptyString(tag.category)
   && typeof tag.weight === 'number' && Number.isFinite(tag.weight)
+
+const matchesAdvisoryTrigger = (
+  tag: SelectedTag,
+  trigger: CatalogAdvisoryTrigger | CatalogDerivedAdvisoryTrigger,
+) => tag.id === trigger.prompt_tag_id
+  && tag.prompt === trigger.prompt
+  && tag.category === trigger.category
+  && tag.slot === trigger.slot
+  && (!('base_prompt_tag_id' in trigger) || (
+    tag.baseTagId === trigger.base_prompt_tag_id
+    && isRecord(tag.modifiers)
+    && exactKeys(tag.modifiers, ['color'])
+    && tag.modifiers.color === trigger.color_modifier
+  ))
 
 export function projectVisualConceptProductionAdvisoryV1({ catalog, blocks, sceneTags, constraintIntent }: {
   catalog: unknown
@@ -281,7 +413,7 @@ export function projectVisualConceptProductionAdvisoryV1({ catalog, blocks, scen
   if (!catalogProjection) return unavailable('catalog_contract_invalid')
   const requested = admitVisualConceptCompilerConstraintIntentV1(constraintIntent)
   if (!requested || !Array.isArray(blocks) || !Array.isArray(sceneTags)) return unavailable('projection_input_invalid')
-  const { mappings, advisoryEffect } = catalogProjection
+  const { mappings, handAdvisoryEffect, framingAdvisoryEffect } = catalogProjection
 
   const blockIds = new Set<string>()
   for (const block of blocks) {
@@ -317,6 +449,31 @@ export function projectVisualConceptProductionAdvisoryV1({ catalog, blocks, scen
   blocks.forEach(block => block.tags.forEach((tag: SelectedTag) => append('PROMPT_BLOCK', block.id, tag)))
   sceneTags.forEach((tag: SelectedTag) => append('SCENE', 'scene', tag))
 
+  const advisoryMatches: MatchedAdvisoryEffect[] = []
+  if (requested.required_visible_region_concept_ids.includes('visibility.hands')
+    && handAdvisoryEffect.trigger_prompt_tags.some(trigger => selectedTags.some(tag => matchesAdvisoryTrigger(tag, trigger)))) {
+    advisoryMatches.push(Object.freeze({
+      effect: handAdvisoryEffect,
+      triggerPromptTags: handAdvisoryEffect.trigger_prompt_tags,
+    }))
+  }
+  const hasRequiredUpperBodyIntent = selectedTags.some(tag => matchesAdvisoryTrigger(tag, framingAdvisoryEffect.required_prompt_tag))
+  const selectedFramingFactorIds = new Set(framingAdvisoryEffect.factor_prompt_tags
+    .filter(trigger => selectedTags.some(tag => matchesAdvisoryTrigger(tag, trigger)))
+    .map(trigger => trigger.prompt_tag_id))
+  const matchedFramingCombination = framingAdvisoryEffect.risky_prompt_tag_combinations.find(combination => (
+    selectedFramingFactorIds.size === combination.length
+    && combination.every(promptTagId => selectedFramingFactorIds.has(promptTagId))
+  ))
+  if (hasRequiredUpperBodyIntent && matchedFramingCombination) {
+    advisoryMatches.push(Object.freeze({
+      effect: framingAdvisoryEffect,
+      triggerPromptTags: Object.freeze(matchedFramingCombination.map(promptTagId => (
+        framingAdvisoryEffect.factor_prompt_tags.find(trigger => trigger.prompt_tag_id === promptTagId)!
+      ))),
+    }))
+  }
+
   return Object.freeze({
     record_type: 'visual_concept_production_advisory_v1',
     version: 1,
@@ -327,17 +484,6 @@ export function projectVisualConceptProductionAdvisoryV1({ catalog, blocks, scen
     uncovered_selected_tag_count: selectedTagCount - mappedEntries.length,
     mapped_entries: Object.freeze(mappedEntries),
     uncovered_entries: Object.freeze(uncoveredEntries),
-    constraint_metadata: constraintMetadata(
-      requested,
-      requested.required_visible_region_concept_ids.includes('visibility.hands')
-        && advisoryEffect.trigger_prompt_tags.some(trigger => selectedTags.some(tag => (
-          tag.id === trigger.prompt_tag_id
-          && tag.prompt === trigger.prompt
-          && tag.category === trigger.category
-          && tag.slot === trigger.slot
-        )))
-        ? [advisoryEffect]
-        : [],
-    ),
+    constraint_metadata: constraintMetadata(requested, advisoryMatches),
   })
 }

@@ -38,13 +38,14 @@ const framingBindings = [
 
 const server = await createServer({ root: repoRoot, configFile: false, logLevel: 'silent', server: { middlewareMode: true }, appType: 'custom' })
 try {
-  const [{ tags }, { adultTags }, runtime, promptModule, smartTagEngine, intentOwner] = await Promise.all([
+  const [{ tags }, { adultTags }, runtime, promptModule, smartTagEngine, intentOwner, colorModifier] = await Promise.all([
     server.ssrLoadModule('/src/data/tags.ts'),
     server.ssrLoadModule('/src/data/adultTags.ts'),
     server.ssrLoadModule('/src/visualConceptProductionAdvisoryV1.ts'),
     server.ssrLoadModule('/src/prompt.ts'),
     server.ssrLoadModule('/src/engine/smartTagEngine.ts'),
     server.ssrLoadModule('/src/visualConceptCompilerConstraintIntentV1.ts'),
+    server.ssrLoadModule('/src/modifiers/colorModifier.ts'),
   ])
   const registry = [...tags, ...adultTags]
   const catalog = projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract, promptTagRegistry: registry })
@@ -86,7 +87,46 @@ try {
       summary: graphContract.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').observed_effect,
       source_run_ids: ['CAM-018-A', 'CAM-018-B', 'CAM-018-C', 'CAM-018-D', 'CAM-019-A', 'CAM-019-B', 'CAM-019-C'],
     },
-  }], 'promoter must carry the bounded pose/body-overlap owner as advisory evidence only')
+  }, {
+    advisory_id: 'upper_body_framing_widening_risk',
+    effect_id: 'unmodeled.prompt_interaction.upper_body_framing_cam038',
+    target_concept_id: 'camera.framing.upper_body',
+    required_prompt_tag: {
+      prompt_tag_id: 'cam-upper-body',
+      prompt: 'upper body',
+      category: 'camera',
+      slot: 'camera_framing',
+    },
+    factor_prompt_tags: [{
+      prompt_tag_id: 'pos-standing',
+      prompt: 'standing',
+      category: 'pose',
+      slot: 'body_posture',
+    }, {
+      prompt_tag_id: 'clo-barefoot',
+      prompt: 'barefoot',
+      category: 'clothes',
+      slot: 'footwear',
+    }, {
+      prompt_tag_id: 'derived-color-clo-shorts-black',
+      prompt: 'black shorts',
+      category: 'clothes',
+      slot: 'bottoms',
+      base_prompt_tag_id: 'clo-shorts',
+      color_modifier: 'black',
+    }],
+    risky_prompt_tag_combinations: [
+      ['pos-standing', 'clo-barefoot'],
+      ['clo-barefoot', 'derived-color-clo-shorts-black'],
+    ],
+    advisory_status: 'ADVISORY_ONLY',
+    confidence: 'high',
+    model_profile: 'model.novaanimexl_ilv190',
+    explanation: {
+      summary: graphContract.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.prompt_interaction.upper_body_framing_cam038').observed_effect,
+      source_run_ids: ['CAM-038-A', 'CAM-038-B', 'CAM-038-C', 'CAM-038-D', 'CAM-038-E', 'CAM-038-F', 'CAM-038-G', 'CAM-038-H'],
+    },
+  }], 'promoter must carry only the exact bounded hand-visibility and CAM-038 framing advisory evidence owners')
   deepEqual(catalog.coverage, { active_prompt_tag_count: 2522, mapped_active_prompt_tag_count: 10, unmapped_active_prompt_tag_count: 2512 }, 'coverage must bind the exact active registry')
   deepEqual(Object.keys(catalog.source_binding), ['binding_record_type', 'binding_version', 'binding_sha256', 'graph_schema_id', 'graph_schema_version', 'registry_sha256'], 'catalog source binding must use schema identity and production inputs without full-Graph revision or digest coupling')
   equal(serialized, serializeVisualConceptProductionAdvisoryCatalogV1(catalog), 'promoted output must be byte-stable')
@@ -133,6 +173,15 @@ try {
     run_id: 'CAM-999-A',
   })
   equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: broadenedEvidence, promptTagRegistry: registry })), 'visual_concept_production_advisory_effect_contract_invalid', 'explanation provenance must remain bounded to admitted CAM-018 and CAM-019 runs')
+  const weakenedFramingEffect = clone(graphContract)
+  weakenedFramingEffect.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.prompt_interaction.upper_body_framing_cam038').confidence = 'medium'
+  equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: weakenedFramingEffect, promptTagRegistry: registry })), 'visual_concept_production_framing_advisory_effect_contract_invalid', 'CAM-038 evidence confidence must remain exactly Graph-admitted')
+  const incompleteFramingEvidence = clone(graphContract)
+  incompleteFramingEvidence.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.prompt_interaction.upper_body_framing_cam038').evidence_refs.pop()
+  equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract: incompleteFramingEvidence, promptTagRegistry: registry })), 'visual_concept_production_framing_advisory_effect_contract_invalid', 'CAM-038-A through CAM-038-H provenance must remain complete')
+  const alteredFramingRegistry = clone(registry)
+  alteredFramingRegistry.find(tag => tag.id === 'clo-barefoot').prompt = 'bare feet'
+  equal(errorMessage(() => projectVisualConceptProductionAdvisoryCatalogV1({ bindingContract, graphContract, promptTagRegistry: alteredFramingRegistry })), 'visual_concept_production_framing_advisory_trigger_contract_invalid', 'production trigger identity drift must fail promotion closed')
 
   const defaultConstraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [] })
   deepEqual(defaultConstraintProjection.constraint_metadata, {
@@ -180,7 +229,7 @@ try {
   const constraintProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('cam-upper-body'), selected('pos-hands-behind-back')], constraintIntent: requestedConstraints })
   deepEqual(constraintProjection.constraint_metadata.requested, requestedConstraints, 'requested constraint identity must round-trip without becoming selected or observed state')
   equal(constraintProjection.constraint_metadata.observed_generated_visibility, null, 'compiler must not infer generated visibility from requested intent or selected framing')
-  deepEqual(constraintProjection.constraint_metadata.advisory_effects, catalog.advisory_effects, 'hand intent plus the admitted behind-body context must expose only the bounded Graph-owned risk advisory')
+  deepEqual(constraintProjection.constraint_metadata.advisory_effects, [catalog.advisory_effects[0]], 'hand intent plus the admitted behind-body context must expose only the bounded Graph-owned risk advisory')
   deepEqual(constraintProjection.constraint_metadata.advisory_inspection, {
     record_type: 'visual_concept_compiler_advisory_inspection_v1',
     version: 1,
@@ -188,6 +237,7 @@ try {
       advisory_type: 'hand_visibility_risk',
       trigger_context: {
         required_visible_region_concept_ids: ['visibility.hands'],
+        required_prompt_tags: [],
         trigger_prompt_tags: [{ prompt_tag_id: 'pos-hands-behind-back', prompt: 'hands behind back', category: 'pose', slot: 'hand_action' }],
       },
       supporting_identity: {
@@ -202,6 +252,10 @@ try {
       },
       explanation: {
         summary: graphContract.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').observed_effect,
+      },
+      presentation: {
+        warning: 'Hand visibility may be reduced by the current pose or arm placement.',
+        recommendation: 'Review current pose or arm placement.',
       },
       recommendation: {
         suggestion_type: 'review_current_pose',
@@ -233,7 +287,7 @@ try {
   deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-head')], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'hands-behind-head must not inherit unsupported behind-body risk')
   deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-on-hips')], constraintIntent: requestedConstraints }).constraint_metadata.advisory_effects, [], 'unrelated hand actions must not expose the bounded risk advisory')
   const subjectRiskProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [{ id: 'subject-risk', name: 'Subject risk', tags: [selected('pos-hands-behind-back')] }], sceneTags: [], constraintIntent: requestedConstraints })
-  deepEqual(subjectRiskProjection.constraint_metadata.advisory_effects, catalog.advisory_effects, 'PromptBlock-selected admitted context must expose the same read-only risk advisory')
+  deepEqual(subjectRiskProjection.constraint_metadata.advisory_effects, [catalog.advisory_effects[0]], 'PromptBlock-selected admitted context must expose the same read-only risk advisory')
   const riskOnlyProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [selected('pos-hands-behind-back')] })
   deepEqual(riskOnlyProjection.constraint_metadata.advisory_effects, [], 'admitted risk context without requested hand visibility must remain advisory-silent')
   const collidingUserTag = { id: 'pos-hands-behind-back', prompt: 'holding a flower', label: 'Custom collision', category: 'pose', slot: 'hand_action', weight: 1 }
@@ -253,6 +307,107 @@ try {
     equal(intentOwner.admitVisualConceptCompilerConstraintIntentV1(invalidIntent), null, 'the canonical input owner must reject malformed, duplicate, unordered, unknown, or observation-bearing intent')
     equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, blocks: [], sceneTags: [], constraintIntent: invalidIntent }).unavailable_reason, 'projection_input_invalid', 'malformed, duplicate, unordered, unknown, or observation-bearing intent must fail closed')
   }
+
+  const blackShorts = colorModifier.buildColorModifiedTag(registry.find(tag => tag.id === 'clo-shorts'), 'black', registry)
+  deepEqual({
+    id: blackShorts.id,
+    prompt: blackShorts.prompt,
+    category: blackShorts.category,
+    slot: blackShorts.slot,
+    baseTagId: blackShorts.baseTagId,
+    modifiers: blackShorts.modifiers,
+  }, {
+    id: 'derived-color-clo-shorts-black',
+    prompt: 'black shorts',
+    category: 'clothes',
+    slot: 'bottoms',
+    baseTagId: 'clo-shorts',
+    modifiers: { color: 'black' },
+  }, 'black shorts must be available as the exact production derived-selection identity admitted by the framing owner')
+  const upperBody = selected('cam-upper-body')
+  const standing = selected('pos-standing')
+  const barefoot = selected('clo-barefoot')
+  const framingProjection = factorTags => runtime.projectVisualConceptProductionAdvisoryV1({
+    catalog: checkedInCatalog,
+    blocks: [{ id: 'subject-framing', name: 'Subject framing', tags: factorTags }],
+    sceneTags: [upperBody],
+  })
+  const standingBarefootInput = { blocks: [{ id: 'subject-framing', name: 'Subject framing', tags: [standing, barefoot] }], sceneTags: [upperBody] }
+  const standingBarefootSnapshot = clone(standingBarefootInput)
+  const standingBarefootProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, ...standingBarefootInput })
+  deepEqual(standingBarefootProjection.constraint_metadata.advisory_effects, [catalog.advisory_effects[1]], 'upper body plus standing and barefoot must expose only the exact CAM-038 framing effect')
+  deepEqual(standingBarefootProjection.constraint_metadata.advisory_inspection.entries, [{
+    advisory_type: 'upper_body_framing_widening_risk',
+    trigger_context: {
+      required_visible_region_concept_ids: [],
+      required_prompt_tags: [{ prompt_tag_id: 'cam-upper-body', prompt: 'upper body', category: 'camera', slot: 'camera_framing' }],
+      trigger_prompt_tags: [
+        { prompt_tag_id: 'pos-standing', prompt: 'standing', category: 'pose', slot: 'body_posture' },
+        { prompt_tag_id: 'clo-barefoot', prompt: 'barefoot', category: 'clothes', slot: 'footwear' },
+      ],
+    },
+    supporting_identity: {
+      target_concept_id: 'camera.framing.upper_body',
+      effect_id: 'unmodeled.prompt_interaction.upper_body_framing_cam038',
+      model_profile: 'model.novaanimexl_ilv190',
+    },
+    evidence: {
+      status: 'ADVISORY_ONLY',
+      confidence: 'high',
+      source_run_ids: ['CAM-038-A', 'CAM-038-B', 'CAM-038-C', 'CAM-038-D', 'CAM-038-E', 'CAM-038-F', 'CAM-038-G', 'CAM-038-H'],
+    },
+    explanation: {
+      summary: graphContract.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.prompt_interaction.upper_body_framing_cam038').observed_effect,
+    },
+    presentation: {
+      warning: 'Upper-body framing may widen with the current term combination.',
+      recommendation: 'Review the current framing and selected terms.',
+    },
+    recommendation: {
+      suggestion_type: 'review_current_framing',
+      message: 'Review the current upper-body framing and selected term combination; no framing or PromptTag change is selected automatically.',
+      replacement_prompt_tag_id: null,
+      automatic_action: false,
+    },
+  }], 'standing and barefoot must project one immutable bounded framing inspection entry with exact Graph provenance')
+  deepEqual(standingBarefootInput, standingBarefootSnapshot, 'standing and barefoot advisory projection must not mutate prompt selections')
+  const standingBarefootCompiled = promptModule.buildPromptWithStrategy(standingBarefootInput.blocks, standingBarefootInput.sceneTags)
+  equal(standingBarefootCompiled.prompt, '[]\n\n[]\n\n[barefoot]\n\nBREAK\n\n[standing]\n\n[upper body]\n\nBREAK\n\n[]', 'standing and barefoot advisory must preserve exact prompt bytes and ordering')
+  deepEqual(standingBarefootCompiled.visualConceptAdvisory, standingBarefootProjection, 'compiler must carry the framing owner projection unchanged')
+
+  const barefootBlackInput = { blocks: [{ id: 'subject-framing', name: 'Subject framing', tags: [barefoot, blackShorts] }], sceneTags: [upperBody] }
+  const barefootBlackSnapshot = clone(barefootBlackInput)
+  const barefootBlackProjection = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, ...barefootBlackInput })
+  deepEqual(barefootBlackProjection.constraint_metadata.advisory_effects, [catalog.advisory_effects[1]], 'upper body plus barefoot and black shorts must expose only the exact CAM-038 framing effect')
+  deepEqual(barefootBlackProjection.constraint_metadata.advisory_inspection.entries[0].trigger_context.trigger_prompt_tags, [
+    { prompt_tag_id: 'clo-barefoot', prompt: 'barefoot', category: 'clothes', slot: 'footwear' },
+    { prompt_tag_id: 'derived-color-clo-shorts-black', prompt: 'black shorts', category: 'clothes', slot: 'bottoms', base_prompt_tag_id: 'clo-shorts', color_modifier: 'black' },
+  ], 'the second supported pair must expose the exact derived black-shorts identity rather than infer from prompt text')
+  deepEqual(barefootBlackInput, barefootBlackSnapshot, 'barefoot and black-shorts advisory projection must not mutate prompt selections or modifier metadata')
+  const barefootBlackCompiled = promptModule.buildPromptWithStrategy(barefootBlackInput.blocks, barefootBlackInput.sceneTags)
+  equal(barefootBlackCompiled.prompt, '[]\n\n[]\n\n[black shorts, barefoot]\n\nBREAK\n\n[]\n\n[upper body]\n\nBREAK\n\n[]', 'barefoot and black-shorts advisory must preserve exact prompt bytes, modifier output, and ordering')
+
+  for (const [label, factorTags] of [
+    ['standing only', [standing]],
+    ['barefoot only', [barefoot]],
+    ['black shorts only', [blackShorts]],
+    ['unsupported standing and black shorts', [standing, blackShorts]],
+    ['unsupported standing, barefoot, and black shorts', [standing, barefoot, blackShorts]],
+  ]) {
+    deepEqual(framingProjection(factorTags).constraint_metadata.advisory_inspection.entries, [], `${label} must not be inferred as a supported CAM-038 interaction`)
+  }
+  deepEqual(runtime.projectVisualConceptProductionAdvisoryV1({
+    catalog: checkedInCatalog,
+    blocks: [{ id: 'subject-framing', name: 'Subject framing', tags: [standing, barefoot] }],
+    sceneTags: [],
+  }).constraint_metadata.advisory_inspection.entries, [], 'a supported factor pair without explicit upper-body selection must remain advisory-silent')
+  const unrelatedSelection = selected('eye-blue-eyes')
+  equal(framingProjection([standing, barefoot, unrelatedSelection]).constraint_metadata.advisory_inspection.entries.length, 1, 'unrelated selected terms must not broaden or suppress the exact CAM-038 factor-set decision')
+  const collidingBlackShorts = { ...blackShorts, modifiers: { color: 'red' } }
+  deepEqual(framingProjection([barefoot, collidingBlackShorts]).constraint_metadata.advisory_inspection.entries, [], 'derived black-shorts identity must require exact base and modifier provenance, not ID and prompt alone')
+  const malformedFramingCatalog = clone(checkedInCatalog)
+  malformedFramingCatalog.advisory_effects[1].risky_prompt_tag_combinations[1][1] = 'pos-standing'
+  equal(runtime.projectVisualConceptProductionAdvisoryV1({ catalog: malformedFramingCatalog, blocks: [], sceneTags: [] }).unavailable_reason, 'catalog_contract_invalid', 'runtime must reject altered or generalized framing interaction combinations')
 
   for (const [tagId, conceptId, phrase, runId] of framingBindings) {
     const tag = registry.find(candidate => candidate.id === tagId)
@@ -436,13 +591,16 @@ try {
   const riskAnnouncementEnd = appSource.indexOf('</div>', riskAnnouncement)
   const informationalAssurance = appSource.indexOf('Informational only — your prompt and selections are unchanged.')
   check(riskAnnouncement > 0 && riskAnnouncementEnd > riskAnnouncement && informationalAssurance > riskAnnouncementEnd && !appSource.includes('className="visual-concept-risk-advisory" role="status"'), 'only the concise warning and recommendation must render as the live non-blocking status')
-  check(appSource.includes('Hand visibility may be reduced by the current pose or arm placement.') && appSource.includes('Review current pose or arm placement.') && appSource.includes('Informational only — your prompt and selections are unchanged.'), 'the default risk card must present the approved concise warning, recommendation, and non-mutating assurance')
+  check(appSource.includes('entry.presentation.warning') && appSource.includes('entry.presentation.recommendation') && appSource.includes('Informational only — your prompt and selections are unchanged.'), 'the risk card must present owner-projected concise warning and recommendation text with the non-mutating assurance')
+  check(!appSource.includes('Hand visibility may be reduced by the current pose or arm placement.') && !appSource.includes('Upper-body framing may widen with the current term combination.'), 'App must not become a second owner of advisory-specific presentation semantics')
+  check(runtimeSource.includes('Hand visibility may be reduced by the current pose or arm placement.') && runtimeSource.includes('Upper-body framing may widen with the current term combination.'), 'the existing advisory projector must own both bounded presentation messages')
   const evidenceDetails = appSource.indexOf('<details className="visual-concept-risk-advisory-details">')
   check(evidenceDetails > 0 && appSource.indexOf('Evidence details', evidenceDetails) > evidenceDetails, 'technical advisory content must use one collapsed Evidence details disclosure')
   check(appSource.indexOf('entry.explanation.summary', evidenceDetails) > evidenceDetails && appSource.indexOf('entry.recommendation.message', evidenceDetails) > evidenceDetails && appSource.indexOf('entry.recommendation.suggestion_type', evidenceDetails) > evidenceDetails, 'owner-projected evidence metrics and internal suggestion data must remain available only inside Evidence details')
   check([
-    "entry.trigger_context.required_visible_region_concept_ids.join(' · ')",
-    "entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')",
+    'entry.trigger_context.required_visible_region_concept_ids',
+    'entry.trigger_context.required_prompt_tags.map(tag=>tag.prompt_tag_id)',
+    'entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id)',
     "entry.evidence.source_run_ids.join(' · ')",
     'entry.advisory_type',
     'entry.evidence.status',
@@ -451,7 +609,7 @@ try {
     'entry.supporting_identity.effect_id',
     'entry.supporting_identity.model_profile',
   ].every(value => appSource.indexOf(value, evidenceDetails) > evidenceDetails), 'provenance, confidence, identities, runs, and model details must remain behind the Evidence details disclosure')
-  check(appSource.includes("entry.trigger_context.required_visible_region_concept_ids.join(' · ')") && appSource.includes("entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')") && appSource.includes("entry.evidence.source_run_ids.join(' · ')") && appSource.includes('entry.advisory_type') && appSource.includes('entry.evidence.status') && appSource.includes('entry.evidence.confidence') && appSource.includes('entry.supporting_identity.target_concept_id') && appSource.includes('entry.supporting_identity.effect_id'), 'the warning must expose bounded context and provenance from the canonical inspection entry rather than recreating semantics')
+  check(appSource.includes('entry.trigger_context.required_visible_region_concept_ids') && appSource.includes('entry.trigger_context.required_prompt_tags.map(tag=>tag.prompt_tag_id)') && appSource.includes('entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id)') && appSource.includes("entry.evidence.source_run_ids.join(' · ')") && appSource.includes('entry.advisory_type') && appSource.includes('entry.evidence.status') && appSource.includes('entry.evidence.confidence') && appSource.includes('entry.supporting_identity.target_concept_id') && appSource.includes('entry.supporting_identity.effect_id'), 'the warning must expose bounded context and provenance from the canonical inspection entry rather than recreating semantics')
   check(!appSource.includes("advisory_type==='hand_visibility_risk'") && !appSource.includes("required_visible_region_concept_ids.includes('visibility.hands')"), 'App must not duplicate the canonical advisory trigger predicate')
   check(!appSource.includes('review_current_pose') && !appSource.includes('rin-arms-at-sides'), 'App must not own suggestion semantics or invent an unsupported replacement identity')
   check(appSource.includes("buildPromptWithStrategy(store.blocks, store.sceneTags, store.modelPreset, 'BREAK', store.visualConceptConstraintIntent)"), 'App must supply the canonical store snapshot to the existing Compiler input')
