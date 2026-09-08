@@ -1089,3 +1089,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-08T01:49:06.0785693Z'
   path: experiments/camera/CAM-035-D
+- run_id: CAM-036-A
+  domain: camera
+  title: CAM-036-A — pure upper-body control
+  status: OBSERVED
+  updated_at: '2026-09-08T03:01:22.3807721Z'
+  path: experiments/camera/CAM-036-A
+- run_id: CAM-036-B
+  domain: camera
+  title: CAM-036-B — three-term treatment
+  status: OBSERVED
+  updated_at: '2026-09-08T03:01:22.3807721Z'
+  path: experiments/camera/CAM-036-B

@@ -1,0 +1,891 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-036-B",
+  "blind_condition_label": "COND-C2B85F",
+  "panel_count": 24,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "face_detail",
+    "framing_boundary_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-C2B85F: observed upper_body framing=1/24.",
+      "Opaque condition COND-C2B85F: framing boundary assessable=24/24.",
+      "Opaque condition COND-C2B85F: ambiguity/artifact=0/24."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition and panel IDs, image hashes, pixels, and the permitted rubric; prompt, seed, requested framing, hypothesis, run identity, condition mapping, and pair mapping were withheld.",
+      "The 48-panel opaque observation record was frozen before mapping disclosure at SHA-256 368a282a37a95ec42287a34c28fcb1b19b0eb298a7b28f6611816dc020d85ddc.",
+      "Canonical panel and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-framing realization, matched comparison, exact paired test, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the mid thigh."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "distal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the distal thigh above the knee."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 7,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "pelvis",
+        "visible",
+        "visible",
+        "partial",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary reaches the pelvis while knees and feet remain outside the image."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 8,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "distal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the distal thigh above the knee."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 9,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the mid thigh."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 10,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the mid thigh."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 11,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the mid thigh."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 12,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "distal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the distal thigh above the knee."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 13,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the mid thigh."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 14,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "distal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the distal thigh above the knee."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 15,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 16,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "distal_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the distal thigh above the knee."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 17,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 18,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 19,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 20,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 21,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 22,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 23,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "visible",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "medium",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "The lower frame boundary crosses the mid thigh."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 24,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "low",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible upper boundary is above the head.",
+        "Both feet and visible floor below them are contained in the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "cowboy_shot": 11,
+        "full_body": 12,
+        "upper_body": 1
+      },
+      "upper_crop_boundary": {
+        "above_head": 24
+      },
+      "lower_crop_boundary": {
+        "mid_thigh": 6,
+        "below_feet": 12,
+        "distal_thigh": 5,
+        "pelvis": 1
+      },
+      "head_visibility": {
+        "visible": 24
+      },
+      "torso_visibility": {
+        "visible": 24
+      },
+      "pelvis_visibility": {
+        "visible": 23,
+        "partial": 1
+      },
+      "knees_visibility": {
+        "not_visible": 12,
+        "visible": 12
+      },
+      "feet_visibility": {
+        "not_visible": 12,
+        "visible": 12
+      },
+      "face_detail": {
+        "medium": 11,
+        "low": 12,
+        "high": 1
+      },
+      "framing_boundary_assessable": {
+        "assessable": 24
+      },
+      "ambiguity_or_artifact": {
+        "none": 24
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_framing_observation": 24
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 24
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
