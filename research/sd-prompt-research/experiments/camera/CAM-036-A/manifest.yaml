@@ -16,6 +16,15 @@ research:
     detectable by an exact paired test despite six-seed baseline variance.
   frozen_classification:
     test: one-sided exact McNemar/sign test on discordant matched pairs; alpha 0.05
+    prerequisites:
+      - exact endpoint, checkpoint SHA-256, and CAM-024 settings pass before generation
+      - 24 seeds are unique, fresh against the repository, and shared exactly across A and B
+      - 48 independent one-image responses are bound exactly to request seed and parameters
+      - all 48 panels have valid PNG/hash provenance
+      - all 48 panels are framing-boundary assessable
+      - ambiguity/artifact is at most 1/24 in each arm
+      - prompt-blind observation is frozen before mapping decode
+    frozen_contract_sha256: 4d66de770a78bea9e18778c84a73b68bbeaae14b1bc569f6837ae5cee68fb6b0
     supported: all prerequisites pass, B realization < A, degradation > improvement, and exact p <= 0.05
     no_material: all prerequisites pass, degradation <= improvement, and B realization >= A
     otherwise: INCONCLUSIVE

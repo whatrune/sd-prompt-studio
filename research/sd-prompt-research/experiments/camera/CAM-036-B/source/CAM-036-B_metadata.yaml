@@ -77,10 +77,19 @@ paired_decision_contract:
   alpha: 0.05
   degradation: A upper_body and B not upper_body
   improvement: A not upper_body and B upper_body
+  prerequisites:
+    - exact endpoint, checkpoint SHA-256, and CAM-024 settings pass before generation
+    - 24 seeds are unique, fresh against the repository, and shared exactly across A and B
+    - 48 independent one-image responses are bound exactly to request seed and parameters
+    - all 48 panels have valid PNG/hash provenance
+    - all 48 panels are framing-boundary assessable
+    - ambiguity/artifact is at most 1/24 in each arm
+    - prompt-blind observation is frozen before mapping decode
   supported_rule: prerequisites pass; B realization < A; degradation > improvement; exact p <= 0.05
   no_material_rule: prerequisites pass; degradation <= improvement; B realization >= A
   otherwise_rule: INCONCLUSIVE
   frozen_contract_sha256: 4d66de770a78bea9e18778c84a73b68bbeaae14b1bc569f6837ae5cee68fb6b0
+  frozen_contract_owner_path: research/sd-prompt-research/experiments/camera/CAM-036-A/source/CAM-036-A_metadata.yaml
 provenance_binding:
   repository: whatrune/sd-prompt-studio
   task_issue: 688
@@ -3822,3 +3831,11 @@ panels:
     opaque_sha256: 6f88b84689ec4c18f7e998549722dd92c82f2eba78ce07c050d29287be042be3
     opaque_bytes: 796625
     source_opaque_byte_equal: true
+prompt_blind_record_reference:
+  owner_path: research/sd-prompt-research/experiments/camera/CAM-036-A/source/CAM-036-A_metadata.yaml
+  freeze_sha256: 368a282a37a95ec42287a34c28fcb1b19b0eb298a7b28f6611816dc020d85ddc
+  mapping_sha256: a41bdc62496bd0d65e7fb6e2bdfcd6047d9ae6005b0b08f93d9e5e40765ea363
+  observer_input_sha256: 9b6d81f104e433f369c30d3540c33f6e1b710b3b5fb091e10e94b8ecf36bd267
+frozen_decision_contract_reference:
+  owner_path: research/sd-prompt-research/experiments/camera/CAM-036-A/source/CAM-036-A_metadata.yaml
+  sha256: 4d66de770a78bea9e18778c84a73b68bbeaae14b1bc569f6837ae5cee68fb6b0
