@@ -1,0 +1,140 @@
+schema_version: "1.0"
+run_id: "CAM-037-C"
+domain: "camera"
+condition: "upper body + standing + black shorts"
+title: "CAM-037-C — upper body + standing + black shorts"
+status: "OBSERVED"
+created_at: "2026-09-08T05:38:08.482Z"
+updated_at: "2026-09-08T05:59:36.495Z"
+research:
+  target_phrase: "upper body"
+  research_question: "Does any exact two-term subset of standing, barefoot, black shorts reproduce the CAM-036 upper-body
+    framing interference under a 24-pair multiplicity-controlled comparison?"
+  baseline_run_id: "CAM-036"
+  variant_label: "upper body + standing + black shorts"
+  hypothesis_before_run: "One or more exact two-term subbundles may directionally reduce upper-body realization under
+    high-sample matched comparison."
+  frozen_classification:
+    test: "one-sided exact McNemar/sign test per treatment with Holm family-wise alpha 0.05 across three comparisons"
+    prerequisites:
+      - "exact endpoint, checkpoint SHA-256, and CAM-036/CAM-024 settings pass before generation"
+      - "24 seeds are unique, collision-free against tracked Research, and shared exactly across A, B, C, and D"
+      - "96 independent one-image responses are bound exactly to request seed and parameters"
+      - "all 96 panels have valid PNG/hash provenance"
+      - "all 96 panels are framing-boundary assessable"
+      - "ambiguity/artifact is at most 1/24 in each arm"
+      - "prompt-blind observation is frozen before mapping decode"
+    frozen_contract_sha256: "6842d232e60787752b4893925f3b563e283df4d68d3562a25703065f24e07b0f"
+    supported: "all prerequisites pass, treatment realization is lower than A, degradation exceeds improvement, and its Holm
+      hypothesis is rejected"
+    no_material: "all prerequisites pass and for every treatment degradation does not exceed improvement and treatment
+      realization is at least A"
+    otherwise: "INCONCLUSIVE"
+prompt:
+  positive: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper
+    body, standing, black shorts"
+  negative: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers, extra
+    limbs, fused limbs, text, watermark"
+  changed_phrases:
+    - "upper body"
+    - "standing"
+    - "black shorts"
+  fixed_phrases:
+    - "1girl"
+    - "solo"
+    - "neutral expression"
+    - "front view"
+    - "plain fitted sleeveless top"
+    - "simple studio background"
+model:
+  checkpoint: "novaAnimeXL_ilV190"
+  checkpoint_sha256: "fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f"
+  vae: ""
+  sampler_name: "Euler a"
+  scheduler: "Automatic"
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+    - 1348350395
+    - 1753593023
+    - 425238394
+    - 575864087
+    - 1650331328
+    - 1158862545
+    - 976332155
+    - 901392171
+    - 182053852
+    - 1409536360
+    - 699372831
+    - 122859607
+    - 794472485
+    - 811591986
+    - 1996974381
+    - 183486859
+    - 691273007
+    - 1514773543
+    - 1533834927
+    - 1044227595
+    - 1542601883
+    - 1384929520
+    - 1775054129
+    - 1014239027
+source:
+  sheet_file: null
+  metadata_file: "source/CAM-037-C_metadata.yaml"
+  sidecar_file: null
+  layout: "individual_panels"
+  panel_count: 24
+  original_filename: null
+outputs:
+  panels:
+    - "panels/CAM-037-C_01.png"
+    - "panels/CAM-037-C_02.png"
+    - "panels/CAM-037-C_03.png"
+    - "panels/CAM-037-C_04.png"
+    - "panels/CAM-037-C_05.png"
+    - "panels/CAM-037-C_06.png"
+    - "panels/CAM-037-C_07.png"
+    - "panels/CAM-037-C_08.png"
+    - "panels/CAM-037-C_09.png"
+    - "panels/CAM-037-C_10.png"
+    - "panels/CAM-037-C_11.png"
+    - "panels/CAM-037-C_12.png"
+    - "panels/CAM-037-C_13.png"
+    - "panels/CAM-037-C_14.png"
+    - "panels/CAM-037-C_15.png"
+    - "panels/CAM-037-C_16.png"
+    - "panels/CAM-037-C_17.png"
+    - "panels/CAM-037-C_18.png"
+    - "panels/CAM-037-C_19.png"
+    - "panels/CAM-037-C_20.png"
+    - "panels/CAM-037-C_21.png"
+    - "panels/CAM-037-C_22.png"
+    - "panels/CAM-037-C_23.png"
+    - "panels/CAM-037-C_24.png"
+  preview_file: null
+  rubric_file: "source/rubric.yaml"
+  observation_file: "observation.md"
+  observation_json: "observation.json"
+  research_review_file: "research-review.md"
+  observation_schema: "templates/observation-schema.json"
+  canonical_observation: "observation.json"
+workflow:
+  assigned_to: "Research Worker"
+  human_reviewed_by: null
+  accepted_at: null
+  notes: "Generated once through the verified fixed A1111 endpoint under Task #692. Prompt-blind observation was frozen
+    before decode. Classification: INCONCLUSIVE. Research evidence only."
+ingested_metadata:
+  metadata_status: "verified"
+  source: "a1111_txt2img_api"
+  format: "png+json"
+  archive_filename: null
+  archive_sha256: null
