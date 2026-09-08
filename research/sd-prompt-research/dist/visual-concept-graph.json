@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.8",
-  "generated_at": "2026-09-04T08:16:07Z",
+  "graph_version": "0.2.9",
+  "generated_at": "2026-09-08T10:39:57Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -2190,6 +2190,115 @@
         "The clothing control establishes only that the realized CAM-018 long-sleeve treatment did not limit hand visibility; it does not generalize to other garments or poses.",
         "The combined evidence is available to future visibility-resolution design as a bounded arm-placement/body-occlusion risk; it creates no production rule, automatic pose correction, or universal causal claim."
       ]
+    },
+    {
+      "effect_id": "unmodeled.prompt_interaction.upper_body_framing_cam038",
+      "category": "model_specific",
+      "source_phrase": "upper body; factorial terms: standing, barefoot, black shorts",
+      "source_concept_id": "camera.framing.upper_body",
+      "target_module": "camera",
+      "target_region": "requested upper-body framing realization",
+      "observed_effect": "In the complete matched-seed CAM-038 2^3 prompt family, the Holm-controlled binary upper-body-realization effects were: standing main negative (-0.28125), barefoot main negative (-0.21875), black-shorts main positive (0.260416667), standing x barefoot negative (-0.40625), and barefoot x black shorts negative (-0.322916667). Standing x black shorts and the standing x barefoot x black-shorts interaction were unsupported after Holm correction; unsupported is not equivalence or absence.",
+      "evidence_region": "camera framing",
+      "confidence": "high",
+      "candidate_axis": "bounded prompt-term factorial interaction on upper-body framing realization",
+      "model_profile": "model.novaanimexl_ilv190",
+      "evidence_refs": [
+        {
+          "evidence_ref_id": "evidence.cam038a.observed_upper_body",
+          "run_id": "CAM-038-A",
+          "observation_path": "experiments/camera/CAM-038-A/observation.json",
+          "metric": "computed_aggregate.axis_counts.observed_framing.upper_body",
+          "count": 5,
+          "total": 24,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam038b.observed_upper_body",
+          "run_id": "CAM-038-B",
+          "observation_path": "experiments/camera/CAM-038-B/observation.json",
+          "metric": "computed_aggregate.axis_counts.observed_framing.upper_body",
+          "count": 11,
+          "total": 24,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam038c.observed_upper_body",
+          "run_id": "CAM-038-C",
+          "observation_path": "experiments/camera/CAM-038-C/observation.json",
+          "metric": "computed_aggregate.axis_counts.observed_framing.upper_body",
+          "count": 18,
+          "total": 24,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam038d.observed_upper_body",
+          "run_id": "CAM-038-D",
+          "observation_path": "experiments/camera/CAM-038-D/observation.json",
+          "metric": "computed_aggregate.axis_counts.observed_framing.upper_body",
+          "count": 22,
+          "total": 24,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam038e.observed_upper_body",
+          "run_id": "CAM-038-E",
+          "observation_path": "experiments/camera/CAM-038-E/observation.json",
+          "metric": "computed_aggregate.axis_counts.observed_framing.upper_body",
+          "count": 3,
+          "total": 24,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam038f.observed_upper_body",
+          "run_id": "CAM-038-F",
+          "observation_path": "experiments/camera/CAM-038-F/observation.json",
+          "metric": "computed_aggregate.axis_counts.observed_framing.upper_body",
+          "count": 22,
+          "total": 24,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam038g.observed_upper_body",
+          "run_id": "CAM-038-G",
+          "observation_path": "experiments/camera/CAM-038-G/observation.json",
+          "metric": "computed_aggregate.axis_counts.observed_framing.upper_body",
+          "count": 18,
+          "total": 24,
+          "confidence": "high",
+          "storage": "local"
+        },
+        {
+          "evidence_ref_id": "evidence.cam038h.observed_full_body",
+          "run_id": "CAM-038-H",
+          "observation_path": "experiments/camera/CAM-038-H/observation.json",
+          "metric": "computed_aggregate.axis_counts.observed_framing.full_body",
+          "count": 13,
+          "total": 24,
+          "confidence": "high",
+          "storage": "local"
+        }
+      ],
+      "promotion_status": "observed",
+      "promotion_criteria": [
+        "replicate the full factorial effect pattern under an independently admitted checkpoint or runtime",
+        "define an explicit non-production consumer before any resolver or advisory use"
+      ],
+      "notes": [
+        "Applicability is limited to checkpoint novaAnimeXL_ilV190 with SHA-256 fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f and the CAM-038 A1111 txt2img runtime at http://192.168.0.6:7860.",
+        "The exact runtime used Euler a with Automatic scheduling, 20 steps, CFG 4.5, 1024 x 1024 output, one image per request, no high-resolution pass, no face restoration, and no tiling.",
+        "The prompt family fixed 1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, and upper body; only standing, barefoot, and black shorts varied as the three tested factors across A-H.",
+        "Effects are standard effect-coded contrasts on binary upper-body realization across the 24 matched seeds; the evidence references retain a present frozen prompt-blind framing aggregate for every arm (CAM-038-H omits the zero upper_body key and is therefore referenced by its full_body aggregate), while experiments/camera/CAM-038-H/research-review.md owns the decoded factorial analysis.",
+        "Holm-adjusted p-values for supported effects were standing 0.000782012939453125, barefoot 0.00970458984375, black shorts 0.00537109375, standing x barefoot 0.0000133514404296875, and barefoot x black shorts 0.0000457763671875.",
+        "Standing x black shorts (Holm-adjusted p=0.0625) and the three-way interaction (Holm-adjusted p=0.70703125) remain unsupported. Non-rejection is not equivalence and does not establish no meaningful effect.",
+        "This observed record creates no production rule, automatic suppression, replacement, correction, PromptTag behavior, compiler behavior, advisory behavior, or general causal claim."
+      ]
     }
   ],
   "model_profiles": [
@@ -2816,6 +2925,30 @@
       ],
       "CAM-019-C": [
         "unmodeled.pose_body_overlap.hand_visibility"
+      ],
+      "CAM-038-A": [
+        "unmodeled.prompt_interaction.upper_body_framing_cam038"
+      ],
+      "CAM-038-B": [
+        "unmodeled.prompt_interaction.upper_body_framing_cam038"
+      ],
+      "CAM-038-C": [
+        "unmodeled.prompt_interaction.upper_body_framing_cam038"
+      ],
+      "CAM-038-D": [
+        "unmodeled.prompt_interaction.upper_body_framing_cam038"
+      ],
+      "CAM-038-E": [
+        "unmodeled.prompt_interaction.upper_body_framing_cam038"
+      ],
+      "CAM-038-F": [
+        "unmodeled.prompt_interaction.upper_body_framing_cam038"
+      ],
+      "CAM-038-G": [
+        "unmodeled.prompt_interaction.upper_body_framing_cam038"
+      ],
+      "CAM-038-H": [
+        "unmodeled.prompt_interaction.upper_body_framing_cam038"
       ],
       "CLOTHING-001-A": [
         "clothing.upper.oversized_white_tshirt",
