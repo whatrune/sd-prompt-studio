@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
   "graph_version": "0.2.10",
-  "generated_at": "2026-09-08T18:16:46Z",
+  "generated_at": "2026-09-08T18:33:07Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -1557,7 +1557,7 @@
       ],
       "status": "provisional",
       "notes": [
-        "The existing unmodeled.pose_body_overlap.hand_visibility owner retains the bounded CAM-018, CAM-019, and CAM-039 attribution evidence; no universal hand-visibility rule is asserted."
+        "This visibility.hands owner retains the bounded CAM-018, CAM-019, and CAM-039 attribution evidence; the production-consumed unmodeled.pose_body_overlap.hand_visibility effect remains limited to CAM-018 and CAM-019, and no universal hand-visibility rule is asserted."
       ]
     },
     {

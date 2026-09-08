@@ -1039,7 +1039,7 @@
         }
       ],
       "status": "provisional",
-      "notes": ["The existing unmodeled.pose_body_overlap.hand_visibility owner retains the bounded CAM-018, CAM-019, and CAM-039 attribution evidence; no universal hand-visibility rule is asserted."]
+      "notes": ["This visibility.hands owner retains the bounded CAM-018, CAM-019, and CAM-039 attribution evidence; the production-consumed unmodeled.pose_body_overlap.hand_visibility effect remains limited to CAM-018 and CAM-019, and no universal hand-visibility rule is asserted."]
     },
     {
       "concept_id": "visibility.feet",
