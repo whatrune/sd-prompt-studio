@@ -1,0 +1,294 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-035-C",
+  "blind_condition_label": "COND-F284F8",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "face_detail",
+    "framing_boundary_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-F284F8: observed upper_body framing=5/6.",
+      "Opaque condition COND-F284F8: framing boundary assessable=6/6.",
+      "Opaque condition COND-F284F8: ambiguity/artifact=0/6."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition and panel IDs, image hashes, pixels, and the permitted rubric; prompt, seeds, requested framing, hypothesis, run identity, and mapping were withheld.",
+      "The 24-panel opaque observation record was frozen before mapping disclosure at SHA-256 f3a47cde4156ba50f571fe970addee2d921ab6204187fa246c65a2df5ffc7ff5.",
+      "Canonical panel and seed binding was applied only after decode and did not change any frozen visual row.",
+      "Requested-framing realization and variance classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "upper_body",
+        "head_partial",
+        "waist",
+        "partial",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Top hair is clipped by the frame edge.",
+        "Torso remains visible through the waistline."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "pelvis",
+        "visible",
+        "visible",
+        "partial",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head and torso are visible.",
+        "Lower edge reaches the upper pelvis while knees and feet remain outside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "waist",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head and torso are visible to the waistline.",
+        "Pelvis and lower limbs are outside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "upper_body",
+        "head_partial",
+        "waist",
+        "partial",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Top hair is clipped by the frame edge.",
+        "Torso remains visible through the waistline."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "waist",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head and torso are visible to the waistline.",
+        "Pelvis and lower limbs are outside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "close_up",
+        "above_head",
+        "chest",
+        "visible",
+        "partial",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head is visible with narrow headroom.",
+        "Lower edge cuts through the chest before the waist."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves one batch of prompt-blind visible evidence; decoded batch comparison and variance classification occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "upper_body": 5,
+        "close_up": 1
+      },
+      "upper_crop_boundary": {
+        "head_partial": 2,
+        "above_head": 4
+      },
+      "lower_crop_boundary": {
+        "waist": 4,
+        "pelvis": 1,
+        "chest": 1
+      },
+      "head_visibility": {
+        "partial": 2,
+        "visible": 4
+      },
+      "torso_visibility": {
+        "visible": 5,
+        "partial": 1
+      },
+      "pelvis_visibility": {
+        "not_visible": 5,
+        "partial": 1
+      },
+      "knees_visibility": {
+        "not_visible": 6
+      },
+      "feet_visibility": {
+        "not_visible": 6
+      },
+      "face_detail": {
+        "high": 6
+      },
+      "framing_boundary_assessable": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_framing_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

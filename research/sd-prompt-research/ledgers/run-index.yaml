@@ -1065,3 +1065,27 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-08T00:36:10Z'
   path: experiments/camera/CAM-034-B
+- run_id: CAM-035-A
+  domain: camera
+  title: CAM-035-A — pure upper-body baseline variance batch
+  status: OBSERVED
+  updated_at: '2026-09-08T01:49:06.0785693Z'
+  path: experiments/camera/CAM-035-A
+- run_id: CAM-035-B
+  domain: camera
+  title: CAM-035-B — pure upper-body baseline variance batch
+  status: OBSERVED
+  updated_at: '2026-09-08T01:49:06.0785693Z'
+  path: experiments/camera/CAM-035-B
+- run_id: CAM-035-C
+  domain: camera
+  title: CAM-035-C — pure upper-body baseline variance batch
+  status: OBSERVED
+  updated_at: '2026-09-08T01:49:06.0785693Z'
+  path: experiments/camera/CAM-035-C
+- run_id: CAM-035-D
+  domain: camera
+  title: CAM-035-D — pure upper-body baseline variance batch
+  status: OBSERVED
+  updated_at: '2026-09-08T01:49:06.0785693Z'
+  path: experiments/camera/CAM-035-D
