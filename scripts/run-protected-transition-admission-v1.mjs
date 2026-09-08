@@ -113,7 +113,7 @@ const NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES = Object.freeze([
 const TASK_ISSUE_CLOSURE_POLICIES = Object.freeze(['AUTO_CLOSE_COMPLETED', 'KEEP_OPEN'])
 const CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS = Object.freeze([
   'title', 'repository', 'objective', 'markdown', 'authorized_paths', 'head_branch',
-  'worktree_path', 'expected_base', 'authorized_actor', 'permitted_surface',
+  'worktree_path', 'expected_base', 'authorized_actor',
   'ready_allowed', 'product_owner_login',
 ])
 const CANONICAL_TASK_BODY_REQUEST_FIELDS = Object.freeze([
@@ -623,7 +623,6 @@ const canonicalTaskBodyRequestV1 = (request) => {
     !FULL_SHA.test(request.expected_base ?? '') ||
     typeof request.authorized_actor !== 'string' ||
     !/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/u.test(request.authorized_actor) ||
-    !['PULL_REQUEST_REVIEW', 'TASK_ISSUE_COMMENT'].includes(request.permitted_surface) ||
     (Object.hasOwn(request, 'task_issue_closure_policy') &&
       !TASK_ISSUE_CLOSURE_POLICIES.includes(request.task_issue_closure_policy)) ||
     request.ready_allowed !== false || request.product_owner_login !== 'whatrune'
@@ -672,7 +671,7 @@ const canonicalReviewPublicationPredelegationV2 = ({ request, taskIssue }) => {
       head_branch: request.head_branch,
       authorized_paths: request.authorized_paths,
       authorized_actor: request.authorized_actor,
-      permitted_surface: request.permitted_surface,
+      permitted_surface: 'TASK_ISSUE_COMMENT',
       required_review: Object.freeze({
         record_type: 'simplified_independent_review_v1',
         reviewer_role: 'INDEPENDENT_REVIEWER',
@@ -845,7 +844,6 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
     worktree_path: process.platform === 'win32' ? 'C:\\parser-validation' : '/parser-validation',
     expected_base: '0'.repeat(40),
     authorized_actor: 'parser-validation',
-    permitted_surface: 'TASK_ISSUE_COMMENT',
     ready_allowed: false,
     product_owner_login: 'whatrune',
   })
