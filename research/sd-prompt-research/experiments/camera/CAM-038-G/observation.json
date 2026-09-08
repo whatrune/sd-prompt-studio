@@ -6,14 +6,6 @@
   "image_layout": "individual_panels",
   "active_axis_order": [
     "observed_framing",
-    "upper_crop_boundary",
-    "lower_crop_boundary",
-    "head_visibility",
-    "torso_visibility",
-    "pelvis_visibility",
-    "knees_visibility",
-    "feet_visibility",
-    "face_detail",
     "framing_boundary_assessable",
     "ambiguity_or_artifact"
   ],
@@ -26,8 +18,8 @@
     "analysis_notes": [
       "Observer input exposed only opaque panel IDs, image hashes, pixels, and the permitted rubric; prompt, seed, requested framing, hypothesis, run identity, condition mapping, and pair mapping were withheld.",
       "The 192-panel opaque observation record was frozen before mapping disclosure at SHA-256 356999a76bb3c5f7f7a2c8d7d577f2fc3250de4be9bc12dd46fad5dbbcddc483.",
-      "Canonical panel and seed binding was applied only after decode and did not change any frozen visual row.",
-      "Requested-framing realization, matched comparisons, exact tests, Holm correction, and final classification are review-derived only in research-review.md."
+      "Only the per-panel observed framing labels and the all-panel assessability/no-artifact result that were sealed in the pre-decode freeze are published as blind observation axes.",
+      "Ordinal widening/tightening in research-review.md is a deterministic rank comparison over the frozen observed-framing labels; no post-decode crop, visibility, or face-detail observation is introduced."
     ]
   },
   "panels": [
@@ -35,14 +27,6 @@
       "panel_id": 1,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -67,14 +51,6 @@
       "panel_id": 2,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -99,14 +75,6 @@
       "panel_id": 3,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -131,14 +99,6 @@
       "panel_id": 4,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -163,14 +123,6 @@
       "panel_id": 5,
       "axis_values": [
         "full_body",
-        "above_head",
-        "below_feet",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "medium",
         "assessable",
         "none"
       ],
@@ -195,14 +147,6 @@
       "panel_id": 6,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -227,14 +171,6 @@
       "panel_id": 7,
       "axis_values": [
         "full_body",
-        "above_head",
-        "below_feet",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "medium",
         "assessable",
         "none"
       ],
@@ -259,14 +195,6 @@
       "panel_id": 8,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -291,14 +219,6 @@
       "panel_id": 9,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -323,14 +243,6 @@
       "panel_id": 10,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -355,14 +267,6 @@
       "panel_id": 11,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -387,14 +291,6 @@
       "panel_id": 12,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -419,14 +315,6 @@
       "panel_id": 13,
       "axis_values": [
         "cowboy_shot",
-        "above_head",
-        "mid_thigh",
-        "visible",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "medium_high",
         "assessable",
         "none"
       ],
@@ -451,14 +339,6 @@
       "panel_id": 14,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -483,14 +363,6 @@
       "panel_id": 15,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -515,14 +387,6 @@
       "panel_id": 16,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -547,14 +411,6 @@
       "panel_id": 17,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -579,14 +435,6 @@
       "panel_id": 18,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -611,14 +459,6 @@
       "panel_id": 19,
       "axis_values": [
         "full_body",
-        "above_head",
-        "below_feet",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "medium",
         "assessable",
         "none"
       ],
@@ -643,14 +483,6 @@
       "panel_id": 20,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -675,14 +507,6 @@
       "panel_id": 21,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -707,14 +531,6 @@
       "panel_id": 22,
       "axis_values": [
         "upper_body",
-        "above_head",
-        "waist",
-        "visible",
-        "visible",
-        "not_visible",
-        "not_visible",
-        "not_visible",
-        "high",
         "assessable",
         "none"
       ],
@@ -739,14 +555,6 @@
       "panel_id": 23,
       "axis_values": [
         "full_body",
-        "above_head",
-        "below_feet",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "medium",
         "assessable",
         "none"
       ],
@@ -771,14 +579,6 @@
       "panel_id": 24,
       "axis_values": [
         "full_body",
-        "above_head",
-        "below_feet",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "visible",
-        "medium",
         "assessable",
         "none"
       ],
@@ -814,37 +614,6 @@
         "upper_body": 18,
         "full_body": 5,
         "cowboy_shot": 1
-      },
-      "upper_crop_boundary": {
-        "above_head": 24
-      },
-      "lower_crop_boundary": {
-        "waist": 18,
-        "below_feet": 5,
-        "mid_thigh": 1
-      },
-      "head_visibility": {
-        "visible": 24
-      },
-      "torso_visibility": {
-        "visible": 24
-      },
-      "pelvis_visibility": {
-        "not_visible": 18,
-        "visible": 6
-      },
-      "knees_visibility": {
-        "not_visible": 19,
-        "visible": 5
-      },
-      "feet_visibility": {
-        "not_visible": 19,
-        "visible": 5
-      },
-      "face_detail": {
-        "high": 18,
-        "medium": 5,
-        "medium_high": 1
       },
       "framing_boundary_assessable": {
         "assessable": 24

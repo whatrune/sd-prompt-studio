@@ -7,7 +7,7 @@ APPROVE
 
 ## Review Summary
 
-All 192 prompt-blind visible rows satisfy the decoded mapping and permitted rubric. Runtime, seed, one-response-per-request, PNG/hash, assessability, ambiguity, and freeze-before-decode prerequisites pass. The bounded classification is `FACTORIAL_FRAMING_EFFECTS_IDENTIFIED`. Holm-controlled effects supported by the predeclared factorial family are: S=-0.28125 (Holm p=0.000782012939453125), B=-0.21875 (Holm p=0.00970458984375), K=0.260416667 (Holm p=0.00537109375), SxB=-0.40625 (Holm p=0.0000133514404296875), BxK=-0.322916667 (Holm p=0.0000457763671875).
+All 192 prompt-blind observed-framing rows satisfy the decoded mapping and permitted rubric. The published blind rows contain only observed framing plus the all-panel assessability/no-artifact result sealed before decode. Runtime, seed, one-response-per-request, PNG/hash, assessability, ambiguity, and freeze-before-decode prerequisites pass. The bounded classification is `FACTORIAL_FRAMING_EFFECTS_IDENTIFIED`. Holm-controlled effects supported by the predeclared factorial family are: S=-0.28125 (Holm p=0.000782012939453125), B=-0.21875 (Holm p=0.00970458984375), K=0.260416667 (Holm p=0.00537109375), SxB=-0.40625 (Holm p=0.0000133514404296875), BxK=-0.322916667 (Holm p=0.0000457763671875).
 
 ## Frozen Statistical Rule
 
@@ -46,7 +46,7 @@ The SxK effect and three-way SxBxK interaction do not reject after Holm correcti
 
 ## Control Comparisons
 
-| Comparison | degradation | improvement | raw one-sided p | Holm adjusted p | Holm reject | wider | tighter | unchanged |
+| Comparison | degradation | improvement | raw one-sided p | Holm adjusted p | Holm reject | framing-rank wider | framing-rank tighter | unchanged |
 | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |
 | B vs A | 0/24 | 6/24 | 1 | 1 | no | 6/24 | 0/24 | 18/24 |
 | C vs A | 0/24 | 13/24 | 1 | 1 | no | 15/24 | 0/24 | 9/24 |
@@ -55,6 +55,8 @@ The SxK effect and three-way SxBxK interaction do not reject after Holm correcti
 | F vs A | 1/24 | 18/24 | 0.9999980926513672 | 1 | no | 19/24 | 0/24 | 5/24 |
 | G vs A | 2/24 | 15/24 | 0.9998626708984375 | 1 | no | 21/24 | 0/24 | 3/24 |
 | H vs A | 5/24 | 0/24 | 0.03125 | 0.21875 | no | 24/24 | 0/24 | 0/24 |
+
+Ordinal widening/tightening is derived only from a predeclared rank of the frozen observed-framing labels (`close_up < upper_body < cowboy_shot < full_body`); it is not a separately reconstructed crop-boundary observation.
 
 ## Classification
 

@@ -95,14 +95,6 @@ axis_catalog:
       - multiple
 active_observation_axes:
   - observed_framing
-  - upper_crop_boundary
-  - lower_crop_boundary
-  - head_visibility
-  - torso_visibility
-  - pelvis_visibility
-  - knees_visibility
-  - feet_visibility
-  - face_detail
   - framing_boundary_assessable
   - ambiguity_or_artifact
 contact_load:
