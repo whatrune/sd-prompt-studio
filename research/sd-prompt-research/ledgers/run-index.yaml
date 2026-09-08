@@ -1125,3 +1125,51 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-08T05:59:36.495Z'
   path: experiments/camera/CAM-037-D
+- run_id: CAM-038-A
+  domain: camera
+  title: CAM-038-A — pure upper-body control
+  status: OBSERVED
+  updated_at: '2026-09-08T09:18:58.513Z'
+  path: experiments/camera/CAM-038-A
+- run_id: CAM-038-B
+  domain: camera
+  title: CAM-038-B — standing
+  status: OBSERVED
+  updated_at: '2026-09-08T09:18:58.513Z'
+  path: experiments/camera/CAM-038-B
+- run_id: CAM-038-C
+  domain: camera
+  title: CAM-038-C — barefoot
+  status: OBSERVED
+  updated_at: '2026-09-08T09:18:58.513Z'
+  path: experiments/camera/CAM-038-C
+- run_id: CAM-038-D
+  domain: camera
+  title: CAM-038-D — black shorts
+  status: OBSERVED
+  updated_at: '2026-09-08T09:18:58.513Z'
+  path: experiments/camera/CAM-038-D
+- run_id: CAM-038-E
+  domain: camera
+  title: CAM-038-E — standing + barefoot
+  status: OBSERVED
+  updated_at: '2026-09-08T09:18:58.513Z'
+  path: experiments/camera/CAM-038-E
+- run_id: CAM-038-F
+  domain: camera
+  title: CAM-038-F — standing + black shorts
+  status: OBSERVED
+  updated_at: '2026-09-08T09:18:58.513Z'
+  path: experiments/camera/CAM-038-F
+- run_id: CAM-038-G
+  domain: camera
+  title: CAM-038-G — barefoot + black shorts
+  status: OBSERVED
+  updated_at: '2026-09-08T09:18:58.513Z'
+  path: experiments/camera/CAM-038-G
+- run_id: CAM-038-H
+  domain: camera
+  title: CAM-038-H — standing + barefoot + black shorts
+  status: OBSERVED
+  updated_at: '2026-09-08T09:18:58.513Z'
+  path: experiments/camera/CAM-038-H
