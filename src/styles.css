@@ -1519,6 +1519,40 @@ body,
   background-clip: padding-box;
 }
 
+.inspector-risk-indicator {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 12px 0;
+  padding: 8px 9px;
+  border: 1px solid var(--warning-border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  background: var(--warning-bg);
+}
+
+.inspector-risk-indicator>svg {
+  flex: 0 0 auto;
+  color: var(--warning-border);
+}
+
+.inspector-risk-indicator>div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.inspector-risk-indicator strong {
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.inspector-risk-indicator span {
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 .generation-context {
   flex: 0 0 auto;
   background: var(--bg-primary);
@@ -1586,6 +1620,15 @@ body,
 .visual-concept-risk-advisory-details>div {
   display: grid;
   gap: 3px;
+}
+.visual-concept-risk-matched-combination strong {
+  font-size: inherit;
+}
+.visual-concept-risk-model-boundary {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.4;
 }
 .visual-concept-risk-advisory strong {
   color: var(--text-primary);
