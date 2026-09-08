@@ -288,6 +288,23 @@ function validateDocumentContent(contents, failures) {
   }
   const entryGuard = contents.get('AGENTS.md');
   const worktreeRules = contents.get('docs/team/05-worktree-and-branch-rules.md');
+  const taskCommandOwnerMarkers = [
+    'Every command session a Role launches with its working directory at or beneath the exact Task worktree remains execution-local ownership of that Role.',
+    'Before returning any successful terminal Role result, including `completed` or `APPROVE`, the same owning execution MUST require every such session to be terminal with its exact spawned process tree absent',
+    'returned session identifier, pending command, interrupted wrapper, or detached descendant is nonterminal',
+    'Ordinary Task-worktree commands MUST NOT detach descendants',
+    'command that must remain active MUST use an existing bounded execution owner that can terminate and prove absence of its exact process tree',
+    'ownership remains with the same Role execution rather than transferring to Integrated Lead or post-Merge cleanup',
+    'no OS-wide process discovery, broad process killing, retry, fallback, daemon, scheduler, or cleanup-side ownership detection',
+  ];
+  for (const [file, content] of [
+    ['AGENTS.md', entryGuard],
+    ['docs/team/13-shared-role-execution-contract.md', shared],
+  ]) {
+    for (const marker of taskCommandOwnerMarkers) {
+      if (!content.includes(marker)) failures.push(`${file}: Task-command terminal teardown contract is missing ${marker}`);
+    }
+  }
   const previewOwnerMarkers = [
     'A Role execution that starts any Task-owned preview MUST invoke `scripts/run-task-owned-preview-v1.ps1` from its exact Task worktree and retain the helper invocation\'s exec-session and Windows Job Object identity as execution-local ownership.',
     'The helper creates the direct Vite process suspended, assigns it to the bounded Job Object before execution, and lets descendants inherit that same owner without OS-wide discovery.',
