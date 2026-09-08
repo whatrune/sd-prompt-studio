@@ -1,0 +1,290 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-034-A",
+  "blind_condition_label": "COND-CAM034-A",
+  "panel_count": 6,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "knees_visibility",
+    "feet_visibility",
+    "face_detail",
+    "framing_boundary_assessable",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "full_body=0/6",
+      "cowboy_shot=0/6",
+      "upper_body=3/6",
+      "close_up=3/6",
+      "framing boundary assessable=6/6",
+      "ambiguity/artifact=0/6"
+    ],
+    "analysis_notes": [
+      "Visible rows were projected unchanged from prompt-blind freeze SHA-256 2c726ec0b88e5b670f17290e2fc9d4b77c064121752eefa29cbb5cabb4246139.",
+      "Freeze at 2026-09-08T00:35:21.4574070Z preceded mapping decode at 2026-09-08T00:36:10.6625581Z.",
+      "Only canonical run and panel identity was applied after decode; visual axis values were unchanged.",
+      "Requested-framing realization and matched comparisons are review-derived in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "waist",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head and torso visible; lower edge reaches the waistline."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "close_up",
+        "head_partial",
+        "chest",
+        "partial",
+        "partial",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Hair touches the upper edge and the crop ends through the chest."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "close_up",
+        "above_head",
+        "chest",
+        "visible",
+        "partial",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head with small headroom; crop ends through the chest."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "close_up",
+        "head_partial",
+        "upper_chest",
+        "partial",
+        "partial",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Top of hair and lower torso are cropped; face, shoulders, and upper chest are clearly visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "waist",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head and torso visible; lower edge reaches the waistline."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "waist",
+        "visible",
+        "visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "high",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "camera_framing_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Complete head and torso visible; lower edge reaches the waistline."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves one condition of a matched prompt-blind experiment; cross-condition interpretation occurs only after freeze in research-review.md.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "upper_body": 3,
+        "close_up": 3
+      },
+      "upper_crop_boundary": {
+        "above_head": 4,
+        "head_partial": 2
+      },
+      "lower_crop_boundary": {
+        "waist": 3,
+        "chest": 2,
+        "upper_chest": 1
+      },
+      "head_visibility": {
+        "visible": 4,
+        "partial": 2
+      },
+      "torso_visibility": {
+        "visible": 3,
+        "partial": 3
+      },
+      "pelvis_visibility": {
+        "not_visible": 6
+      },
+      "knees_visibility": {
+        "not_visible": 6
+      },
+      "feet_visibility": {
+        "not_visible": 6
+      },
+      "face_detail": {
+        "high": 6
+      },
+      "framing_boundary_assessable": {
+        "assessable": 6
+      },
+      "ambiguity_or_artifact": {
+        "none": 6
+      }
+    },
+    "primary_morphology_counts": {
+      "camera_framing_observation": 6
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 6
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
