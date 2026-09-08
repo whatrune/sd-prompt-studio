@@ -1101,3 +1101,27 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-08T03:01:22.3807721Z'
   path: experiments/camera/CAM-036-B
+- run_id: CAM-037-A
+  domain: camera
+  title: CAM-037-A — pure upper-body control
+  status: OBSERVED
+  updated_at: '2026-09-08T05:59:36.495Z'
+  path: experiments/camera/CAM-037-A
+- run_id: CAM-037-B
+  domain: camera
+  title: CAM-037-B — upper body + standing + barefoot
+  status: OBSERVED
+  updated_at: '2026-09-08T05:59:36.495Z'
+  path: experiments/camera/CAM-037-B
+- run_id: CAM-037-C
+  domain: camera
+  title: CAM-037-C — upper body + standing + black shorts
+  status: OBSERVED
+  updated_at: '2026-09-08T05:59:36.495Z'
+  path: experiments/camera/CAM-037-C
+- run_id: CAM-037-D
+  domain: camera
+  title: CAM-037-D — upper body + barefoot + black shorts
+  status: OBSERVED
+  updated_at: '2026-09-08T05:59:36.495Z'
+  path: experiments/camera/CAM-037-D
