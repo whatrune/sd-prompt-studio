@@ -505,9 +505,11 @@ export default function App() {
   const visualConceptAdvisory = expansion.visualConceptAdvisory
   const requiredVisibleRegionConceptIds = visualConceptAdvisory.constraint_metadata.requested.required_visible_region_concept_ids
   const visualConceptRiskEntries = visualConceptAdvisory.constraint_metadata.advisory_inspection.entries
+  const upperBodyFramingRiskEntry = visualConceptRiskEntries.find(entry=>entry.trigger_context.required_prompt_tags.length>0) ?? null
   const visualConceptVisibilityRiskEntries = visualConceptRiskEntries.filter(entry=>entry.trigger_context.required_visible_region_concept_ids.length>0)
+  const requiredVisibleRegionLabels = requiredVisibleRegionConceptIds.map(conceptId=>VISUAL_CONCEPT_VISIBILITY_LABEL_V1[conceptId])
   const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0 && visualConceptVisibilityRiskEntries.length === 0
-    ? `${requiredVisibleRegionConceptIds.length} visibility ${requiredVisibleRegionConceptIds.length===1?'requirement':'requirements'} active. No known visibility risk for the current selection.`
+    ? `Required visible regions: ${requiredVisibleRegionLabels.join(', ')}. No known risk affecting these required regions for the current selection.`
     : null
 
   const openSavePrompt = () => {
@@ -1039,6 +1041,9 @@ export default function App() {
           <section className="prompt-actions"><strong>Prompt Actions</strong><button className="copy-positive" onClick={()=>copyPrompt('actions')}>{copiedPositive?<Check size={16}/>:<Copy size={16}/>}<span>{copiedPositive?'コピー済み':'Positiveをコピー'}</span></button><button className="copy-negative" onClick={()=>copyNegativePrompt(true)}>{copiedNegative?<Check size={16}/>:<Copy size={16}/>}<span>{copiedNegative?'コピー済み':'Negativeをコピー'}</span></button><button type="button" className="save-current-prompt" aria-label="Promptを保存" title="Promptを保存" onClick={openSavePrompt}><Save size={16}/></button><button type="button" className="clear-current-prompt" aria-label="Promptをクリア" title="Promptをクリア" onClick={()=>setClearPromptConfirmOpen(true)}><Trash2 size={16}/></button></section>
         </div>
         <div className="inspector-scroll" aria-label="Inspector details">
+        {upperBodyFramingRiskEntry&&<aside className="inspector-risk-indicator" aria-label="Active framing risk">
+          <AlertTriangle size={16}/><div><strong>Framing risk active</strong><span>{upperBodyFramingRiskEntry.presentation.warning}</span></div>
+        </aside>}
         <section className={`preview-section ${selectedCollapsed?'collapsed':''}`}>
           <div className="preview-section-header"><button className="preview-section-toggle" onClick={()=>setSelectedCollapsed(v=>!v)} aria-expanded={!selectedCollapsed}>
             <span>{t('promptContext',locale)}</span>{selectedCollapsed?<ChevronDown size={16}/>:<ChevronUp size={16}/>}
@@ -1091,9 +1096,11 @@ export default function App() {
               <div>
                 <div className="visual-concept-risk-advisory-announcement" role="status" aria-live="polite">
                   <strong>{entry.presentation.warning}</strong>
+                  {entry.trigger_context.required_prompt_tags.length>0&&<span className="visual-concept-risk-matched-combination"><strong>Matched combination:</strong> {[...entry.trigger_context.required_prompt_tags,...entry.trigger_context.trigger_prompt_tags].map(tag=>tag.prompt).join(' + ')}</span>}
                   <span>{entry.presentation.recommendation}</span>
                 </div>
                 <small>Informational only — your prompt and selections are unchanged.</small>
+                {entry.trigger_context.required_prompt_tags.length>0&&<p className="visual-concept-risk-model-boundary">This advisory reflects the evaluated model and matched prompt context only.</p>}
                 <details className="visual-concept-risk-advisory-details">
                   <summary>Evidence details</summary>
                   <div>
