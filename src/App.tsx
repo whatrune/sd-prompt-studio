@@ -505,7 +505,8 @@ export default function App() {
   const visualConceptAdvisory = expansion.visualConceptAdvisory
   const requiredVisibleRegionConceptIds = visualConceptAdvisory.constraint_metadata.requested.required_visible_region_concept_ids
   const visualConceptRiskEntries = visualConceptAdvisory.constraint_metadata.advisory_inspection.entries
-  const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0 && visualConceptRiskEntries.length === 0
+  const visualConceptVisibilityRiskEntries = visualConceptRiskEntries.filter(entry=>entry.trigger_context.required_visible_region_concept_ids.length>0)
+  const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0 && visualConceptVisibilityRiskEntries.length === 0
     ? `${requiredVisibleRegionConceptIds.length} visibility ${requiredVisibleRegionConceptIds.length===1?'requirement':'requirements'} active. No known visibility risk for the current selection.`
     : null
 

@@ -374,6 +374,9 @@ try {
   const standingBarefootCompiled = promptModule.buildPromptWithStrategy(standingBarefootInput.blocks, standingBarefootInput.sceneTags)
   equal(standingBarefootCompiled.prompt, '[]\n\n[]\n\n[barefoot]\n\nBREAK\n\n[standing]\n\n[upper body]\n\nBREAK\n\n[]', 'standing and barefoot advisory must preserve exact prompt bytes and ordering')
   deepEqual(standingBarefootCompiled.visualConceptAdvisory, standingBarefootProjection, 'compiler must carry the framing owner projection unchanged')
+  const visibilityIntentWithFramingRisk = runtime.projectVisualConceptProductionAdvisoryV1({ catalog: checkedInCatalog, ...standingBarefootInput, constraintIntent: requestedConstraints })
+  deepEqual(visibilityIntentWithFramingRisk.constraint_metadata.requested.required_visible_region_concept_ids, requestedConstraints.required_visible_region_concept_ids, 'explicit visibility intent must remain present alongside an unrelated framing-risk entry')
+  deepEqual(visibilityIntentWithFramingRisk.constraint_metadata.advisory_inspection.entries.map(entry => [entry.advisory_type, entry.trigger_context.required_visible_region_concept_ids]), [['upper_body_framing_widening_risk', []]], 'framing risk without a matched visibility risk must remain independently classifiable for the visibility acknowledgement')
 
   const barefootBlackInput = { blocks: [{ id: 'subject-framing', name: 'Subject framing', tags: [barefoot, blackShorts] }], sceneTags: [upperBody] }
   const barefootBlackSnapshot = clone(barefootBlackInput)
@@ -621,7 +624,7 @@ try {
   check(appSource.includes('<span>{label}</span>') && appSource.includes('<code>{conceptId}</code>'), 'friendly visibility labels must lead while canonical IDs remain available as secondary technical detail')
   const acknowledgementRender = appSource.indexOf('visibilityIntentAcknowledgement&&<div className="visual-concept-advisory-empty"')
   const mappedEntryBranch = appSource.indexOf('visualConceptAdvisory.mapped_entries.length===0')
-  check(appSource.includes('const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0 && visualConceptRiskEntries.length === 0') && appSource.includes('No known visibility risk for the current selection.') && acknowledgementRender > 0 && acknowledgementRender < mappedEntryBranch, 'active visibility intent without a known risk must be acknowledged independently of mapped PromptTags')
+  check(appSource.includes('const visualConceptVisibilityRiskEntries = visualConceptRiskEntries.filter(entry=>entry.trigger_context.required_visible_region_concept_ids.length>0)') && appSource.includes('const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0 && visualConceptVisibilityRiskEntries.length === 0') && appSource.includes('No known visibility risk for the current selection.') && acknowledgementRender > 0 && acknowledgementRender < mappedEntryBranch, 'active visibility intent without a known visibility risk must remain acknowledged when an unrelated advisory category is present')
   check(appSource.includes('setVisualConceptVisibleRegionRequired(conceptId,event.target.checked)') && !appSource.includes('observed_generated_visibility'), 'App must submit explicit user intent without claiming observed/generated visibility')
   check(appSource.includes('MAPPED') && appSource.includes('UNCOVERED') && appSource.includes('TOTAL'), 'Inspector must distinguish all three coverage counts')
   check(appSource.includes('Uncovered selected tags') && appSource.includes('entry.prompt_tag_id') && appSource.includes('entry.prompt_tag_label'), 'Inspector must expose uncovered tag identities in a secondary list')
