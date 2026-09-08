@@ -94,6 +94,10 @@ paired_decision_contract:
     - "prompt-blind observation is frozen before mapping decode"
   frozen_contract_sha256: "6842d232e60787752b4893925f3b563e283df4d68d3562a25703065f24e07b0f"
   frozen_contract_owner_path: "research/sd-prompt-research/experiments/camera/CAM-037-A/source/CAM-037-A_metadata.yaml"
+  frozen_contract_reference:
+    record_type: "tracked_frozen_decision_contract_reference_v1"
+    owner_path: "research/sd-prompt-research/experiments/camera/CAM-037-A/source/CAM-037-A_metadata.yaml"
+    sha256: "6842d232e60787752b4893925f3b563e283df4d68d3562a25703065f24e07b0f"
 provenance_binding:
   repository: "whatrune/sd-prompt-studio"
   task_issue: 692
@@ -110,6 +114,9 @@ provenance_binding:
   source_opaque_byte_equality: "96/96"
   independently_recheckable_from_tracked_metadata: true
   ignored_diagnostic_files_required_for_recheck: false
+  request_response_wall_clock_timestamps_retained: false
+  one_response_per_request_evidence: "96 unique one-image returned payloads with exact request, returned-parameter,
+    parsed-response, PNG, seed, and hash bindings; wall-clock dispatch and response timestamps are not decision inputs"
 runtime_preflight:
   at: "2026-09-08T05:38:08.482Z"
   execution: "e0975f4a-1421-4428-bb9b-07d57b48e742"
@@ -130,8 +137,8 @@ panels:
     image_file: "panels/CAM-037-B_01.png"
     image_sha256: "f4c18639cadaeca609981059176c28924c4b6dc9a3530af87db52f6882003fd1"
     image_bytes: 1006259
-    dispatch_started_at: "2026-09-08T05:41:45.529Z"
-    response_received_at: "2026-09-08T05:41:45.529Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -274,13 +281,15 @@ panels:
     opaque_sha256: "f4c18639cadaeca609981059176c28924c4b6dc9a3530af87db52f6882003fd1"
     opaque_bytes: 1006259
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:45.529Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 2
     seed: 1753593023
     image_file: "panels/CAM-037-B_02.png"
     image_sha256: "a2f867624b6a860affccdb36769367c5048a064b0dc5e054c5a5c4d725bf4df7"
     image_bytes: 1080115
-    dispatch_started_at: "2026-09-08T05:41:51.652Z"
-    response_received_at: "2026-09-08T05:41:51.652Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -423,13 +432,15 @@ panels:
     opaque_sha256: "a2f867624b6a860affccdb36769367c5048a064b0dc5e054c5a5c4d725bf4df7"
     opaque_bytes: 1080115
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:51.652Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 3
     seed: 425238394
     image_file: "panels/CAM-037-B_03.png"
     image_sha256: "cfe5c2469e1cf17b05fc264371a4a3b5d092596f56132aa6fdda4d57dfe9b4f7"
     image_bytes: 1030559
-    dispatch_started_at: "2026-09-08T05:41:57.779Z"
-    response_received_at: "2026-09-08T05:41:57.779Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -572,13 +583,15 @@ panels:
     opaque_sha256: "cfe5c2469e1cf17b05fc264371a4a3b5d092596f56132aa6fdda4d57dfe9b4f7"
     opaque_bytes: 1030559
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:57.779Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 4
     seed: 575864087
     image_file: "panels/CAM-037-B_04.png"
     image_sha256: "8fe6c3c41c72c2dfa2e7a844b1862cb4d53324e9ccd11eba9c6c8df974e41428"
     image_bytes: 889649
-    dispatch_started_at: "2026-09-08T05:42:03.873Z"
-    response_received_at: "2026-09-08T05:42:03.873Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -721,13 +734,15 @@ panels:
     opaque_sha256: "8fe6c3c41c72c2dfa2e7a844b1862cb4d53324e9ccd11eba9c6c8df974e41428"
     opaque_bytes: 889649
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:03.873Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 5
     seed: 1650331328
     image_file: "panels/CAM-037-B_05.png"
     image_sha256: "72a22209a1ee7b78320e2513503d0295029253bc40f5e9622b55db59c5566d5a"
     image_bytes: 760476
-    dispatch_started_at: "2026-09-08T05:42:09.850Z"
-    response_received_at: "2026-09-08T05:42:09.850Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -870,13 +885,15 @@ panels:
     opaque_sha256: "72a22209a1ee7b78320e2513503d0295029253bc40f5e9622b55db59c5566d5a"
     opaque_bytes: 760476
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:09.850Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 6
     seed: 1158862545
     image_file: "panels/CAM-037-B_06.png"
     image_sha256: "e3b49cb8ca24f54a11825e9ceccd570521c75bdc784be896959f3a52423f6cbf"
     image_bytes: 1047458
-    dispatch_started_at: "2026-09-08T05:42:16.020Z"
-    response_received_at: "2026-09-08T05:42:16.020Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -1019,13 +1036,15 @@ panels:
     opaque_sha256: "e3b49cb8ca24f54a11825e9ceccd570521c75bdc784be896959f3a52423f6cbf"
     opaque_bytes: 1047458
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:16.020Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 7
     seed: 976332155
     image_file: "panels/CAM-037-B_07.png"
     image_sha256: "d0e5b669cb837703f504526a09d120815079a99f91d3664e36218bf175ba61a6"
     image_bytes: 945136
-    dispatch_started_at: "2026-09-08T05:42:22.162Z"
-    response_received_at: "2026-09-08T05:42:22.162Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -1168,13 +1187,15 @@ panels:
     opaque_sha256: "d0e5b669cb837703f504526a09d120815079a99f91d3664e36218bf175ba61a6"
     opaque_bytes: 945136
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:22.162Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 8
     seed: 901392171
     image_file: "panels/CAM-037-B_08.png"
     image_sha256: "600041d2cf5d66026cd3597a2b08c1fc012419f2a2578fd103037e8ac424f853"
     image_bytes: 823798
-    dispatch_started_at: "2026-09-08T05:42:28.256Z"
-    response_received_at: "2026-09-08T05:42:28.256Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -1317,13 +1338,15 @@ panels:
     opaque_sha256: "600041d2cf5d66026cd3597a2b08c1fc012419f2a2578fd103037e8ac424f853"
     opaque_bytes: 823798
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:28.256Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 9
     seed: 182053852
     image_file: "panels/CAM-037-B_09.png"
     image_sha256: "dfe6dbd091e3ff9909b825f03cce7aef2b2105dc24f193a7e698b0a6c2bbb97d"
     image_bytes: 952551
-    dispatch_started_at: "2026-09-08T05:42:34.451Z"
-    response_received_at: "2026-09-08T05:42:34.451Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -1466,13 +1489,15 @@ panels:
     opaque_sha256: "dfe6dbd091e3ff9909b825f03cce7aef2b2105dc24f193a7e698b0a6c2bbb97d"
     opaque_bytes: 952551
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:34.451Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 10
     seed: 1409536360
     image_file: "panels/CAM-037-B_10.png"
     image_sha256: "2fb2420b4d52bea7d6c82a2cfb6f462b890f7c192e04b6b139daafeef11220f8"
     image_bytes: 780378
-    dispatch_started_at: "2026-09-08T05:42:40.477Z"
-    response_received_at: "2026-09-08T05:42:40.477Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -1615,13 +1640,15 @@ panels:
     opaque_sha256: "2fb2420b4d52bea7d6c82a2cfb6f462b890f7c192e04b6b139daafeef11220f8"
     opaque_bytes: 780378
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:40.477Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 11
     seed: 699372831
     image_file: "panels/CAM-037-B_11.png"
     image_sha256: "77f597fce46c3b7d8384bf488adf5d701b2ab3ecbe4a46f29c31274e2b89bbc0"
     image_bytes: 769638
-    dispatch_started_at: "2026-09-08T05:42:46.607Z"
-    response_received_at: "2026-09-08T05:42:46.607Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -1764,13 +1791,15 @@ panels:
     opaque_sha256: "77f597fce46c3b7d8384bf488adf5d701b2ab3ecbe4a46f29c31274e2b89bbc0"
     opaque_bytes: 769638
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:46.607Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 12
     seed: 122859607
     image_file: "panels/CAM-037-B_12.png"
     image_sha256: "bf96940c3f8c482f380b3209057aea96943ebf97cede9ae5724806dbb3f3b736"
     image_bytes: 906566
-    dispatch_started_at: "2026-09-08T05:42:52.827Z"
-    response_received_at: "2026-09-08T05:42:52.827Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -1913,13 +1942,15 @@ panels:
     opaque_sha256: "bf96940c3f8c482f380b3209057aea96943ebf97cede9ae5724806dbb3f3b736"
     opaque_bytes: 906566
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:52.827Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 13
     seed: 794472485
     image_file: "panels/CAM-037-B_13.png"
     image_sha256: "d45425d7d06693409118966cd2c35b7a5c9570f4b4dd83d1626ab2d92557283c"
     image_bytes: 978895
-    dispatch_started_at: "2026-09-08T05:42:59.034Z"
-    response_received_at: "2026-09-08T05:42:59.034Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -2062,13 +2093,15 @@ panels:
     opaque_sha256: "d45425d7d06693409118966cd2c35b7a5c9570f4b4dd83d1626ab2d92557283c"
     opaque_bytes: 978895
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:42:59.034Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 14
     seed: 811591986
     image_file: "panels/CAM-037-B_14.png"
     image_sha256: "aab6b27948d07794dea9d485ebb84a61b0b2e1bb2b9484aa7b09606a0fb13933"
     image_bytes: 930453
-    dispatch_started_at: "2026-09-08T05:43:05.187Z"
-    response_received_at: "2026-09-08T05:43:05.187Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -2211,13 +2244,15 @@ panels:
     opaque_sha256: "aab6b27948d07794dea9d485ebb84a61b0b2e1bb2b9484aa7b09606a0fb13933"
     opaque_bytes: 930453
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:43:05.187Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 15
     seed: 1996974381
     image_file: "panels/CAM-037-B_15.png"
     image_sha256: "c3992fbd2c89364b983cbb43f694277474821afcbea46e0ffa10d50b3b88425e"
     image_bytes: 930585
-    dispatch_started_at: "2026-09-08T05:43:11.347Z"
-    response_received_at: "2026-09-08T05:43:11.347Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -2360,13 +2395,15 @@ panels:
     opaque_sha256: "c3992fbd2c89364b983cbb43f694277474821afcbea46e0ffa10d50b3b88425e"
     opaque_bytes: 930585
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:43:11.347Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 16
     seed: 183486859
     image_file: "panels/CAM-037-B_16.png"
     image_sha256: "32d4e2f77a3e6f8c4dc1c298b919ff5987567db50a3bf7c2b05a2142bc8633db"
     image_bytes: 803463
-    dispatch_started_at: "2026-09-08T05:43:17.390Z"
-    response_received_at: "2026-09-08T05:43:17.390Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -2509,13 +2546,15 @@ panels:
     opaque_sha256: "32d4e2f77a3e6f8c4dc1c298b919ff5987567db50a3bf7c2b05a2142bc8633db"
     opaque_bytes: 803463
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:43:17.390Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 17
     seed: 691273007
     image_file: "panels/CAM-037-B_17.png"
     image_sha256: "caf222c902cfe933550a0f27e6a84450efa792da2dfc87e6afecd76e0aed7a43"
     image_bytes: 739807
-    dispatch_started_at: "2026-09-08T05:43:23.506Z"
-    response_received_at: "2026-09-08T05:43:23.506Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -2658,13 +2697,15 @@ panels:
     opaque_sha256: "caf222c902cfe933550a0f27e6a84450efa792da2dfc87e6afecd76e0aed7a43"
     opaque_bytes: 739807
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:43:23.506Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 18
     seed: 1514773543
     image_file: "panels/CAM-037-B_18.png"
     image_sha256: "02d2a1179a136cd9853bd529feed9250f4253f037847c22a005c2d0f56611ed6"
     image_bytes: 1080405
-    dispatch_started_at: "2026-09-08T05:43:29.744Z"
-    response_received_at: "2026-09-08T05:43:29.744Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -2807,13 +2848,15 @@ panels:
     opaque_sha256: "02d2a1179a136cd9853bd529feed9250f4253f037847c22a005c2d0f56611ed6"
     opaque_bytes: 1080405
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:43:29.744Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 19
     seed: 1533834927
     image_file: "panels/CAM-037-B_19.png"
     image_sha256: "ec6c59b2764d71a60587b55c91c71795b5cf91af588f4a61b30ad79b46fde084"
     image_bytes: 834444
-    dispatch_started_at: "2026-09-08T05:43:35.821Z"
-    response_received_at: "2026-09-08T05:43:35.821Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -2956,13 +2999,15 @@ panels:
     opaque_sha256: "ec6c59b2764d71a60587b55c91c71795b5cf91af588f4a61b30ad79b46fde084"
     opaque_bytes: 834444
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:43:35.821Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 20
     seed: 1044227595
     image_file: "panels/CAM-037-B_20.png"
     image_sha256: "99981d6d27daa8c73868c26ba95e2587994881761a4d0bfdaa98c307da209b55"
     image_bytes: 1005452
-    dispatch_started_at: "2026-09-08T05:43:42.045Z"
-    response_received_at: "2026-09-08T05:43:42.045Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -3105,13 +3150,15 @@ panels:
     opaque_sha256: "99981d6d27daa8c73868c26ba95e2587994881761a4d0bfdaa98c307da209b55"
     opaque_bytes: 1005452
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:43:42.045Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 21
     seed: 1542601883
     image_file: "panels/CAM-037-B_21.png"
     image_sha256: "f8c9bf068da5bf7461b55f160781df9e305856d8500e9c7ec98e797ec655b95c"
     image_bytes: 1002190
-    dispatch_started_at: "2026-09-08T05:43:48.195Z"
-    response_received_at: "2026-09-08T05:43:48.195Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -3254,13 +3301,15 @@ panels:
     opaque_sha256: "f8c9bf068da5bf7461b55f160781df9e305856d8500e9c7ec98e797ec655b95c"
     opaque_bytes: 1002190
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:43:48.195Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 22
     seed: 1384929520
     image_file: "panels/CAM-037-B_22.png"
     image_sha256: "4f5aaedefe50f923541507e8df5bfd5476816ce4363e57e4e17dbbd149dbed8e"
     image_bytes: 1057684
-    dispatch_started_at: "2026-09-08T05:43:54.420Z"
-    response_received_at: "2026-09-08T05:43:54.420Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -3403,13 +3452,15 @@ panels:
     opaque_sha256: "4f5aaedefe50f923541507e8df5bfd5476816ce4363e57e4e17dbbd149dbed8e"
     opaque_bytes: 1057684
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:43:54.420Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 23
     seed: 1775054129
     image_file: "panels/CAM-037-B_23.png"
     image_sha256: "3e12e4b1fe1adec391fb410a9ec9115388bbe9f050220322fd6f0572bdb7c6c7"
     image_bytes: 777080
-    dispatch_started_at: "2026-09-08T05:44:00.574Z"
-    response_received_at: "2026-09-08T05:44:00.574Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -3552,13 +3603,15 @@ panels:
     opaque_sha256: "3e12e4b1fe1adec391fb410a9ec9115388bbe9f050220322fd6f0572bdb7c6c7"
     opaque_bytes: 777080
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:44:00.574Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 24
     seed: 1014239027
     image_file: "panels/CAM-037-B_24.png"
     image_sha256: "111b9cbf92daecbbbc0ba0fbb48b5d1dbd2401ad5f6caa6a6017c2d539264a4f"
     image_bytes: 1029063
-    dispatch_started_at: "2026-09-08T05:44:06.825Z"
-    response_received_at: "2026-09-08T05:44:06.825Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body,
         standing, barefoot"
@@ -3701,6 +3754,8 @@ panels:
     opaque_sha256: "111b9cbf92daecbbbc0ba0fbb48b5d1dbd2401ad5f6caa6a6017c2d539264a4f"
     opaque_bytes: 1029063
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:44:06.825Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
 prompt_blind_record_reference:
   owner_path: "research/sd-prompt-research/experiments/camera/CAM-037-A/source/CAM-037-A_metadata.yaml"
   freeze_sha256: "156e30cfffa27976daba0c1a3991591a721a99ce3db9d31f113d26a1660c9875"

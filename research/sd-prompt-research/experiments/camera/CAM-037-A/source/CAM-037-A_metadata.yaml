@@ -91,6 +91,119 @@ paired_decision_contract:
     - "prompt-blind observation is frozen before mapping decode"
   frozen_contract_sha256: "6842d232e60787752b4893925f3b563e283df4d68d3562a25703065f24e07b0f"
   frozen_contract_owner_path: "research/sd-prompt-research/experiments/camera/CAM-037-A/source/CAM-037-A_metadata.yaml"
+  frozen_contract_owner:
+    record_type: "tracked_frozen_decision_contract_owner_v1"
+    owner_path: "research/sd-prompt-research/experiments/camera/CAM-037-A/source/CAM-037-A_metadata.yaml"
+    serialization: "exact_utf8_lf"
+    sha256: "6842d232e60787752b4893925f3b563e283df4d68d3562a25703065f24e07b0f"
+    frozen_before_generation: true
+    source_execution_record_created_at: "2026-09-08T05:38:05.782Z"
+    utf8_payload: "{
+
+      \  \"record_type\": \"cam037_frozen_design_v1\",
+
+      \  \"task_issue\": 692,
+
+      \  \"expected_base\": \"6b2428780b44951ac7139639d4cf1985f48bfa5e\",
+
+      \  \"endpoint\": \"http://192.168.0.6:7860\",
+
+      \  \"checkpoint\": \"novaAnimeXL_ilV190\",
+
+      \  \"checkpoint_sha256\": \"fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f\",
+
+      \  \"positive_control\": \"1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio
+      background, upper body\",
+
+      \  \"negative_prompt\": \"low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers,
+      missing fingers, extra limbs, fused limbs, text, watermark\",
+
+      \  \"arms\": {
+
+      \    \"A\": [],
+
+      \    \"B\": [\"standing\", \"barefoot\"],
+
+      \    \"C\": [\"standing\", \"black shorts\"],
+
+      \    \"D\": [\"barefoot\", \"black shorts\"]
+
+      \  },
+
+      \  \"seeds\": [1348350395, 1753593023, 425238394, 575864087, 1650331328, 1158862545, 976332155, 901392171,
+      182053852, 1409536360, 699372831, 122859607, 794472485, 811591986, 1996974381, 183486859, 691273007, 1514773543,
+      1533834927, 1044227595, 1542601883, 1384929520, 1775054129, 1014239027],
+
+      \  \"settings\": {
+
+      \    \"sampler_name\": \"Euler a\",
+
+      \    \"scheduler\": \"Automatic\",
+
+      \    \"steps\": 20,
+
+      \    \"cfg_scale\": 4.5,
+
+      \    \"width\": 1024,
+
+      \    \"height\": 1024,
+
+      \    \"batch_size\": 1,
+
+      \    \"n_iter\": 1,
+
+      \    \"enable_hr\": false,
+
+      \    \"restore_faces\": false,
+
+      \    \"tiling\": false
+
+      \  },
+
+      \  \"paired_decision_rule\": {
+
+      \    \"family\": \"B, C, and D independently compared with A\",
+
+      \    \"per_comparison_test\": \"one-sided exact McNemar/sign test conditional on discordant pairs under null
+      degradation probability 0.5\",
+
+      \    \"degradation\": \"A is upper_body and treatment is not upper_body\",
+
+      \    \"improvement\": \"A is not upper_body and treatment is upper_body\",
+
+      \    \"multiplicity\": \"Holm step-down family-wise alpha 0.05 across the three raw p-values\",
+
+      \    \"supported_per_treatment\": \"all prerequisites pass, treatment realization is lower than A, degradation
+      exceeds improvement, and its Holm hypothesis is rejected\",
+
+      \    \"overall_supported\": \"at least one exact two-term treatment is supported\",
+
+      \    \"overall_no_material\": \"all prerequisites pass and for every treatment degradation does not exceed
+      improvement and treatment realization is at least A\",
+
+      \    \"otherwise\": \"INCONCLUSIVE\",
+
+      \    \"prerequisites\": [
+
+      \      \"exact endpoint, checkpoint SHA-256, and CAM-036/CAM-024 settings pass before generation\",
+
+      \      \"24 seeds are unique, collision-free against tracked Research, and shared exactly across A, B, C, and D\",
+
+      \      \"96 independent one-image responses are bound exactly to request seed and parameters\",
+
+      \      \"all 96 panels have valid PNG/hash provenance\",
+
+      \      \"all 96 panels are framing-boundary assessable\",
+
+      \      \"ambiguity/artifact is at most 1/24 in each arm\",
+
+      \      \"prompt-blind observation is frozen before mapping decode\"
+
+      \    ]
+
+      \  }
+
+      }\n"
 provenance_binding:
   repository: "whatrune/sd-prompt-studio"
   task_issue: 692
@@ -107,6 +220,9 @@ provenance_binding:
   source_opaque_byte_equality: "96/96"
   independently_recheckable_from_tracked_metadata: true
   ignored_diagnostic_files_required_for_recheck: false
+  request_response_wall_clock_timestamps_retained: false
+  one_response_per_request_evidence: "96 unique one-image returned payloads with exact request, returned-parameter,
+    parsed-response, PNG, seed, and hash bindings; wall-clock dispatch and response timestamps are not decision inputs"
 runtime_preflight:
   at: "2026-09-08T05:38:08.482Z"
   execution: "e0975f4a-1421-4428-bb9b-07d57b48e742"
@@ -127,8 +243,8 @@ panels:
     image_file: "panels/CAM-037-A_01.png"
     image_sha256: "36c510df034201010f1cdd2f052890e2b9e308e8020cbf3553204aa1db840993"
     image_bytes: 945168
-    dispatch_started_at: "2026-09-08T05:39:23.654Z"
-    response_received_at: "2026-09-08T05:39:23.654Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -268,13 +384,15 @@ panels:
     opaque_sha256: "36c510df034201010f1cdd2f052890e2b9e308e8020cbf3553204aa1db840993"
     opaque_bytes: 945168
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:39:23.654Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 2
     seed: 1753593023
     image_file: "panels/CAM-037-A_02.png"
     image_sha256: "cf58a2f3a8531f28e2adb912145d6c59c78264a097d015e91446c32238d35279"
     image_bytes: 876733
-    dispatch_started_at: "2026-09-08T05:39:29.346Z"
-    response_received_at: "2026-09-08T05:39:29.346Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -414,13 +532,15 @@ panels:
     opaque_sha256: "cf58a2f3a8531f28e2adb912145d6c59c78264a097d015e91446c32238d35279"
     opaque_bytes: 876733
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:39:29.346Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 3
     seed: 425238394
     image_file: "panels/CAM-037-A_03.png"
     image_sha256: "34c58ce29bcaadfcbbcc441c6440a57c5e1ce62532cceabde0dbbb98a21478aa"
     image_bytes: 991484
-    dispatch_started_at: "2026-09-08T05:39:35.153Z"
-    response_received_at: "2026-09-08T05:39:35.153Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -560,13 +680,15 @@ panels:
     opaque_sha256: "34c58ce29bcaadfcbbcc441c6440a57c5e1ce62532cceabde0dbbb98a21478aa"
     opaque_bytes: 991484
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:39:35.153Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 4
     seed: 575864087
     image_file: "panels/CAM-037-A_04.png"
     image_sha256: "0735fb1216b18690b90a9e3800cc4af6006d34a208a848d09e98928673e6d951"
     image_bytes: 919426
-    dispatch_started_at: "2026-09-08T05:39:40.886Z"
-    response_received_at: "2026-09-08T05:39:40.886Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -706,13 +828,15 @@ panels:
     opaque_sha256: "0735fb1216b18690b90a9e3800cc4af6006d34a208a848d09e98928673e6d951"
     opaque_bytes: 919426
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:39:40.886Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 5
     seed: 1650331328
     image_file: "panels/CAM-037-A_05.png"
     image_sha256: "2d0aad819aa69b310a47d9c8ac9f68c9ff4e4b506fe051d96db89906928fac15"
     image_bytes: 858466
-    dispatch_started_at: "2026-09-08T05:39:46.630Z"
-    response_received_at: "2026-09-08T05:39:46.630Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -852,13 +976,15 @@ panels:
     opaque_sha256: "2d0aad819aa69b310a47d9c8ac9f68c9ff4e4b506fe051d96db89906928fac15"
     opaque_bytes: 858466
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:39:46.630Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 6
     seed: 1158862545
     image_file: "panels/CAM-037-A_06.png"
     image_sha256: "a7a65b8326d6316e745113a42c989a059a2f7aa1ebbf88c6a0bbf6d4b47d89e0"
     image_bytes: 1022241
-    dispatch_started_at: "2026-09-08T05:39:52.428Z"
-    response_received_at: "2026-09-08T05:39:52.428Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -998,13 +1124,15 @@ panels:
     opaque_sha256: "a7a65b8326d6316e745113a42c989a059a2f7aa1ebbf88c6a0bbf6d4b47d89e0"
     opaque_bytes: 1022241
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:39:52.428Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 7
     seed: 976332155
     image_file: "panels/CAM-037-A_07.png"
     image_sha256: "59a5fcabf48836c1eb9fdf61060ac169be004ba03a9c8c30ff1b2e775f253c6d"
     image_bytes: 949098
-    dispatch_started_at: "2026-09-08T05:39:58.269Z"
-    response_received_at: "2026-09-08T05:39:58.269Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -1144,13 +1272,15 @@ panels:
     opaque_sha256: "59a5fcabf48836c1eb9fdf61060ac169be004ba03a9c8c30ff1b2e775f253c6d"
     opaque_bytes: 949098
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:39:58.269Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 8
     seed: 901392171
     image_file: "panels/CAM-037-A_08.png"
     image_sha256: "dd1092fd795110f4bd1baaa13e3180c3196e3c6cbe91985d17a2940e94656d17"
     image_bytes: 904794
-    dispatch_started_at: "2026-09-08T05:40:04.090Z"
-    response_received_at: "2026-09-08T05:40:04.090Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -1290,13 +1420,15 @@ panels:
     opaque_sha256: "dd1092fd795110f4bd1baaa13e3180c3196e3c6cbe91985d17a2940e94656d17"
     opaque_bytes: 904794
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:04.090Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 9
     seed: 182053852
     image_file: "panels/CAM-037-A_09.png"
     image_sha256: "8f0a25ef4aa477596b391733e2fa9a07670c52606dd8443f2edb3842756d5d68"
     image_bytes: 963338
-    dispatch_started_at: "2026-09-08T05:40:09.925Z"
-    response_received_at: "2026-09-08T05:40:09.925Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -1436,13 +1568,15 @@ panels:
     opaque_sha256: "8f0a25ef4aa477596b391733e2fa9a07670c52606dd8443f2edb3842756d5d68"
     opaque_bytes: 963338
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:09.925Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 10
     seed: 1409536360
     image_file: "panels/CAM-037-A_10.png"
     image_sha256: "a8bfa7232a24fcfb285892f02606d98b2cbc837272da6ecf6d78ff6676394939"
     image_bytes: 979167
-    dispatch_started_at: "2026-09-08T05:40:15.797Z"
-    response_received_at: "2026-09-08T05:40:15.797Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -1582,13 +1716,15 @@ panels:
     opaque_sha256: "a8bfa7232a24fcfb285892f02606d98b2cbc837272da6ecf6d78ff6676394939"
     opaque_bytes: 979167
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:15.797Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 11
     seed: 699372831
     image_file: "panels/CAM-037-A_11.png"
     image_sha256: "8808f812570cdfba231479b24b9dfa0bee690b292f937f8a273e5ab35ff52fb6"
     image_bytes: 934608
-    dispatch_started_at: "2026-09-08T05:40:21.624Z"
-    response_received_at: "2026-09-08T05:40:21.624Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -1728,13 +1864,15 @@ panels:
     opaque_sha256: "8808f812570cdfba231479b24b9dfa0bee690b292f937f8a273e5ab35ff52fb6"
     opaque_bytes: 934608
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:21.624Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 12
     seed: 122859607
     image_file: "panels/CAM-037-A_12.png"
     image_sha256: "9f6e9fadeab7e662e229423c0d06098f5f3c87e68eb2b278ebeaa8ae25051706"
     image_bytes: 1064082
-    dispatch_started_at: "2026-09-08T05:40:27.563Z"
-    response_received_at: "2026-09-08T05:40:27.563Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -1874,13 +2012,15 @@ panels:
     opaque_sha256: "9f6e9fadeab7e662e229423c0d06098f5f3c87e68eb2b278ebeaa8ae25051706"
     opaque_bytes: 1064082
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:27.563Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 13
     seed: 794472485
     image_file: "panels/CAM-037-A_13.png"
     image_sha256: "992f025899e9651679556377553cc798612470502ffe13d155a2abf0cdd11ef7"
     image_bytes: 1010829
-    dispatch_started_at: "2026-09-08T05:40:33.507Z"
-    response_received_at: "2026-09-08T05:40:33.507Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -2020,13 +2160,15 @@ panels:
     opaque_sha256: "992f025899e9651679556377553cc798612470502ffe13d155a2abf0cdd11ef7"
     opaque_bytes: 1010829
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:33.507Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 14
     seed: 811591986
     image_file: "panels/CAM-037-A_14.png"
     image_sha256: "dedf5f752e99d933ca6d1459a4102f1e1e077cb8d35893b12a12321bdfe862ec"
     image_bytes: 812258
-    dispatch_started_at: "2026-09-08T05:40:39.349Z"
-    response_received_at: "2026-09-08T05:40:39.349Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -2166,13 +2308,15 @@ panels:
     opaque_sha256: "dedf5f752e99d933ca6d1459a4102f1e1e077cb8d35893b12a12321bdfe862ec"
     opaque_bytes: 812258
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:39.349Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 15
     seed: 1996974381
     image_file: "panels/CAM-037-A_15.png"
     image_sha256: "91268bb3dcb032e9e7a4b79183b0d57c150577b9eb30214c5b023b908e626170"
     image_bytes: 868024
-    dispatch_started_at: "2026-09-08T05:40:45.211Z"
-    response_received_at: "2026-09-08T05:40:45.211Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -2312,13 +2456,15 @@ panels:
     opaque_sha256: "91268bb3dcb032e9e7a4b79183b0d57c150577b9eb30214c5b023b908e626170"
     opaque_bytes: 868024
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:45.211Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 16
     seed: 183486859
     image_file: "panels/CAM-037-A_16.png"
     image_sha256: "d647419545cb94b0d9f28c32a7327c015f50ba0ccf5370f2b909319725b7a027"
     image_bytes: 941232
-    dispatch_started_at: "2026-09-08T05:40:51.114Z"
-    response_received_at: "2026-09-08T05:40:51.114Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -2458,13 +2604,15 @@ panels:
     opaque_sha256: "d647419545cb94b0d9f28c32a7327c015f50ba0ccf5370f2b909319725b7a027"
     opaque_bytes: 941232
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:51.114Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 17
     seed: 691273007
     image_file: "panels/CAM-037-A_17.png"
     image_sha256: "0aa9cb6401f9815db4daaf719ba19677947127a55031a938fb66dd6641bf3dc4"
     image_bytes: 940935
-    dispatch_started_at: "2026-09-08T05:40:57.014Z"
-    response_received_at: "2026-09-08T05:40:57.014Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -2604,13 +2752,15 @@ panels:
     opaque_sha256: "0aa9cb6401f9815db4daaf719ba19677947127a55031a938fb66dd6641bf3dc4"
     opaque_bytes: 940935
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:40:57.014Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 18
     seed: 1514773543
     image_file: "panels/CAM-037-A_18.png"
     image_sha256: "ea8e201db35e6a576e0bc096928daf54f2fd1204b761db92808f4fa28273c598"
     image_bytes: 1047221
-    dispatch_started_at: "2026-09-08T05:41:03.031Z"
-    response_received_at: "2026-09-08T05:41:03.031Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -2750,13 +2900,15 @@ panels:
     opaque_sha256: "ea8e201db35e6a576e0bc096928daf54f2fd1204b761db92808f4fa28273c598"
     opaque_bytes: 1047221
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:03.031Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 19
     seed: 1533834927
     image_file: "panels/CAM-037-A_19.png"
     image_sha256: "60d7583feacf6c9a5ec595a5377e644dfcab7320b89dc0877f34c0ba58090924"
     image_bytes: 868068
-    dispatch_started_at: "2026-09-08T05:41:08.949Z"
-    response_received_at: "2026-09-08T05:41:08.949Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -2896,13 +3048,15 @@ panels:
     opaque_sha256: "60d7583feacf6c9a5ec595a5377e644dfcab7320b89dc0877f34c0ba58090924"
     opaque_bytes: 868068
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:08.949Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 20
     seed: 1044227595
     image_file: "panels/CAM-037-A_20.png"
     image_sha256: "96654554685b8d73772b96d1997405fbb557cc862f79fee998de0e4d09f5cb86"
     image_bytes: 1009076
-    dispatch_started_at: "2026-09-08T05:41:14.958Z"
-    response_received_at: "2026-09-08T05:41:14.958Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -3042,13 +3196,15 @@ panels:
     opaque_sha256: "96654554685b8d73772b96d1997405fbb557cc862f79fee998de0e4d09f5cb86"
     opaque_bytes: 1009076
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:14.958Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 21
     seed: 1542601883
     image_file: "panels/CAM-037-A_21.png"
     image_sha256: "b663fba8d2ac8c56330e58a7a07942f9e1398b08893d893d6f49b41ee86e63a0"
     image_bytes: 945788
-    dispatch_started_at: "2026-09-08T05:41:20.922Z"
-    response_received_at: "2026-09-08T05:41:20.922Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -3188,13 +3344,15 @@ panels:
     opaque_sha256: "b663fba8d2ac8c56330e58a7a07942f9e1398b08893d893d6f49b41ee86e63a0"
     opaque_bytes: 945788
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:20.922Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 22
     seed: 1384929520
     image_file: "panels/CAM-037-A_22.png"
     image_sha256: "60d8fcfa1b8dfa48b0bd34eee8f19294439678da152ac17cf6c8ddaa05b344bd"
     image_bytes: 823720
-    dispatch_started_at: "2026-09-08T05:41:26.844Z"
-    response_received_at: "2026-09-08T05:41:26.844Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -3334,13 +3492,15 @@ panels:
     opaque_sha256: "60d8fcfa1b8dfa48b0bd34eee8f19294439678da152ac17cf6c8ddaa05b344bd"
     opaque_bytes: 823720
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:26.844Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 23
     seed: 1775054129
     image_file: "panels/CAM-037-A_23.png"
     image_sha256: "f1ff562926cb6dc38182b34c10352aa7f4aaee06c4c8f38df7483dc502f859a2"
     image_bytes: 999836
-    dispatch_started_at: "2026-09-08T05:41:32.845Z"
-    response_received_at: "2026-09-08T05:41:32.845Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -3480,13 +3640,15 @@ panels:
     opaque_sha256: "f1ff562926cb6dc38182b34c10352aa7f4aaee06c4c8f38df7483dc502f859a2"
     opaque_bytes: 999836
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:32.845Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
   - panel_id: 24
     seed: 1014239027
     image_file: "panels/CAM-037-A_24.png"
     image_sha256: "ae769cb47b7e06160e47fbb9b81e0378d557cd783ec3336dab40188147b2f1e3"
     image_bytes: 870416
-    dispatch_started_at: "2026-09-08T05:41:38.802Z"
-    response_received_at: "2026-09-08T05:41:38.802Z"
+    dispatch_started_at: null
+    response_received_at: null
     request:
       prompt: "1girl, solo, neutral expression, front view, plain fitted sleeveless top, simple studio background, upper body"
       negative_prompt: "low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers, missing fingers,
@@ -3626,6 +3788,8 @@ panels:
     opaque_sha256: "ae769cb47b7e06160e47fbb9b81e0378d557cd783ec3336dab40188147b2f1e3"
     opaque_bytes: 870416
     source_opaque_byte_equal: true
+    panel_recorded_at: "2026-09-08T05:41:38.802Z"
+    request_response_timing_status: "not_retained; panel_recorded_at is the PNG filesystem write timestamp and is not a dispatch or response timestamp"
 prompt_blind_record_owner:
   record_type: "tracked_prompt_blind_record_owner_v1"
   owner_path: "research/sd-prompt-research/experiments/camera/CAM-037-A/source/CAM-037-A_metadata.yaml"
