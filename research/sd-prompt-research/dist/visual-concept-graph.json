@@ -1,7 +1,7 @@
 {
   "schema_version": "0.2.0",
-  "graph_version": "0.2.9",
-  "generated_at": "2026-09-08T10:39:57Z",
+  "graph_version": "0.2.10",
+  "generated_at": "2026-09-08T18:33:07Z",
   "source_files": [
     "concepts/physical-concepts.json",
     "concepts/relations.json",
@@ -1436,7 +1436,7 @@
       "model_behaviors": [
         {
           "model_profile_id": "model.novaanimexl_ilv190",
-          "observed_behavior": "CAM-017-B produced fully visible left and right hands in 3/6 panels each under the tested neutral full-subject context; the result was weaker and context-dependent. CAM-018 identifies pose/body overlap as the dominant observed limiter in its bounded matched conditions, and CAM-019 independently reproduces a matched 5/6 complete-bilateral visibility loss when the requested behind-body placement is visibly realized.",
+          "observed_behavior": "CAM-017-B produced fully visible left and right hands in 3/6 panels each under the tested neutral full-subject context; the result was weaker and context-dependent. CAM-018 identifies pose/body overlap as the dominant observed limiter in its bounded matched conditions, CAM-019 independently reproduces a matched 5/6 complete-bilateral visibility loss when the requested behind-body placement is visibly realized, and CAM-039 reinforces that bounded relationship at 24 matched seeds with complete-bilateral visibility loss and direct bilateral body occlusion in 24/24 behind-body panels.",
           "status": "provisional",
           "evidence_refs": [
             {
@@ -1471,13 +1471,93 @@
               "notes": [
                 "The ambiguity count is retained to prevent interpreting the hand-visible arm as stable support."
               ]
+            },
+            {
+              "evidence_ref_id": "evidence.cam039a.left_hand_fully_visible",
+              "run_id": "CAM-039-A",
+              "observation_path": "experiments/camera/CAM-039-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.left_hand_visibility.fully_visible",
+              "count": 24,
+              "total": 24,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam039a.right_hand_fully_visible",
+              "run_id": "CAM-039-A",
+              "observation_path": "experiments/camera/CAM-039-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.right_hand_visibility.fully_visible",
+              "count": 24,
+              "total": 24,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam039a.arms_alongside_torso",
+              "run_id": "CAM-039-A",
+              "observation_path": "experiments/camera/CAM-039-A/observation.json",
+              "metric": "computed_aggregate.axis_counts.arm_placement_observation.alongside_torso",
+              "count": 24,
+              "total": 24,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam039b.left_hand_not_visible",
+              "run_id": "CAM-039-B",
+              "observation_path": "experiments/camera/CAM-039-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.left_hand_visibility.not_visible",
+              "count": 24,
+              "total": 24,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam039b.right_hand_not_visible",
+              "run_id": "CAM-039-B",
+              "observation_path": "experiments/camera/CAM-039-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.right_hand_visibility.not_visible",
+              "count": 24,
+              "total": 24,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam039b.left_hand_body_occlusion",
+              "run_id": "CAM-039-B",
+              "observation_path": "experiments/camera/CAM-039-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.left_hand_occlusion_source.body",
+              "count": 24,
+              "total": 24,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam039b.right_hand_body_occlusion",
+              "run_id": "CAM-039-B",
+              "observation_path": "experiments/camera/CAM-039-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.right_hand_occlusion_source.body",
+              "count": 24,
+              "total": 24,
+              "confidence": "high",
+              "storage": "local"
+            },
+            {
+              "evidence_ref_id": "evidence.cam039b.hands_behind_torso",
+              "run_id": "CAM-039-B",
+              "observation_path": "experiments/camera/CAM-039-B/observation.json",
+              "metric": "computed_aggregate.axis_counts.arm_placement_observation.behind_torso",
+              "count": 24,
+              "total": 24,
+              "confidence": "high",
+              "storage": "local"
             }
           ]
         }
       ],
       "status": "provisional",
       "notes": [
-        "The existing unmodeled.pose_body_overlap.hand_visibility owner retains the bounded CAM-018 and CAM-019 attribution evidence; no universal hand-visibility rule is asserted."
+        "This visibility.hands owner retains the bounded CAM-018, CAM-019, and CAM-039 attribution evidence; the production-consumed unmodeled.pose_body_overlap.hand_visibility effect remains limited to CAM-018 and CAM-019, and no universal hand-visibility rule is asserted."
       ]
     },
     {
@@ -2186,9 +2266,10 @@
       "notes": [
         "CAM-018 matched review records complete-bilateral-hand loss for the reference-to-pose/body arm in 5/6 seeds, versus 0/6 for both the framing and realized clothing arms.",
         "CAM-019 independently records a 5/6 matched complete-bilateral visibility loss from relaxed-at-sides to the realized behind-body treatment, with direct bilateral body occlusion in the same 5/6 panels.",
+        "CAM-039 high-sample replication reinforces this bounded effect: the visibility.hands owner records complete bilateral visibility in 24/24 relaxed-at-sides reference panels and 0/24 behind-body panels, with direct bilateral body occlusion and matched visibility loss in 24/24 pairs; the predeclared one-sided exact paired p-value is 0.000000059604644775390625.",
         "CAM-019-B retained complete bilateral visibility in 6/6 panels but realized alongside-torso placement in 6/6 and the requested hands-in-front placement in 0/6, so it supports no hands-in-front control claim.",
         "The clothing control establishes only that the realized CAM-018 long-sleeve treatment did not limit hand visibility; it does not generalize to other garments or poses.",
-        "The combined evidence is available to future visibility-resolution design as a bounded arm-placement/body-occlusion risk; it creates no production rule, automatic pose correction, or universal causal claim."
+        "The combined evidence is available to future visibility-resolution design as a bounded arm-placement/body-occlusion risk under the cited prompt families, checkpoint, and runtime; it creates no production rule, automatic pose correction, or universal causal claim."
       ]
     },
     {
@@ -2949,6 +3030,12 @@
       ],
       "CAM-038-H": [
         "unmodeled.prompt_interaction.upper_body_framing_cam038"
+      ],
+      "CAM-039-A": [
+        "visibility.hands"
+      ],
+      "CAM-039-B": [
+        "visibility.hands"
       ],
       "CLOTHING-001-A": [
         "clothing.upper.oversized_white_tshirt",
