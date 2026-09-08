@@ -147,6 +147,65 @@
           "CAM-019-C"
         ]
       }
+    },
+    {
+      "advisory_id": "upper_body_framing_widening_risk",
+      "effect_id": "unmodeled.prompt_interaction.upper_body_framing_cam038",
+      "target_concept_id": "camera.framing.upper_body",
+      "required_prompt_tag": {
+        "prompt_tag_id": "cam-upper-body",
+        "prompt": "upper body",
+        "category": "camera",
+        "slot": "camera_framing"
+      },
+      "factor_prompt_tags": [
+        {
+          "prompt_tag_id": "pos-standing",
+          "prompt": "standing",
+          "category": "pose",
+          "slot": "body_posture"
+        },
+        {
+          "prompt_tag_id": "clo-barefoot",
+          "prompt": "barefoot",
+          "category": "clothes",
+          "slot": "footwear"
+        },
+        {
+          "prompt_tag_id": "derived-color-clo-shorts-black",
+          "prompt": "black shorts",
+          "category": "clothes",
+          "slot": "bottoms",
+          "base_prompt_tag_id": "clo-shorts",
+          "color_modifier": "black"
+        }
+      ],
+      "risky_prompt_tag_combinations": [
+        [
+          "pos-standing",
+          "clo-barefoot"
+        ],
+        [
+          "clo-barefoot",
+          "derived-color-clo-shorts-black"
+        ]
+      ],
+      "advisory_status": "ADVISORY_ONLY",
+      "confidence": "high",
+      "model_profile": "model.novaanimexl_ilv190",
+      "explanation": {
+        "summary": "In the complete matched-seed CAM-038 2^3 prompt family, the Holm-controlled binary upper-body-realization effects were: standing main negative (-0.28125), barefoot main negative (-0.21875), black-shorts main positive (0.260416667), standing x barefoot negative (-0.40625), and barefoot x black shorts negative (-0.322916667). Standing x black shorts and the standing x barefoot x black-shorts interaction were unsupported after Holm correction; unsupported is not equivalence or absence.",
+        "source_run_ids": [
+          "CAM-038-A",
+          "CAM-038-B",
+          "CAM-038-C",
+          "CAM-038-D",
+          "CAM-038-E",
+          "CAM-038-F",
+          "CAM-038-G",
+          "CAM-038-H"
+        ]
+      }
     }
   ],
   "relations": []

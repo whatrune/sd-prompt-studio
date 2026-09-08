@@ -505,7 +505,8 @@ export default function App() {
   const visualConceptAdvisory = expansion.visualConceptAdvisory
   const requiredVisibleRegionConceptIds = visualConceptAdvisory.constraint_metadata.requested.required_visible_region_concept_ids
   const visualConceptRiskEntries = visualConceptAdvisory.constraint_metadata.advisory_inspection.entries
-  const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0 && visualConceptRiskEntries.length === 0
+  const visualConceptVisibilityRiskEntries = visualConceptRiskEntries.filter(entry=>entry.trigger_context.required_visible_region_concept_ids.length>0)
+  const visibilityIntentAcknowledgement = requiredVisibleRegionConceptIds.length > 0 && visualConceptVisibilityRiskEntries.length === 0
     ? `${requiredVisibleRegionConceptIds.length} visibility ${requiredVisibleRegionConceptIds.length===1?'requirement':'requirements'} active. No known visibility risk for the current selection.`
     : null
 
@@ -1089,8 +1090,8 @@ export default function App() {
               <AlertTriangle size={16}/>
               <div>
                 <div className="visual-concept-risk-advisory-announcement" role="status" aria-live="polite">
-                  <strong>Hand visibility may be reduced by the current pose or arm placement.</strong>
-                  <span>Review current pose or arm placement.</span>
+                  <strong>{entry.presentation.warning}</strong>
+                  <span>{entry.presentation.recommendation}</span>
                 </div>
                 <small>Informational only — your prompt and selections are unchanged.</small>
                 <details className="visual-concept-risk-advisory-details">
@@ -1098,7 +1099,7 @@ export default function App() {
                   <div>
                     <span>{entry.explanation.summary}</span>
                     <small>{entry.recommendation.message}</small>
-                    <small>Context: {entry.trigger_context.required_visible_region_concept_ids.join(' · ')} + {entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id).join(' · ')}</small>
+                    <small>Context: {[...entry.trigger_context.required_visible_region_concept_ids,...entry.trigger_context.required_prompt_tags.map(tag=>tag.prompt_tag_id),...entry.trigger_context.trigger_prompt_tags.map(tag=>tag.prompt_tag_id)].join(' · ')}</small>
                     <small>Evidence runs: {entry.evidence.source_run_ids.join(' · ')}</small>
                     <small><code>{entry.recommendation.suggestion_type}</code> · advisory only</small>
                     <small><code>{entry.advisory_type}</code> · {entry.evidence.status} / {entry.evidence.confidence}</small>
