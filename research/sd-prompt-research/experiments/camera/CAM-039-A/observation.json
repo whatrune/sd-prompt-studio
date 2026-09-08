@@ -1,0 +1,828 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-039-A",
+  "blind_condition_label": "COND-75020b417495e50c",
+  "panel_count": 24,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "left_hand_visibility",
+    "right_hand_visibility",
+    "left_hand_frame_boundary",
+    "right_hand_frame_boundary",
+    "left_hand_occlusion_source",
+    "right_hand_occlusion_source",
+    "arm_placement_observation",
+    "body_coverage",
+    "hand_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-75020b417495e50c: complete bilateral hand visibility=24/24; both hands not visible=0/24.",
+      "Opaque condition COND-75020b417495e50c: observed placement pattern=24/24; assessable=24/24; ambiguity/artifact=0/24."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested arm placement, run mapping, prompts, seeds, PromptTag IDs, and emitted phrases were withheld.",
+      "The 48-panel opaque observation record was frozen before mapping disclosure at SHA-256 2b4ae59016596cef0c84a9c54e2fbd2ec6d4fa4c01d1f49f5f2a47641d802bad.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen observation.",
+      "Prompt compliance, paired testing, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 7,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 8,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 9,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 10,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 11,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 12,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 13,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 14,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 15,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 16,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 17,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 18,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 19,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 20,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 21,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 22,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 23,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 24,
+      "axis_values": [
+        "fully_visible",
+        "fully_visible",
+        "fully_inside_frame",
+        "fully_inside_frame",
+        "none",
+        "none",
+        "alongside_torso",
+        "full_body",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "behind_body_hand_visibility_high_sample_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Both hand contours are fully visible beside the torso or shorts and remain completely inside the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "left_hand_visibility": {
+        "fully_visible": 24
+      },
+      "right_hand_visibility": {
+        "fully_visible": 24
+      },
+      "left_hand_frame_boundary": {
+        "fully_inside_frame": 24
+      },
+      "right_hand_frame_boundary": {
+        "fully_inside_frame": 24
+      },
+      "left_hand_occlusion_source": {
+        "none": 24
+      },
+      "right_hand_occlusion_source": {
+        "none": 24
+      },
+      "arm_placement_observation": {
+        "alongside_torso": 24
+      },
+      "body_coverage": {
+        "full_body": 24
+      },
+      "hand_assessability": {
+        "assessable": 24
+      },
+      "ambiguity_or_artifact": {
+        "none": 24
+      }
+    },
+    "primary_morphology_counts": {
+      "behind_body_hand_visibility_high_sample_observation": 24
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 24
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
