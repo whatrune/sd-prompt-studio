@@ -1,0 +1,1117 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-043-B",
+  "blind_condition_label": "COND-f36b03b64a15",
+  "panel_count": 24,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "left_knee_visibility",
+    "right_knee_visibility",
+    "support_foot_visibility",
+    "raised_foot_visibility",
+    "standing_split_realization",
+    "pose_assessability",
+    "framing_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Cowboy-shot or slightly tighter upper-body composition; knees and feet remain outside the visible frame in every panel.",
+      "Standing-split geometry cannot be scored because the required lower-body regions are hidden in every panel."
+    ],
+    "analysis_notes": [
+      "Condition meaning, PromptTags, emitted phrases, prompts, seeds, and mapping were withheld.",
+      "The 48-row opaque visual record was frozen before mapping disclosure at SHA-256 42c0396bef85b814bb7c31f9dda9c788cc39bd9a952ecf3dcc5790483a407019.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen observation.",
+      "Prompt compliance, matched analysis, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 7,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at proximal thigh and is categorized as upper body.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 8,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 9,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 10,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 11,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 12,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 13,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 14,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at proximal thigh and is categorized as upper body.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 15,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at proximal thigh and is categorized as upper body.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 16,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 17,
+      "axis_values": [
+        "upper_body",
+        "hairline",
+        "proximal_thigh",
+        "partially_cropped",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "composition_artifact"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at proximal thigh and is categorized as upper body.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The top of the head is clipped by the frame."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "composition_artifact"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 18,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at proximal thigh and is categorized as upper body.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 19,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "pelvis",
+        "fully_visible",
+        "fully_visible",
+        "partially_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at pelvis and is categorized as upper body.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 20,
+      "axis_values": [
+        "upper_body",
+        "above_head",
+        "proximal_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at proximal thigh and is categorized as upper body.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 21,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 22,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 23,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 24,
+      "axis_values": [
+        "cowboy_shot",
+        "above_head",
+        "mid_thigh",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "not_visible",
+        "indeterminate_hidden_required_regions",
+        "unassessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_lower_body_cropped",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible composition ends at mid thigh and is categorized as cowboy shot.",
+        "The torso and pelvis are visible, but neither knee nor either foot is visible; standing-split leg geometry cannot be assessed from visible evidence.",
+        "The full head is visible."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [
+    {
+      "panel_id": 1,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 2,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 3,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 4,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 5,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 6,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 7,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 8,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 9,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 10,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 11,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 12,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 13,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 14,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 15,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 16,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 17,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 18,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 19,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 20,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 21,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 22,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 23,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    },
+    {
+      "panel_id": 24,
+      "field": "standing_split_realization",
+      "reason": "Both knees and both feet are outside the visible frame, so the required standing-split geometry is unassessable."
+    }
+  ],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "cowboy_shot": 17,
+        "upper_body": 7
+      },
+      "upper_crop_boundary": {
+        "above_head": 23,
+        "hairline": 1
+      },
+      "lower_crop_boundary": {
+        "mid_thigh": 17,
+        "proximal_thigh": 6,
+        "pelvis": 1
+      },
+      "head_visibility": {
+        "fully_visible": 23,
+        "partially_cropped": 1
+      },
+      "torso_visibility": {
+        "fully_visible": 24
+      },
+      "pelvis_visibility": {
+        "fully_visible": 23,
+        "partially_visible": 1
+      },
+      "left_knee_visibility": {
+        "not_visible": 24
+      },
+      "right_knee_visibility": {
+        "not_visible": 24
+      },
+      "support_foot_visibility": {
+        "not_visible": 24
+      },
+      "raised_foot_visibility": {
+        "not_visible": 24
+      },
+      "standing_split_realization": {
+        "indeterminate_hidden_required_regions": 24
+      },
+      "pose_assessability": {
+        "unassessable": 24
+      },
+      "framing_assessability": {
+        "assessable": 24
+      },
+      "ambiguity_or_artifact": {
+        "none": 23,
+        "composition_artifact": 1
+      }
+    },
+    "primary_morphology_counts": {
+      "upright_character_with_lower_body_cropped": 24
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 23,
+      "composition_artifact": 1
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

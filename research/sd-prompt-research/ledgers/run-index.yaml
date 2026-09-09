@@ -1221,3 +1221,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-10T02:59:46+09:00'
   path: experiments/camera/CAM-042-B
+- run_id: CAM-043-A
+  domain: camera
+  title: CAM-043-A — cowboy shot
+  status: OBSERVED
+  updated_at: '2026-09-10T04:39:14+09:00'
+  path: experiments/camera/CAM-043-A
+- run_id: CAM-043-B
+  domain: camera
+  title: CAM-043-B — cowboy shot + standing split
+  status: OBSERVED
+  updated_at: '2026-09-10T04:39:14+09:00'
+  path: experiments/camera/CAM-043-B
