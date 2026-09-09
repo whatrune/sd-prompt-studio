@@ -1,0 +1,135 @@
+schema_version: "3.0"
+target_concept: strong downward camera viewpoint under matched production PromptTags
+blind_analysis: true
+special_values:
+  unclear: The visible pixels do not support a reliable category.
+  not_visible: The relevant evidence is not visible.
+axis_catalog:
+  vertical_camera_relation:
+    label: Vertical Camera Relation
+    allowed_values:
+      - above_subject
+      - approximately_level
+      - below_subject
+      - unclear
+  downward_perspective_strength:
+    label: Downward Perspective Strength
+    allowed_values:
+      - strong
+      - moderate
+      - weak
+      - absent
+      - unclear
+  crown_visibility:
+    label: Crown Visibility
+    allowed_values:
+      - prominent
+      - visible
+      - minimal
+      - not_visible
+      - region_not_visible
+      - unclear
+  under_chin_visibility:
+    label: Under Chin Visibility
+    allowed_values:
+      - visible
+      - not_visible
+      - region_not_visible
+      - unclear
+  floor_visibility:
+    label: Floor Visibility
+    allowed_values:
+      - dominant
+      - substantial
+      - minimal
+      - not_visible
+      - unclear
+  subject_foreshortening:
+    label: Subject Foreshortening
+    allowed_values:
+      - strong
+      - moderate
+      - weak
+      - none
+      - unclear
+  vertical_viewpoint_assessability:
+    label: Vertical Viewpoint Assessability
+    allowed_values:
+      - assessable
+      - unassessable
+      - unclear
+  full_body_visibility:
+    label: Full Body Visibility
+    allowed_values:
+      - visible
+      - partial
+      - not_visible
+      - unclear
+  ambiguity_or_artifact:
+    label: Ambiguity Or Artifact
+    allowed_values:
+      - none
+      - viewpoint_ambiguous
+      - anatomy_artifact
+      - composition_artifact
+      - multiple
+active_observation_axes:
+  - vertical_camera_relation
+  - downward_perspective_strength
+  - crown_visibility
+  - under_chin_visibility
+  - floor_visibility
+  - subject_foreshortening
+  - vertical_viewpoint_assessability
+  - full_body_visibility
+  - ambiguity_or_artifact
+contact_load:
+  enabled: true
+  fields:
+    - left_hand
+    - right_hand
+    - left_forearm
+    - right_forearm
+  allowed_values:
+    - none
+    - light
+    - supporting
+    - weight_bearing
+    - unclear
+morphology_candidates:
+  primary:
+    - vertical_camera_viewpoint_observation
+  secondary: []
+artifact_checks:
+  - none
+  - viewpoint_ambiguous
+  - anatomy_artifact
+  - composition_artifact
+  - multiple
+cross_domain_effects:
+  enabled: true
+  domains:
+    - camera
+    - composition
+    - pose
+  strength_values:
+    - weak
+    - moderate
+    - strong
+  effect_type_values:
+    - interaction
+    - spillover
+    - constraint
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  enforce_visible_evidence_policy: true
+  prompt_blind_freeze_required: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  twenty_four_images_per_condition_are_bounded_evidence_only: true
+blind_condition_label: COND-58faa8335b
+run_id: CAM-041-A

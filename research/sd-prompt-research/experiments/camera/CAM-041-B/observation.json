@@ -1,0 +1,804 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-041-B",
+  "blind_condition_label": "COND-078b530a5e",
+  "panel_count": 24,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "vertical_camera_relation",
+    "downward_perspective_strength",
+    "crown_visibility",
+    "under_chin_visibility",
+    "floor_visibility",
+    "subject_foreshortening",
+    "vertical_viewpoint_assessability",
+    "full_body_visibility",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-078b530a5e: strong downward viewpoint=24/24; viewpoint assessable=24/24; full body visible=20/24.",
+      "Opaque condition COND-078b530a5e: ambiguity/artifact=0/24; observations remain mapping-blind."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested viewpoint, run mapping, prompts, seeds, PromptTag IDs, and emitted phrases were withheld.",
+      "The 48-panel opaque observation record was frozen before mapping disclosure at SHA-256 2487795d600bbe52adc3f95129e425b846457f9bd317a061002ac46e89c36de8.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen observation.",
+      "Prompt compliance, paired testing, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "region_not_visible",
+        "region_not_visible",
+        "substantial",
+        "moderate",
+        "assessable",
+        "partial",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the subject: converging floor geometry dominates and the body is vertically foreshortened. The generated composition crops part or all of the head, but the vertical viewpoint remains assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 7,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 8,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 9,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 10,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 11,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 12,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 13,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 14,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 15,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 16,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 17,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 18,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "region_not_visible",
+        "region_not_visible",
+        "substantial",
+        "moderate",
+        "assessable",
+        "partial",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the subject: converging floor geometry dominates and the body is vertically foreshortened. The generated composition crops part or all of the head, but the vertical viewpoint remains assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 19,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 20,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 21,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "region_not_visible",
+        "region_not_visible",
+        "substantial",
+        "moderate",
+        "assessable",
+        "partial",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the subject: converging floor geometry dominates and the body is vertically foreshortened. The generated composition crops part or all of the head, but the vertical viewpoint remains assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 22,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "region_not_visible",
+        "region_not_visible",
+        "substantial",
+        "moderate",
+        "assessable",
+        "partial",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the subject: converging floor geometry dominates and the body is vertically foreshortened. The generated composition crops part or all of the head, but the vertical viewpoint remains assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 23,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 24,
+      "axis_values": [
+        "above_subject",
+        "strong",
+        "visible",
+        "not_visible",
+        "dominant",
+        "moderate",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "vertical_camera_viewpoint_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The camera is visibly above the complete subject: the crown is visible, the chin underside is not exposed, floor geometry dominates, and the body is vertically foreshortened."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "vertical_camera_relation": {
+        "above_subject": 24
+      },
+      "downward_perspective_strength": {
+        "strong": 24
+      },
+      "crown_visibility": {
+        "visible": 20,
+        "region_not_visible": 4
+      },
+      "under_chin_visibility": {
+        "not_visible": 20,
+        "region_not_visible": 4
+      },
+      "floor_visibility": {
+        "dominant": 20,
+        "substantial": 4
+      },
+      "subject_foreshortening": {
+        "moderate": 24
+      },
+      "vertical_viewpoint_assessability": {
+        "assessable": 24
+      },
+      "full_body_visibility": {
+        "visible": 20,
+        "partial": 4
+      },
+      "ambiguity_or_artifact": {
+        "none": 24
+      }
+    },
+    "primary_morphology_counts": {
+      "vertical_camera_viewpoint_observation": 24
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 24
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
