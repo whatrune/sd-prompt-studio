@@ -1,0 +1,125 @@
+schema_version: '1.0'
+run_id: CAM-042-B
+domain: camera
+condition: three-quarter view
+title: CAM-042-B — three-quarter view
+status: OBSERVED
+created_at: 2026-09-09 17:56:07.441000+00:00
+updated_at: '2026-09-10T02:59:46+09:00'
+research:
+  target_phrase: three-quarter view
+  research_question: Do the exact production front view and three-quarter view PromptTags
+    produce a reliably different realized character orientation under a high-sample
+    matched-seed design?
+  baseline_run_id: CAM-010-A
+  variant_label: three-quarter view
+  hypothesis_before_run: The exact phrases may separate strict frontal from three-quarter
+    character orientation.
+prompt:
+  positive: 1girl, solo, neutral expression, plain fitted sleeveless top, simple studio
+    background, upper body, three-quarter view
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands,
+    extra fingers, missing fingers, extra limbs, fused limbs, text, watermark, multiple
+    people, cropped face
+  changed_phrases:
+  - three-quarter view
+  fixed_phrases:
+  - 1girl
+  - solo
+  - neutral expression
+  - plain fitted sleeveless top
+  - simple studio background
+  - upper body
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ''
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+  - 1187832995
+  - 1580015529
+  - 1371729660
+  - 357673492
+  - 1266050890
+  - 2087028300
+  - 316433516
+  - 627925268
+  - 663198380
+  - 729297236
+  - 1977055203
+  - 640574469
+  - 1021521975
+  - 185056728
+  - 508124864
+  - 382325391
+  - 1325208279
+  - 114445193
+  - 1677307663
+  - 473169864
+  - 2065739584
+  - 700916440
+  - 715366195
+  - 575187853
+source:
+  sheet_file: null
+  metadata_file: source/CAM-042-B_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 24
+  original_filename: null
+outputs:
+  panels:
+  - panels/CAM-042-B_01.png
+  - panels/CAM-042-B_02.png
+  - panels/CAM-042-B_03.png
+  - panels/CAM-042-B_04.png
+  - panels/CAM-042-B_05.png
+  - panels/CAM-042-B_06.png
+  - panels/CAM-042-B_07.png
+  - panels/CAM-042-B_08.png
+  - panels/CAM-042-B_09.png
+  - panels/CAM-042-B_10.png
+  - panels/CAM-042-B_11.png
+  - panels/CAM-042-B_12.png
+  - panels/CAM-042-B_13.png
+  - panels/CAM-042-B_14.png
+  - panels/CAM-042-B_15.png
+  - panels/CAM-042-B_16.png
+  - panels/CAM-042-B_17.png
+  - panels/CAM-042-B_18.png
+  - panels/CAM-042-B_19.png
+  - panels/CAM-042-B_20.png
+  - panels/CAM-042-B_21.png
+  - panels/CAM-042-B_22.png
+  - panels/CAM-042-B_23.png
+  - panels/CAM-042-B_24.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: 'Generated directly through the verified A1111 txt2img API under Task #717.
+    Prompt-blind observation was frozen before condition mapping disclosure. Results
+    are research evidence only.'
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null

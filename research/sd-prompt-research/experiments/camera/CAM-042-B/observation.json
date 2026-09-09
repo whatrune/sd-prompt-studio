@@ -1,0 +1,722 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-042-B",
+  "blind_condition_label": "COND-5a6ea4c3e36d",
+  "panel_count": 24,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "character_orientation",
+    "face_orientation",
+    "torso_orientation",
+    "face_torso_visibility",
+    "orientation_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-5a6ea4c3e36d: strict frontal=13/24; three-quarter=10/24; profile/lateral=1/24.",
+      "Opaque condition COND-5a6ea4c3e36d: orientation assessable=24/24; face and torso visible=24/24; ambiguity/artifact=0/24."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, byte counts, and visible pixels; run identities, PromptTags, emitted phrases, prompts, seeds, and mapping were withheld.",
+      "The 48-panel opaque observation record was frozen before mapping disclosure at SHA-256 c4d107bbfa866c24d5660b6e0978d90287758624a3109015045cc651f47d0971.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen observation.",
+      "Prompt compliance, matched analysis, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 7,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 8,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 9,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 10,
+      "axis_values": [
+        "profile_lateral",
+        "profile",
+        "lateral",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible side silhouette dominates: one facial side is strongly reduced and the torso presents laterally rather than as an oblique three-quarter view."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 11,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 12,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 13,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 14,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 15,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 16,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 17,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 18,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 19,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 20,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 21,
+      "axis_values": [
+        "strict_frontal",
+        "frontal",
+        "frontal",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible face and torso are nearly square to the camera: bilateral facial landmarks and shoulder/chest presentation are comparable, with no clear yaw."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 22,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 23,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 24,
+      "axis_values": [
+        "three_quarter",
+        "three_quarter",
+        "three_quarter",
+        "both_visible",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "character_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Visible facial-landmark asymmetry and unequal shoulder/chest projection show clear oblique yaw while both sides remain visible, short of lateral profile."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "character_orientation": {
+        "strict_frontal": 13,
+        "three_quarter": 10,
+        "profile_lateral": 1
+      },
+      "face_orientation": {
+        "frontal": 13,
+        "three_quarter": 10,
+        "profile": 1
+      },
+      "torso_orientation": {
+        "frontal": 13,
+        "three_quarter": 10,
+        "lateral": 1
+      },
+      "face_torso_visibility": {
+        "both_visible": 24
+      },
+      "orientation_assessability": {
+        "assessable": 24
+      },
+      "ambiguity_or_artifact": {
+        "none": 24
+      }
+    },
+    "primary_morphology_counts": {
+      "character_orientation_observation": 24
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 24
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}
