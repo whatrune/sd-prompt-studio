@@ -695,6 +695,13 @@ const canonicalTaskMarkdownV1 = (request) => {
 const canonicalTaskMarkdownHeadingTextV1 = (nodes) => nodes
   .map((node) => {
     if (node.type === MarkdownRuleType.htmlComment) return ''
+    if (
+      node.type === MarkdownRuleType.breakLine ||
+      (
+        (node.type === MarkdownRuleType.htmlBlock || node.type === MarkdownRuleType.htmlSelfClosing) &&
+        (node.tag ?? '').toLowerCase() === 'br'
+      )
+    ) return ' '
     if (node.type === MarkdownRuleType.text || node.type === MarkdownRuleType.codeInline) return node.text ?? ''
     return Array.isArray(node.children) ? canonicalTaskMarkdownHeadingTextV1(node.children) : ''
   })
