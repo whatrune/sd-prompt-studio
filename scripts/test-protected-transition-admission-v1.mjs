@@ -794,6 +794,12 @@ throws(() => serializeCanonicalTaskIssueBodyV1({
   mode: 'UNBOUND_CREATE',
 }), /canonical_task_body_request_invalid/)
 throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({
+    markdown: '# Invalid\n\n## Bounded Artifact Dependency Consideration V1\n\n- Contradictory: NO',
+  }),
+  mode: 'UNBOUND_CREATE',
+}), /canonical_task_body_request_invalid/)
+throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({ authorized_paths: [CANONICAL_TASK_PATHS[0], CANONICAL_TASK_PATHS[0]] }),
   mode: 'UNBOUND_CREATE',
 }), /canonical_task_body_request_invalid/)

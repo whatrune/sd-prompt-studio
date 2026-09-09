@@ -136,6 +136,7 @@ const CANONICAL_TASK_BODY_LEGACY_GUARDED_REQUEST_FIELDS = Object.freeze([
 const CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS = Object.freeze([
   ...CANONICAL_TASK_BODY_REQUEST_FIELDS, 'artifact_dependency_consideration',
 ])
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING = '## Bounded Artifact Dependency Consideration V1'
 const POST_MERGE_TASK_CLOSE_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'head_branch', 'worktree_path',
   'local_main_sync_result', 'worktree_cleanup_result',
@@ -667,7 +668,7 @@ const canonicalTaskArtifactDependencyMarkdownV1 = (consideration) => {
     current_state_production_consumer: 'Current-state / production consumer',
   })
   return [
-    '## Bounded Artifact Dependency Consideration V1',
+    CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING,
     '',
     `- Existing canonical artifact contract change: ${consideration.existing_artifact_contract_change ? 'YES' : 'NO'}`,
     `- Artifact owner: ${JSON.stringify(consideration.artifact_owner)}`,
@@ -713,6 +714,8 @@ const canonicalTaskBodyRequestV1 = (request) => {
     typeof request.markdown !== 'string' || request.markdown.length === 0 || request.markdown.length > 32_768 ||
     request.markdown.endsWith('\n') || /[\r\u0000]/u.test(request.markdown) ||
     /(^|\n)```/u.test(request.markdown) || request.markdown.includes('System.Object[]') ||
+    (Object.hasOwn(request, 'artifact_dependency_consideration') &&
+      request.markdown.split('\n').includes(CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING)) ||
     typeof request.head_branch !== 'string' || request.head_branch.length === 0 || request.head_branch.length > 255 ||
     /[\s\\\u0000-\u001f\u007f]/u.test(request.head_branch) || request.head_branch.startsWith('/') ||
     request.head_branch.endsWith('/') || request.head_branch.includes('//') || request.head_branch.includes('..') ||
