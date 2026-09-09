@@ -60,6 +60,15 @@ const CANONICAL_TASK_PATHS = Object.freeze([
   'scripts/protected-transition-merge-operator-preflight-v1.mjs',
   'scripts/run-protected-transition-admission-v1.mjs',
 ])
+const NO_ARTIFACT_CONTRACT_CHANGE = Object.freeze({
+  existing_artifact_contract_change: false,
+  artifact_owner: 'NOT_APPLICABLE',
+  serializer_writer: 'NOT_APPLICABLE',
+  validator_schema: 'NOT_APPLICABLE',
+  renderer_exporter: 'NOT_APPLICABLE',
+  registrar_indexer: 'NOT_APPLICABLE',
+  current_state_production_consumer: 'NOT_APPLICABLE',
+})
 
 const canonicalTaskBodyRequest = (overrides = {}) => Object.freeze({
   title: 'CANONICAL_TASK_BODY_SERIALIZATION_V1',
@@ -75,8 +84,14 @@ const canonicalTaskBodyRequest = (overrides = {}) => Object.freeze({
   authorized_actor: 'whatrune',
   ready_allowed: false,
   product_owner_login: 'whatrune',
+  artifact_dependency_consideration: NO_ARTIFACT_CONTRACT_CHANGE,
   ...overrides,
 })
+
+const withoutArtifactDependencyConsideration = (request) => {
+  const { artifact_dependency_consideration: _omitted, ...legacyRequest } = request
+  return Object.freeze(legacyRequest)
+}
 
 const taskInput = Object.freeze({
   record_type: 'simplified_task_authority_v1',
@@ -677,6 +692,20 @@ const parsedCanonicalTaskBound = parseCanonicalTaskIssueBodyV1({
 })
 equal(parsedCanonicalTaskUnbound.task_authority.task_issue, 0)
 equal(parsedCanonicalTaskBound.task_authority.task_issue, 526)
+equal(
+  parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes
+    .artifact_dependency_consideration.record_type,
+  'bounded_artifact_dependency_consideration_v1',
+)
+equal(
+  parsedCanonicalTaskBound.normal_execution_predelegation.cumulative_scope,
+  'NORMAL_TASK_EXECUTION_PREDELEGATION_WITH_BOUNDED_ARTIFACT_DEPENDENCY_CONSIDERATION_V1',
+)
+equal(
+  parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes
+    .artifact_dependency_consideration.existing_artifact_contract_change,
+  false,
+)
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.task_issue, 526)
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.task_id, 'TASK-526-NORMAL-EXECUTION-PREDELEGATION')
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.expected_base, BASE)
@@ -698,6 +727,8 @@ equal(canonicalTaskBoundBody.endsWith('\n') && !canonicalTaskBoundBody.endsWith(
 ok(canonicalTaskBoundBody.includes('日本語'))
 ok(canonicalTaskBoundBody.includes('Unicode ✓'))
 ok(canonicalTaskBoundBody.includes('embedded # remain content'))
+ok(canonicalTaskBoundBody.includes('## Bounded Artifact Dependency Consideration V1'))
+ok(canonicalTaskBoundBody.includes('- Existing canonical artifact contract change: NO'))
 equal(canonicalTaskBoundBody.includes('System.Object[]'), false)
 const keepOpenCanonicalTaskBody = serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({ task_issue_closure_policy: 'KEEP_OPEN' }),
@@ -718,6 +749,92 @@ throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({ task_issue_closure_policy: 'INVALID' }),
   mode: 'UNBOUND_CREATE',
 }), /canonical_task_body_request_invalid/)
+const historicalCanonicalTaskBody = serializeCanonicalTaskIssueBodyV1({
+  request: withoutArtifactDependencyConsideration(canonicalTaskBodyRequest()),
+  mode: 'BOUND_FINAL',
+  taskIssue: 525,
+})
+equal(historicalCanonicalTaskBody.includes('Bounded Artifact Dependency Consideration V1'), false)
+const parsedHistoricalCanonicalTaskBody = parseCanonicalTaskIssueBodyV1({
+  body: historicalCanonicalTaskBody,
+  mode: 'BOUND_FINAL',
+})
+equal(parsedHistoricalCanonicalTaskBody.task_authority.task_issue, 525)
+equal(
+  parsedHistoricalCanonicalTaskBody.normal_execution_predelegation.cumulative_scope,
+  'NORMAL_TASK_EXECUTION_PREDELEGATION',
+)
+throws(() => parseCanonicalTaskIssueBodyV1({
+  body: canonicalTaskBoundBody.replace(
+    '\n\n## Bounded Artifact Dependency Consideration V1\n\n- Existing canonical artifact contract change: NO',
+    '\n\n## Bounded Artifact Dependency Consideration V1\n\n- Existing canonical artifact contract change: YES',
+  ),
+  mode: 'BOUND_FINAL',
+}), /canonical_task_body_invalid/)
+throws(() => parseCanonicalTaskIssueBodyV1({
+  body: canonicalTaskBoundBody.replace(
+    /\n\n## Bounded Artifact Dependency Consideration V1[\s\S]*?(?=\n\n# Simplified Lifecycle Task Authority)/u,
+    '',
+  ),
+  mode: 'BOUND_FINAL',
+}), /canonical_task_body_invalid/)
+{
+  const downgradedAssignment = structuredClone(parsedCanonicalTaskBound.normal_execution_predelegation)
+  delete downgradedAssignment.allowed_changes.artifact_dependency_consideration
+  const downgradedBody = canonicalTaskBoundBody
+    .replace(
+      /\n\n## Bounded Artifact Dependency Consideration V1[\s\S]*?(?=\n\n# Simplified Lifecycle Task Authority)/u,
+      '',
+    )
+    .replace(
+      yamlBlock(parsedCanonicalTaskBound.normal_execution_predelegation),
+      yamlBlock(downgradedAssignment),
+    )
+  throws(() => parseCanonicalTaskIssueBodyV1({
+    body: downgradedBody,
+    mode: 'BOUND_FINAL',
+  }), /canonical_task_body_invalid/)
+}
+{
+  const downgradedDiscriminator = structuredClone(parsedCanonicalTaskBound.normal_execution_predelegation)
+  downgradedDiscriminator.cumulative_scope = 'NORMAL_TASK_EXECUTION_PREDELEGATION'
+  throws(() => parseCanonicalTaskIssueBodyV1({
+    body: canonicalTaskBoundBody.replace(
+      yamlBlock(parsedCanonicalTaskBound.normal_execution_predelegation),
+      yamlBlock(downgradedDiscriminator),
+    ),
+    mode: 'BOUND_FINAL',
+  }), /canonical_task_body_invalid/)
+}
+{
+  const firstGuardedBoundBody = serializeCanonicalTaskIssueBodyV1({
+    request: canonicalTaskBodyRequest(),
+    mode: 'BOUND_FINAL',
+    taskIssue: 715,
+  })
+  const parsedFirstGuardedBoundBody = parseCanonicalTaskIssueBodyV1({
+    body: firstGuardedBoundBody,
+    mode: 'BOUND_FINAL',
+  })
+  const coordinatedDowngrade = structuredClone(
+    parsedFirstGuardedBoundBody.normal_execution_predelegation,
+  )
+  delete coordinatedDowngrade.allowed_changes.artifact_dependency_consideration
+  coordinatedDowngrade.cumulative_scope = 'NORMAL_TASK_EXECUTION_PREDELEGATION'
+  const coordinatedDowngradeBody = firstGuardedBoundBody
+    .replace(
+      /\n\n## Bounded Artifact Dependency Consideration V1[\s\S]*?(?=\n\n# Simplified Lifecycle Task Authority)/u,
+      '',
+    )
+    .replace(
+      yamlBlock(parsedFirstGuardedBoundBody.normal_execution_predelegation),
+      yamlBlock(coordinatedDowngrade),
+    )
+  throws(() => parseCanonicalTaskIssueBodyV1({
+    body: coordinatedDowngradeBody,
+    mode: 'BOUND_FINAL',
+  }), /canonical_task_body_invalid/)
+}
 throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({ permitted_surface: 'PULL_REQUEST_REVIEW' }),
   mode: 'UNBOUND_CREATE',
@@ -767,6 +884,42 @@ throws(() => serializeCanonicalTaskIssueBodyV1({
   mode: 'UNBOUND_CREATE',
 }), /canonical_task_body_request_invalid/)
 throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({
+    markdown: '# Invalid\n\n## Bounded Artifact Dependency Consideration V1\n\n- Contradictory: NO',
+  }),
+  mode: 'UNBOUND_CREATE',
+}), /canonical_task_body_request_invalid/)
+for (const equivalentHeading of [
+  '## Bounded Artifact Dependency Consideration V1 ',
+  '## Bounded Artifact Dependency Consideration V1 ##',
+  'Bounded Artifact Dependency Consideration V1\n---',
+  'Bounded Artifact Dependency Consideration V1\n===',
+  '## Bounded Artifact Dependency Consideration V&#49;',
+  '## Bounded Artifact Dependency Consideration &#x56;1',
+  '## Bounded&#32;Artifact Dependency Consideration V1',
+  '## Bounded&Tab;Artifact Dependency Consideration V1',
+  'Bounded Artifact Dependen&#99;y Consideration V1\n---',
+  '## Bounded Artifact Dependency Consideration V**1**',
+  '## Bounded Artifact Dependency Consideration V<!--comment-->1',
+  '## [Bounded Artifact Dependency Consideration V1](https://example.invalid)',
+  '> ## Bounded Artifact Dependency Consideration V1',
+  '<h2>Bounded Artifact Dependency Consideration V1</h2>',
+  '<h2>Bounded Artifact Dependency Consideration V<strong>1</strong></h2>',
+  '<h2>Bounded Artifact Dependency Consideration V&#49;</h2>',
+  '<h2>Bounded Artifact<br>Dependency Consideration V1</h2>',
+  '<h2>Bounded Artifact<br />Dependency Consideration V1</h2>',
+  '## Bounded Artifact Dependency Consideration V&#8203;1',
+  '## Bounded Artifact Dependency Consideration V&#x200B;1',
+  '## Bounded Artifact Dependency Consideration V\u200b1',
+]) {
+  throws(() => serializeCanonicalTaskIssueBodyV1({
+    request: canonicalTaskBodyRequest({
+      markdown: `# Invalid\n\n${equivalentHeading}\n\n- Contradictory: NO`,
+    }),
+    mode: 'UNBOUND_CREATE',
+  }), /canonical_task_body_request_invalid/)
+}
+throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({ authorized_paths: [CANONICAL_TASK_PATHS[0], CANONICAL_TASK_PATHS[0]] }),
   mode: 'UNBOUND_CREATE',
 }), /canonical_task_body_request_invalid/)
@@ -805,6 +958,87 @@ const task526Body = serializeCanonicalTaskIssueBodyV1({
 const parsedTask526Body = parseCanonicalTaskIssueBodyV1({ body: task526Body, mode: 'BOUND_FINAL' })
 equal(parsedTask526Body.task_authority.authorized_paths.join('\n'), [...task526Paths].sort().join('\n'))
 equal(task526Body.includes('System.Object[]'), false)
+
+// Task #711 regression: renderer/exporter consideration is explicit before scope freezes.
+const task711Paths = Object.freeze([
+  'research/sd-prompt-research/schemas/observation-schema.json',
+  'research/sd-prompt-research/scripts/finalize_observation.py',
+  'research/sd-prompt-research/scripts/register_research_run.py',
+  'research/sd-prompt-research/scripts/render_observation_md.py',
+])
+const task711Consideration = Object.freeze({
+  existing_artifact_contract_change: true,
+  artifact_owner: 'Observation v3',
+  serializer_writer: Object.freeze([
+    'research/sd-prompt-research/scripts/finalize_observation.py',
+  ]),
+  validator_schema: Object.freeze([
+    'research/sd-prompt-research/schemas/observation-schema.json',
+  ]),
+  renderer_exporter: Object.freeze([
+    'research/sd-prompt-research/scripts/render_observation_md.py',
+  ]),
+  registrar_indexer: Object.freeze([
+    'research/sd-prompt-research/scripts/register_research_run.py',
+  ]),
+  current_state_production_consumer: 'NOT_APPLICABLE',
+})
+const task711Request = canonicalTaskBodyRequest({
+  title: 'OBSERVATION_V3_DYNAMIC_PANEL_CARDINALITY',
+  objective: 'OBSERVATION_V3_DYNAMIC_PANEL_CARDINALITY',
+  authorized_paths: task711Paths,
+  artifact_dependency_consideration: task711Consideration,
+})
+const task711Body = serializeCanonicalTaskIssueBodyV1({
+  request: task711Request,
+  mode: 'UNBOUND_CREATE',
+})
+const parsedTask711Body = parseCanonicalTaskIssueBodyV1({ body: task711Body, mode: 'UNBOUND_CREATE' })
+ok(task711Body.includes('- Existing canonical artifact contract change: YES'))
+ok(task711Body.includes('- Artifact owner: "Observation v3"'))
+ok(task711Body.includes(
+  '- Renderer / exporter: ["research/sd-prompt-research/scripts/render_observation_md.py"]',
+))
+equal(
+  JSON.stringify(
+    parsedTask711Body.normal_execution_predelegation.allowed_changes.artifact_dependency_consideration,
+  ),
+  JSON.stringify({ record_type: 'bounded_artifact_dependency_consideration_v1', ...task711Consideration }),
+)
+{
+  const ownerTokenConsideration = Object.freeze({
+    ...task711Consideration,
+    artifact_owner: 'REVIEW_AUTHORITY_PUBLICATION',
+  })
+  const ownerTokenBody = serializeCanonicalTaskIssueBodyV1({
+    request: canonicalTaskBodyRequest({
+      authorized_paths: task711Paths,
+      artifact_dependency_consideration: ownerTokenConsideration,
+    }),
+    mode: 'BOUND_FINAL',
+    taskIssue: 715,
+  })
+  equal(
+    parseCanonicalTaskIssueBodyV1({ body: ownerTokenBody, mode: 'BOUND_FINAL' })
+      .normal_execution_predelegation.allowed_changes.artifact_dependency_consideration.artifact_owner,
+    'REVIEW_AUTHORITY_PUBLICATION',
+  )
+}
+const { renderer_exporter: _missingRenderer, ...task711WithoutRenderer } = task711Consideration
+throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({
+    authorized_paths: task711Paths,
+    artifact_dependency_consideration: task711WithoutRenderer,
+  }),
+  mode: 'UNBOUND_CREATE',
+}), /canonical_task_artifact_dependency_consideration_invalid/)
+throws(() => serializeCanonicalTaskIssueBodyV1({
+  request: canonicalTaskBodyRequest({
+    authorized_paths: task711Paths.filter((path) => !path.endsWith('render_observation_md.py')),
+    artifact_dependency_consideration: task711Consideration,
+  }),
+  mode: 'UNBOUND_CREATE',
+}), /canonical_task_artifact_dependency_scope_mismatch/)
 equal((task526Body.match(/^```json$/gmu) ?? []).length, 1)
 equal((task526Body.match(/^```yaml$/gmu) ?? []).length, 2)
 
@@ -1026,6 +1260,19 @@ const createCanonicalTaskPublicationHost = ({
       },
     },
   }
+}
+
+{
+  const fixture = createCanonicalTaskPublicationHost()
+  const error = await captureError(() => publishCanonicalTaskIssueV1({
+    request: withoutArtifactDependencyConsideration(canonicalTaskBodyRequest()),
+    host: fixture.host,
+  }))
+  equal(error.message, 'canonical_task_artifact_dependency_consideration_required')
+  equal(fixture.state.actorApiCalls, 0)
+  equal(fixture.state.createCalls, 0)
+  equal(fixture.state.patchCalls, 0)
+  equal(fixture.state.issueApiCalls, 0)
 }
 
 {

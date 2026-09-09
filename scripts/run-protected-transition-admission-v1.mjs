@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { parser as parseMarkdown, RuleType as MarkdownRuleType } from 'markdown-to-jsx'
 import { parseDocument } from 'yaml'
 import {
   acquireSimplifiedPreDecisionPreflightV1,
@@ -119,6 +120,37 @@ const CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS = Object.freeze([
 const CANONICAL_TASK_BODY_REQUEST_FIELDS = Object.freeze([
   ...CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS, 'task_issue_closure_policy',
 ])
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_CATEGORIES = Object.freeze([
+  'serializer_writer',
+  'validator_schema',
+  'renderer_exporter',
+  'registrar_indexer',
+  'current_state_production_consumer',
+])
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_CONSIDERATION_FIELDS = Object.freeze([
+  'existing_artifact_contract_change', 'artifact_owner',
+  ...CANONICAL_TASK_ARTIFACT_DEPENDENCY_CATEGORIES,
+])
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_BINDING_FIELDS = Object.freeze([
+  'record_type', ...CANONICAL_TASK_ARTIFACT_DEPENDENCY_CONSIDERATION_FIELDS,
+])
+const NORMAL_TASK_EXECUTION_GUARDED_PREDELEGATION_GRANT_FIELDS = Object.freeze([
+  ...NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS, 'artifact_dependency_consideration',
+])
+const CANONICAL_TASK_BODY_LEGACY_GUARDED_REQUEST_FIELDS = Object.freeze([
+  ...CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS, 'artifact_dependency_consideration',
+])
+const CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS = Object.freeze([
+  ...CANONICAL_TASK_BODY_REQUEST_FIELDS, 'artifact_dependency_consideration',
+])
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING = '## Bounded Artifact Dependency Consideration V1'
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE = 'Bounded Artifact Dependency Consideration V1'
+const NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE =
+  'NORMAL_TASK_EXECUTION_PREDELEGATION_WITH_BOUNDED_ARTIFACT_DEPENDENCY_CONSIDERATION_V1'
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_GUARD_FIRST_BOUND_TASK = Object.freeze({
+  'whatrune/sd-prompt-studio': 715,
+})
+const HTML_HEADING_TAG = /^h[1-6]$/iu
 const POST_MERGE_TASK_CLOSE_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'head_branch', 'worktree_path',
   'local_main_sync_result', 'worktree_cleanup_result',
@@ -557,19 +589,18 @@ const classifyReviewPublicationTaskAssignmentsV2 = (body) => {
   if (typeof body !== 'string' || body.length === 0 || body.length > 65_536) {
     throw new Error('review_publication_authority_malformed')
   }
-  const candidates = [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)]
-    .filter((block) => block[1].includes('REVIEW_AUTHORITY_PUBLICATION'))
   const predelegations = []
   const exactAssignments = []
-  for (const candidate of candidates) {
+  for (const candidate of body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)) {
+    if (!candidate[1].includes('REVIEW_AUTHORITY_PUBLICATION')) continue
     const document = parseDocument(candidate[1], { uniqueKeys: true })
     if (document.errors.length !== 0) throw new Error('review_publication_authority_malformed')
     const assignment = document.toJS()
     const grant = assignment?.allowed_changes
-    if (
-      !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
-      grant?.protected_action !== 'REVIEW_AUTHORITY_PUBLICATION'
-    ) throw new Error('review_publication_authority_malformed')
+    if (grant?.protected_action !== 'REVIEW_AUTHORITY_PUBLICATION') continue
+    if (!exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS)) {
+      throw new Error('review_publication_authority_malformed')
+    }
     if (exactKeys(grant, REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS)) {
       predelegations.push(assignment)
     } else if (
@@ -594,8 +625,132 @@ const canonicalTaskBodyModeV1 = (mode) => {
   return mode
 }
 
+const canonicalTaskArtifactDependencyConsiderationV1 = ({ consideration, authorizedPaths }) => {
+  if (!exactKeys(consideration, CANONICAL_TASK_ARTIFACT_DEPENDENCY_CONSIDERATION_FIELDS)) {
+    throw new Error('canonical_task_artifact_dependency_consideration_invalid')
+  }
+  const contractChange = consideration.existing_artifact_contract_change
+  const artifactOwner = consideration.artifact_owner
+  if (
+    typeof contractChange !== 'boolean' || typeof artifactOwner !== 'string' ||
+    artifactOwner.length === 0 || artifactOwner.length > 256 || artifactOwner !== artifactOwner.trim() ||
+    /[\u0000-\u001f\u007f`]/u.test(artifactOwner)
+  ) throw new Error('canonical_task_artifact_dependency_consideration_invalid')
+  const normalized = {}
+  let applicableCategoryCount = 0
+  for (const category of CANONICAL_TASK_ARTIFACT_DEPENDENCY_CATEGORIES) {
+    const value = consideration[category]
+    if (value === 'NOT_APPLICABLE') {
+      normalized[category] = value
+      continue
+    }
+    let paths
+    try {
+      paths = normalizedPaths(value)
+    } catch {
+      throw new Error('canonical_task_artifact_dependency_consideration_invalid')
+    }
+    if (paths.some((path) => !authorizedPaths.includes(path))) {
+      throw new Error('canonical_task_artifact_dependency_scope_mismatch')
+    }
+    normalized[category] = paths
+    applicableCategoryCount += 1
+  }
+  if (
+    (contractChange === false && (
+      artifactOwner !== 'NOT_APPLICABLE' || applicableCategoryCount !== 0
+    )) ||
+    (contractChange === true && (
+      artifactOwner === 'NOT_APPLICABLE' || applicableCategoryCount === 0
+    ))
+  ) throw new Error('canonical_task_artifact_dependency_consideration_invalid')
+  return Object.freeze({
+    existing_artifact_contract_change: contractChange,
+    artifact_owner: artifactOwner,
+    ...normalized,
+  })
+}
+
+const canonicalTaskArtifactDependencyBindingV1 = ({ consideration, authorizedPaths }) => Object.freeze({
+  record_type: 'bounded_artifact_dependency_consideration_v1',
+  ...canonicalTaskArtifactDependencyConsiderationV1({ consideration, authorizedPaths }),
+})
+
+const canonicalTaskArtifactDependencyMarkdownV1 = (consideration) => {
+  if (consideration === undefined) return ''
+  const labels = Object.freeze({
+    serializer_writer: 'Serializer / writer',
+    validator_schema: 'Validator / schema',
+    renderer_exporter: 'Renderer / exporter',
+    registrar_indexer: 'Registrar / indexer',
+    current_state_production_consumer: 'Current-state / production consumer',
+  })
+  return [
+    CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING,
+    '',
+    `- Existing canonical artifact contract change: ${consideration.existing_artifact_contract_change ? 'YES' : 'NO'}`,
+    `- Artifact owner: ${JSON.stringify(consideration.artifact_owner)}`,
+    ...CANONICAL_TASK_ARTIFACT_DEPENDENCY_CATEGORIES.map(
+      (category) => `- ${labels[category]}: ${JSON.stringify(consideration[category])}`,
+    ),
+  ].join('\n')
+}
+
+const canonicalTaskMarkdownV1 = (request) => {
+  const considerationMarkdown = canonicalTaskArtifactDependencyMarkdownV1(
+    request.artifact_dependency_consideration,
+  )
+  const markdown = considerationMarkdown.length === 0
+    ? request.markdown
+    : `${request.markdown}\n\n${considerationMarkdown}`
+  if (markdown.length > 32_768) throw new Error('canonical_task_body_request_invalid')
+  return markdown
+}
+
+const canonicalTaskMarkdownHeadingTextV1 = (nodes) => nodes
+  .map((node) => {
+    if (node.type === MarkdownRuleType.htmlComment) return ''
+    if (
+      node.type === MarkdownRuleType.breakLine ||
+      (
+        (node.type === MarkdownRuleType.htmlBlock || node.type === MarkdownRuleType.htmlSelfClosing) &&
+        (node.tag ?? '').toLowerCase() === 'br'
+      )
+    ) return ' '
+    if (node.type === MarkdownRuleType.text || node.type === MarkdownRuleType.codeInline) return node.text ?? ''
+    return Array.isArray(node.children) ? canonicalTaskMarkdownHeadingTextV1(node.children) : ''
+  })
+  .join('')
+  .replace(/\p{Default_Ignorable_Code_Point}+/gu, '')
+  .trim()
+  .replace(/\s+/gu, ' ')
+
+const hasCanonicalTaskArtifactDependencyHeadingV1 = (markdown) => {
+  const containsReservedHeading = (nodes) => nodes.some((node) => (
+    (
+      (
+        node.type === MarkdownRuleType.heading ||
+        (node.type === MarkdownRuleType.htmlBlock && HTML_HEADING_TAG.test(node.tag ?? ''))
+      ) &&
+      canonicalTaskMarkdownHeadingTextV1(node.children ?? []) === CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE
+    ) || (
+      Array.isArray(node.children) && containsReservedHeading(node.children)
+    )
+  ))
+  try {
+    return containsReservedHeading(parseMarkdown(markdown))
+  } catch {
+    return true
+  }
+}
+
 const canonicalTaskBodyRequestV1 = (request) => {
-  if (![CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS, CANONICAL_TASK_BODY_REQUEST_FIELDS]
+  if (![
+    CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS,
+    CANONICAL_TASK_BODY_REQUEST_FIELDS,
+    CANONICAL_TASK_BODY_LEGACY_GUARDED_REQUEST_FIELDS,
+    CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS,
+  ]
     .some((fields) => exactKeys(request, fields))) {
     throw new Error('canonical_task_body_request_invalid')
   }
@@ -614,6 +769,8 @@ const canonicalTaskBodyRequestV1 = (request) => {
     typeof request.markdown !== 'string' || request.markdown.length === 0 || request.markdown.length > 32_768 ||
     request.markdown.endsWith('\n') || /[\r\u0000]/u.test(request.markdown) ||
     /(^|\n)```/u.test(request.markdown) || request.markdown.includes('System.Object[]') ||
+    (Object.hasOwn(request, 'artifact_dependency_consideration') &&
+      hasCanonicalTaskArtifactDependencyHeadingV1(request.markdown)) ||
     typeof request.head_branch !== 'string' || request.head_branch.length === 0 || request.head_branch.length > 255 ||
     /[\s\\\u0000-\u001f\u007f]/u.test(request.head_branch) || request.head_branch.startsWith('/') ||
     request.head_branch.endsWith('/') || request.head_branch.includes('//') || request.head_branch.includes('..') ||
@@ -627,11 +784,22 @@ const canonicalTaskBodyRequestV1 = (request) => {
       !TASK_ISSUE_CLOSURE_POLICIES.includes(request.task_issue_closure_policy)) ||
     request.ready_allowed !== false || request.product_owner_login !== 'whatrune'
   ) throw new Error('canonical_task_body_request_invalid')
-  return Object.freeze({
+  const artifactDependencyConsideration = Object.hasOwn(request, 'artifact_dependency_consideration')
+    ? canonicalTaskArtifactDependencyConsiderationV1({
+      consideration: request.artifact_dependency_consideration,
+      authorizedPaths,
+    })
+    : undefined
+  const admitted = Object.freeze({
     ...request,
     authorized_paths: authorizedPaths,
     task_issue_closure_policy: request.task_issue_closure_policy ?? 'AUTO_CLOSE_COMPLETED',
+    ...(artifactDependencyConsideration === undefined
+      ? {}
+      : { artifact_dependency_consideration: artifactDependencyConsideration }),
   })
+  canonicalTaskMarkdownV1(admitted)
+  return admitted
 }
 
 const canonicalTaskIssueNumberV1 = ({ mode, taskIssue }) => {
@@ -704,7 +872,9 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
     authority_source: taskUrl,
     canonical_record: taskUrl,
     prior_record_url: 'not_applicable',
-    cumulative_scope: 'NORMAL_TASK_EXECUTION_PREDELEGATION',
+    cumulative_scope: request.artifact_dependency_consideration === undefined
+      ? 'NORMAL_TASK_EXECUTION_PREDELEGATION'
+      : NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE,
     supporting_records: 'not_applicable',
     requested_by: 'Product Owner',
     assigned_role: 'Bounded Normal Task Execution Host',
@@ -722,6 +892,14 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
       expected_base: request.expected_base,
       authorized_paths: request.authorized_paths,
       authorized_actor: request.authorized_actor,
+      ...(request.artifact_dependency_consideration === undefined
+        ? {}
+        : {
+          artifact_dependency_consideration: canonicalTaskArtifactDependencyBindingV1({
+            consideration: request.artifact_dependency_consideration,
+            authorizedPaths: request.authorized_paths,
+          }),
+        }),
       execution_identity_contract: 'BOUNDED_EXECUTION_IDENTITY_V1',
       allowed_operations: Object.freeze({
         worktree_creation: Object.freeze({
@@ -777,18 +955,27 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
 const serializeFencedYamlJsonV1 = (value) => `\`\`\`yaml\n${JSON.stringify(value, null, 2)}\n\`\`\`\n`
 
 const classifyNormalTaskExecutionPredelegationV1 = (body) => {
-  const candidates = [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)]
-    .filter((block) => block[1].includes('NORMAL_TASK_EXECUTION'))
+  const candidates = []
+  for (const candidate of body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)) {
+    if (!candidate[1].includes('NORMAL_TASK_EXECUTION')) continue
+    const document = parseDocument(candidate[1], { uniqueKeys: true })
+    if (document.errors.length !== 0) throw new Error('normal_task_execution_predelegation_invalid')
+    const assignment = document.toJS()
+    if (assignment?.allowed_changes?.protected_action === 'NORMAL_TASK_EXECUTION') {
+      candidates.push(assignment)
+    }
+  }
   if (candidates.length === 0) return null
   if (candidates.length !== 1) throw new Error('normal_task_execution_predelegation_invalid')
-  const document = parseDocument(candidates[0][1], { uniqueKeys: true })
-  if (document.errors.length !== 0) throw new Error('normal_task_execution_predelegation_invalid')
-  const assignment = document.toJS()
+  const assignment = candidates[0]
   const grant = assignment?.allowed_changes
   const operations = grant?.allowed_operations
   if (
     !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
-    !exactKeys(grant, NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS) ||
+      ![
+        NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS,
+        NORMAL_TASK_EXECUTION_GUARDED_PREDELEGATION_GRANT_FIELDS,
+      ].some((fields) => exactKeys(grant, fields)) ||
     ![
       NORMAL_TASK_EXECUTION_LEGACY_OPERATION_FIELDS,
       NORMAL_TASK_EXECUTION_OPERATION_FIELDS,
@@ -856,6 +1043,45 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
   const normalGrant = normalExecutionPredelegation?.allowed_changes
   const normalOperations = normalGrant?.allowed_operations
   const taskIssueClosure = normalOperations?.task_issue_closure
+  const guardedArtifactDependencyConsideration = normalExecutionPredelegation?.cumulative_scope ===
+    NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE
+  const artifactDependencyBindingPresent = normalGrant?.artifact_dependency_consideration !== undefined
+  const firstGuardedTaskIssue =
+    CANONICAL_TASK_ARTIFACT_DEPENDENCY_GUARD_FIRST_BOUND_TASK[taskAuthority.repository]
+  const artifactDependencyGuardRequired = admittedMode === 'BOUND_FINAL' &&
+    Number.isSafeInteger(firstGuardedTaskIssue) && taskAuthority.task_issue >= firstGuardedTaskIssue
+  if (
+    guardedArtifactDependencyConsideration !== artifactDependencyBindingPresent ||
+    (artifactDependencyGuardRequired && !guardedArtifactDependencyConsideration)
+  ) {
+    throw new Error('canonical_task_body_invalid')
+  }
+  if (guardedArtifactDependencyConsideration) {
+    const binding = normalGrant.artifact_dependency_consideration
+    let expectedBinding
+    try {
+      if (!exactKeys(binding, CANONICAL_TASK_ARTIFACT_DEPENDENCY_BINDING_FIELDS)) {
+        throw new Error('artifact_dependency_binding_invalid')
+      }
+      const { record_type: _recordType, ...consideration } = binding
+      expectedBinding = canonicalTaskArtifactDependencyBindingV1({
+        consideration,
+        authorizedPaths: taskAuthority.authorized_paths,
+      })
+    } catch {
+      throw new Error('canonical_task_body_invalid')
+    }
+    const considerationMarkdown = canonicalTaskArtifactDependencyMarkdownV1(expectedBinding)
+    const considerationSuffix = `\n\n${considerationMarkdown}`
+    const callerMarkdown = markdown.endsWith(considerationSuffix)
+      ? markdown.slice(0, -considerationSuffix.length)
+      : ''
+    if (
+      binding.record_type !== 'bounded_artifact_dependency_consideration_v1' ||
+      JSON.stringify(binding) !== JSON.stringify(expectedBinding) ||
+      callerMarkdown.length === 0 || hasCanonicalTaskArtifactDependencyHeadingV1(callerMarkdown)
+    ) throw new Error('canonical_task_body_invalid')
+  }
   const expectedNormalForbiddenChanges = taskIssueClosure === undefined || taskIssueClosure.policy === 'KEEP_OPEN'
     ? NORMAL_TASK_EXECUTION_LEGACY_FORBIDDEN_CHANGES
     : NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES
@@ -866,7 +1092,10 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
     normalExecutionPredelegation.authority_source !== taskUrl ||
     normalExecutionPredelegation.canonical_record !== taskUrl ||
     normalExecutionPredelegation.prior_record_url !== 'not_applicable' ||
-    normalExecutionPredelegation.cumulative_scope !== 'NORMAL_TASK_EXECUTION_PREDELEGATION' ||
+    ![
+      'NORMAL_TASK_EXECUTION_PREDELEGATION',
+      NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE,
+    ].includes(normalExecutionPredelegation.cumulative_scope) ||
     normalExecutionPredelegation.supporting_records !== 'not_applicable' ||
     normalExecutionPredelegation.requested_by !== 'Product Owner' ||
     normalExecutionPredelegation.assigned_role !== 'Bounded Normal Task Execution Host' ||
@@ -946,7 +1175,7 @@ export const serializeCanonicalTaskIssueBodyV1 = ({ request, mode, taskIssue = n
     product_owner_login: admittedRequest.product_owner_login,
   })
   const body = composeCanonicalTaskIssueBodyV1({
-    markdown: admittedRequest.markdown,
+    markdown: canonicalTaskMarkdownV1(admittedRequest),
     taskAuthorityBody: serializeSimplifiedTaskAuthorityV1(taskAuthority, { binding_mode: admittedMode }),
     normalExecutionPredelegation: canonicalNormalTaskExecutionPredelegationV1({
       request: admittedRequest,
@@ -1024,6 +1253,12 @@ const assertCanonicalTaskIssueResourceV1 = ({ resource, request, taskIssue, body
 }
 
 export const publishCanonicalTaskIssueV1 = async ({ request, host }) => {
+  if (![
+    CANONICAL_TASK_BODY_LEGACY_GUARDED_REQUEST_FIELDS,
+    CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS,
+  ].some((fields) => exactKeys(request, fields))) {
+    throw new Error('canonical_task_artifact_dependency_consideration_required')
+  }
   const admittedRequest = canonicalTaskBodyRequestV1(request)
   if (
     host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
