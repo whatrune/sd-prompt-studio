@@ -145,6 +145,8 @@ const CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS = Object.freeze([
 ])
 const CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING = '## Bounded Artifact Dependency Consideration V1'
 const CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE = 'Bounded Artifact Dependency Consideration V1'
+const NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE =
+  'NORMAL_TASK_EXECUTION_PREDELEGATION_WITH_BOUNDED_ARTIFACT_DEPENDENCY_CONSIDERATION_V1'
 const HTML_HEADING_TAG = /^h[1-6]$/iu
 const POST_MERGE_TASK_CLOSE_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'head_branch', 'worktree_path',
@@ -868,7 +870,9 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
     authority_source: taskUrl,
     canonical_record: taskUrl,
     prior_record_url: 'not_applicable',
-    cumulative_scope: 'NORMAL_TASK_EXECUTION_PREDELEGATION',
+    cumulative_scope: request.artifact_dependency_consideration === undefined
+      ? 'NORMAL_TASK_EXECUTION_PREDELEGATION'
+      : NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE,
     supporting_records: 'not_applicable',
     requested_by: 'Product Owner',
     assigned_role: 'Bounded Normal Task Execution Host',
@@ -1031,7 +1035,13 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
   const normalGrant = normalExecutionPredelegation?.allowed_changes
   const normalOperations = normalGrant?.allowed_operations
   const taskIssueClosure = normalOperations?.task_issue_closure
-  if (normalGrant?.artifact_dependency_consideration !== undefined) {
+  const guardedArtifactDependencyConsideration = normalExecutionPredelegation?.cumulative_scope ===
+    NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE
+  const artifactDependencyBindingPresent = normalGrant?.artifact_dependency_consideration !== undefined
+  if (guardedArtifactDependencyConsideration !== artifactDependencyBindingPresent) {
+    throw new Error('canonical_task_body_invalid')
+  }
+  if (guardedArtifactDependencyConsideration) {
     const binding = normalGrant.artifact_dependency_consideration
     let expectedBinding
     try {
@@ -1067,7 +1077,10 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
     normalExecutionPredelegation.authority_source !== taskUrl ||
     normalExecutionPredelegation.canonical_record !== taskUrl ||
     normalExecutionPredelegation.prior_record_url !== 'not_applicable' ||
-    normalExecutionPredelegation.cumulative_scope !== 'NORMAL_TASK_EXECUTION_PREDELEGATION' ||
+    ![
+      'NORMAL_TASK_EXECUTION_PREDELEGATION',
+      NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE,
+    ].includes(normalExecutionPredelegation.cumulative_scope) ||
     normalExecutionPredelegation.supporting_records !== 'not_applicable' ||
     normalExecutionPredelegation.requested_by !== 'Product Owner' ||
     normalExecutionPredelegation.assigned_role !== 'Bounded Normal Task Execution Host' ||

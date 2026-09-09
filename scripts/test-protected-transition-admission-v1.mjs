@@ -698,6 +698,10 @@ equal(
   'bounded_artifact_dependency_consideration_v1',
 )
 equal(
+  parsedCanonicalTaskBound.normal_execution_predelegation.cumulative_scope,
+  'NORMAL_TASK_EXECUTION_PREDELEGATION_WITH_BOUNDED_ARTIFACT_DEPENDENCY_CONSIDERATION_V1',
+)
+equal(
   parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes
     .artifact_dependency_consideration.existing_artifact_contract_change,
   false,
@@ -751,10 +755,15 @@ const historicalCanonicalTaskBody = serializeCanonicalTaskIssueBodyV1({
   taskIssue: 525,
 })
 equal(historicalCanonicalTaskBody.includes('Bounded Artifact Dependency Consideration V1'), false)
-equal(parseCanonicalTaskIssueBodyV1({
+const parsedHistoricalCanonicalTaskBody = parseCanonicalTaskIssueBodyV1({
   body: historicalCanonicalTaskBody,
   mode: 'BOUND_FINAL',
-}).task_authority.task_issue, 525)
+})
+equal(parsedHistoricalCanonicalTaskBody.task_authority.task_issue, 525)
+equal(
+  parsedHistoricalCanonicalTaskBody.normal_execution_predelegation.cumulative_scope,
+  'NORMAL_TASK_EXECUTION_PREDELEGATION',
+)
 throws(() => parseCanonicalTaskIssueBodyV1({
   body: canonicalTaskBoundBody.replace(
     '\n\n## Bounded Artifact Dependency Consideration V1\n\n- Existing canonical artifact contract change: NO',
@@ -769,6 +778,34 @@ throws(() => parseCanonicalTaskIssueBodyV1({
   ),
   mode: 'BOUND_FINAL',
 }), /canonical_task_body_invalid/)
+{
+  const downgradedAssignment = structuredClone(parsedCanonicalTaskBound.normal_execution_predelegation)
+  delete downgradedAssignment.allowed_changes.artifact_dependency_consideration
+  const downgradedBody = canonicalTaskBoundBody
+    .replace(
+      /\n\n## Bounded Artifact Dependency Consideration V1[\s\S]*?(?=\n\n# Simplified Lifecycle Task Authority)/u,
+      '',
+    )
+    .replace(
+      yamlBlock(parsedCanonicalTaskBound.normal_execution_predelegation),
+      yamlBlock(downgradedAssignment),
+    )
+  throws(() => parseCanonicalTaskIssueBodyV1({
+    body: downgradedBody,
+    mode: 'BOUND_FINAL',
+  }), /canonical_task_body_invalid/)
+}
+{
+  const downgradedDiscriminator = structuredClone(parsedCanonicalTaskBound.normal_execution_predelegation)
+  downgradedDiscriminator.cumulative_scope = 'NORMAL_TASK_EXECUTION_PREDELEGATION'
+  throws(() => parseCanonicalTaskIssueBodyV1({
+    body: canonicalTaskBoundBody.replace(
+      yamlBlock(parsedCanonicalTaskBound.normal_execution_predelegation),
+      yamlBlock(downgradedDiscriminator),
+    ),
+    mode: 'BOUND_FINAL',
+  }), /canonical_task_body_invalid/)
+}
 throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({ permitted_surface: 'PULL_REQUEST_REVIEW' }),
   mode: 'UNBOUND_CREATE',
