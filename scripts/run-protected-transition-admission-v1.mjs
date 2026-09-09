@@ -139,6 +139,7 @@ const CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS = Object.freeze([
 ])
 const CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING = '## Bounded Artifact Dependency Consideration V1'
 const CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE = 'Bounded Artifact Dependency Consideration V1'
+const HTML_HEADING_TAG = /^h[1-6]$/iu
 const POST_MERGE_TASK_CLOSE_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'head_branch', 'worktree_path',
   'local_main_sync_result', 'worktree_cleanup_result',
@@ -704,7 +705,10 @@ const canonicalTaskMarkdownHeadingTextV1 = (nodes) => nodes
 const hasCanonicalTaskArtifactDependencyHeadingV1 = (markdown) => {
   const containsReservedHeading = (nodes) => nodes.some((node) => (
     (
-      node.type === MarkdownRuleType.heading &&
+      (
+        node.type === MarkdownRuleType.heading ||
+        (node.type === MarkdownRuleType.htmlBlock && HTML_HEADING_TAG.test(node.tag ?? ''))
+      ) &&
       canonicalTaskMarkdownHeadingTextV1(node.children ?? []) === CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE
     ) || (
       Array.isArray(node.children) && containsReservedHeading(node.children)
