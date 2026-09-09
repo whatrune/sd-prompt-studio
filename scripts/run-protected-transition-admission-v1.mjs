@@ -139,6 +139,9 @@ const CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS = Object.freeze([
 const CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING = '## Bounded Artifact Dependency Consideration V1'
 const CANONICAL_TASK_ARTIFACT_DEPENDENCY_ATX_HEADING =
   /^[ \t]{0,3}#{1,6}[ \t]+Bounded Artifact Dependency Consideration V1(?:[ \t]+#+)?[ \t]*$/u
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_SETEXT_TITLE =
+  /^[ \t]{0,3}Bounded Artifact Dependency Consideration V1[ \t]*$/u
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_SETEXT_UNDERLINE = /^[ \t]{0,3}(?:=+|-+)[ \t]*$/u
 const POST_MERGE_TASK_CLOSE_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'head_branch', 'worktree_path',
   'local_main_sync_result', 'worktree_cleanup_result',
@@ -691,9 +694,16 @@ const canonicalTaskMarkdownV1 = (request) => {
   return markdown
 }
 
-const hasCanonicalTaskArtifactDependencyHeadingV1 = (markdown) => (
-  markdown.split('\n').some((line) => CANONICAL_TASK_ARTIFACT_DEPENDENCY_ATX_HEADING.test(line))
-)
+const hasCanonicalTaskArtifactDependencyHeadingV1 = (markdown) => {
+  const lines = markdown.split('\n')
+  return lines.some((line, index) => (
+    CANONICAL_TASK_ARTIFACT_DEPENDENCY_ATX_HEADING.test(line) ||
+    (
+      CANONICAL_TASK_ARTIFACT_DEPENDENCY_SETEXT_TITLE.test(line) &&
+      CANONICAL_TASK_ARTIFACT_DEPENDENCY_SETEXT_UNDERLINE.test(lines[index + 1] ?? '')
+    )
+  ))
+}
 
 const canonicalTaskBodyRequestV1 = (request) => {
   if (![
