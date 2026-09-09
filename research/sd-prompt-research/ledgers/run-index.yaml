@@ -1197,3 +1197,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-09T03:11:37.301Z'
   path: experiments/camera/CAM-040-B
+- run_id: CAM-041-A
+  domain: camera
+  title: CAM-041-A — from above
+  status: OBSERVED
+  updated_at: '2026-09-10T00:30:38+09:00'
+  path: experiments/camera/CAM-041-A
+- run_id: CAM-041-B
+  domain: camera
+  title: CAM-041-B — high angle
+  status: OBSERVED
+  updated_at: '2026-09-10T00:30:39+09:00'
+  path: experiments/camera/CAM-041-B
