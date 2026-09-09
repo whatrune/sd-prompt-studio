@@ -73,6 +73,34 @@ class ResearchRunRegistrationTests(unittest.TestCase):
         )
         return run_dir
 
+    def set_panel_count(self, run_dir: Path, panel_count: int) -> None:
+        manifest_path = run_dir / "manifest.yaml"
+        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        manifest["source"]["panel_count"] = panel_count
+        manifest["outputs"]["panels"] = [
+            f"panels/{run_dir.name}_{panel_id:02d}.png"
+            for panel_id in range(1, panel_count + 1)
+        ]
+        manifest_path.write_text(
+            yaml.safe_dump(manifest, allow_unicode=True, sort_keys=False), encoding="utf-8"
+        )
+
+        observation_path = run_dir / "observation.json"
+        observation = json.loads(observation_path.read_text(encoding="utf-8"))
+        source_panels = observation["panels"]
+        observation["panels"] = []
+        for panel_id in range(1, panel_count + 1):
+            panel = json.loads(json.dumps(source_panels[(panel_id - 1) % len(source_panels)]))
+            panel["panel_id"] = panel_id
+            observation["panels"].append(panel)
+        observation["panel_count"] = panel_count
+        without_aggregate = dict(observation)
+        without_aggregate.pop("computed_aggregate", None)
+        observation["computed_aggregate"] = registration.compute_aggregate(without_aggregate)
+        observation_path.write_text(
+            json.dumps(observation, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
+
     def summary(self, run_dir: Path) -> dict[str, str]:
         manifest = yaml.safe_load((run_dir / "manifest.yaml").read_text(encoding="utf-8"))
         return {
@@ -208,6 +236,29 @@ class ResearchRunRegistrationTests(unittest.TestCase):
             item for item in index["artifacts"] if item["artifact_id"] == result["observation_artifact_id"]
         )
         self.assertIn(result["relationship"], observation["relationships"])
+
+    def test_24_panel_bundle_passes_canonical_registration_validation(self) -> None:
+        run_dir = self.make_run("CAM-TEST-24", domain="camera")
+        self.set_panel_count(run_dir, 24)
+        result = self.check(run_dir)
+        self.assertEqual("CAM-TEST-24", result["run_id"])
+        self.assertFalse(result["registered"])
+
+    def test_manifest_panel_count_mismatch_fails_before_ledger_write(self) -> None:
+        run_dir = self.make_run("CAM-TEST-24", domain="camera")
+        self.set_panel_count(run_dir, 24)
+        manifest_path = run_dir / "manifest.yaml"
+        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+        manifest["source"]["panel_count"] = 6
+        manifest_path.write_text(
+            yaml.safe_dump(manifest, allow_unicode=True, sort_keys=False), encoding="utf-8"
+        )
+        before = self.ledger_path.read_bytes()
+        with self.assertRaises(registration.RunRegistrationError) as raised:
+            self.finalize(run_dir)
+        self.assertEqual("OBSERVATION_INVALID", raised.exception.code)
+        self.assertIn("manifest.source.panel_count", raised.exception.message)
+        self.assertEqual(before, self.ledger_path.read_bytes())
 
     def test_multi_run_finalization_appends_task_entries_in_lexical_order(self) -> None:
         run_b = self.make_run("BRG-TEST-B")
