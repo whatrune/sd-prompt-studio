@@ -706,6 +706,7 @@ const canonicalTaskMarkdownHeadingTextV1 = (nodes) => nodes
     return Array.isArray(node.children) ? canonicalTaskMarkdownHeadingTextV1(node.children) : ''
   })
   .join('')
+  .replace(/\p{Default_Ignorable_Code_Point}+/gu, '')
   .trim()
   .replace(/\s+/gu, ' ')
 
