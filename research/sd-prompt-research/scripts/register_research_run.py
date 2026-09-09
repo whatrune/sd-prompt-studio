@@ -14,7 +14,7 @@ from typing import Any, Mapping, Sequence
 
 import yaml
 
-from finalize_observation import compute_aggregate, rubric_errors, schema_errors
+from finalize_observation import compute_aggregate, manifest_errors, rubric_errors, schema_errors
 from research_explorer import build_research_index, validate_index
 from validate_research_claims import UniqueKeyLoader
 
@@ -384,6 +384,7 @@ def _validate_bundle(
     errors = schema_errors(observation, schema)
     rubric_error_list, _warnings = rubric_errors(without_aggregate, rubric)
     errors.extend(rubric_error_list)
+    errors.extend(manifest_errors(without_aggregate, manifest))
     if errors:
         raise RunRegistrationError("OBSERVATION_INVALID", "; ".join(errors))
     if stored_aggregate != compute_aggregate(without_aggregate):

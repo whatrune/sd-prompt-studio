@@ -386,7 +386,7 @@ Examples:
 4. Do not treat uncertainty as failure.
 5. Record alternative poses as important observations.
 6. Separate artifacts from consistent pose behavior.
-7. Six images are directional validation, not final confirmation.
+7. The manifest-declared image sample is directional validation, not final confirmation.
 8. Do not infer condition differences before reveal.
 9. Keep JSON concise.
 10. Store detailed evidence only in:
@@ -431,7 +431,9 @@ Requirements:
 5. Do not add trailing commas.
 6. `schema_version` must be `"3.0"`.
 7. `active_axis_order` must match `rubric.yaml`.
-8. Panel IDs start from 1.
+8. `panel_count` must exactly match `manifest.source.panel_count` and the length
+   of `manifest.outputs.panels`; panel IDs must be the contiguous integers
+   `1..panel_count` in that manifest order.
 9. `axis_values` order must match `active_axis_order`.
 10. Morphology values must come from candidates.
 11. Artifact values must come from allowed values.
@@ -452,6 +454,11 @@ If file generation is unavailable, output raw JSON without Markdown wrapping.
 # 10. JSON File Structure
 
 The generated observation JSON must follow this structure:
+
+The six-panel object below remains the default example. High-sample Runs use
+the same structure once, with the manifest-declared `panel_count` and one
+independently observed entry for every panel; they are never partitioned to
+fit the example.
 
 ```json
 {

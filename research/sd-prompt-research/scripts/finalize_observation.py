@@ -42,6 +42,94 @@ def schema_errors(data: dict[str, Any], schema: dict[str, Any]) -> list[str]:
     return errors
 
 
+def panel_identity_errors(data: dict[str, Any]) -> list[str]:
+    """Bind every panel and panel reference to one exact contiguous universe."""
+    errors: list[str] = []
+    panel_count = data.get("panel_count")
+    panels = data.get("panels")
+    if type(panel_count) is not int or panel_count < 1:
+        return [f"panel_count must be a positive integer, got {panel_count!r}"]
+    if not isinstance(panels, list):
+        return ["panels must be an array"]
+
+    if len(panels) != panel_count:
+        errors.append(
+            f"panel_count must equal the panels array length: {panel_count} != {len(panels)}"
+        )
+
+    panel_ids = [panel.get("panel_id") for panel in panels if isinstance(panel, dict)]
+    expected_ids = list(range(1, panel_count + 1))
+    if len(panel_ids) != len(panels) or any(type(panel_id) is not int for panel_id in panel_ids):
+        errors.append(f"panel_id values must be integers exactly 1..{panel_count}, got {panel_ids!r}")
+    elif sorted(panel_ids) != expected_ids:
+        errors.append(f"panel_id values must be exactly 1..{panel_count}, got {sorted(panel_ids)}")
+
+    valid_ids = set(expected_ids)
+
+    def validate_references(label: str, values: Any) -> None:
+        if not isinstance(values, list):
+            return
+        invalid = [value for value in values if type(value) is not int or value not in valid_ids]
+        if invalid:
+            errors.append(
+                f"{label} must reference panel IDs inside 1..{panel_count}, got {invalid!r}"
+            )
+
+    for index, item in enumerate(data.get("leakage") or []):
+        if isinstance(item, dict):
+            validate_references(f"leakage[{index}].panel_ids", item.get("panel_ids"))
+    for index, item in enumerate(data.get("uncertain") or []):
+        if isinstance(item, dict):
+            validate_references(f"uncertain[{index}].panel_id", [item.get("panel_id")])
+    for index, item in enumerate(data.get("ontology_extension_candidates") or []):
+        if isinstance(item, dict):
+            validate_references(
+                f"ontology_extension_candidates[{index}].panel_ids", item.get("panel_ids")
+            )
+    return errors
+
+
+def manifest_errors(data: dict[str, Any], manifest: dict[str, Any]) -> list[str]:
+    """Require the canonical manifest and Observation to describe the same panels."""
+    errors: list[str] = []
+    if manifest.get("run_id") != data.get("run_id"):
+        errors.append(
+            f"observation run_id must match manifest run_id: "
+            f"{data.get('run_id')!r} != {manifest.get('run_id')!r}"
+        )
+
+    source = manifest.get("source")
+    manifest_count = source.get("panel_count") if isinstance(source, dict) else None
+    if type(manifest_count) is not int or manifest_count < 1:
+        errors.append(
+            f"manifest.source.panel_count must be a positive integer, got {manifest_count!r}"
+        )
+        return errors
+
+    if data.get("panel_count") != manifest_count:
+        errors.append(
+            "observation.panel_count must match manifest.source.panel_count: "
+            f"{data.get('panel_count')!r} != {manifest_count}"
+        )
+
+    outputs = manifest.get("outputs")
+    output_panels = outputs.get("panels") if isinstance(outputs, dict) else None
+    if not isinstance(output_panels, list):
+        errors.append("manifest.outputs.panels must be an array")
+    else:
+        if len(output_panels) != manifest_count:
+            errors.append(
+                "manifest.outputs.panels length must match manifest.source.panel_count: "
+                f"{len(output_panels)} != {manifest_count}"
+            )
+        invalid_paths = [path for path in output_panels if not isinstance(path, str) or not path]
+        if invalid_paths:
+            errors.append("manifest.outputs.panels entries must be non-empty strings")
+        elif len(set(output_panels)) != len(output_panels):
+            errors.append("manifest.outputs.panels entries must be unique")
+    return errors
+
+
 def _has_all(text: str, *groups: tuple[str, ...]) -> bool:
     return all(any(term in text for term in group) for group in groups)
 
@@ -166,6 +254,8 @@ def rubric_errors(data: dict[str, Any], rubric: dict[str, Any]) -> tuple[list[st
     errors: list[str] = []
     warnings: list[str] = []
 
+    errors.extend(panel_identity_errors(data))
+
     expected_run = str(rubric.get("run_id") or "").strip()
     if expected_run and data.get("run_id") != expected_run:
         errors.append(f"run_id must be {expected_run!r}, got {data.get('run_id')!r}")
@@ -181,10 +271,8 @@ def rubric_errors(data: dict[str, Any], rubric: dict[str, Any]) -> tuple[list[st
         errors.append("active_axis_order must exactly match rubric.active_observation_axes")
 
     axis_catalog = rubric.get("axis_catalog") or {}
-    panel_ids: list[int] = []
     for panel in data.get("panels", []):
         panel_id = panel.get("panel_id")
-        panel_ids.append(panel_id)
         values = panel.get("axis_values") or []
         if len(values) != len(active_axes):
             errors.append(
@@ -201,9 +289,6 @@ def rubric_errors(data: dict[str, Any], rubric: dict[str, Any]) -> tuple[list[st
                 errors.append(
                     f"Panel {panel_id}: axis_values[{index}] for {axis_id} is {value!r}; allowed={allowed}"
                 )
-
-    if sorted(panel_ids) != [1, 2, 3, 4, 5, 6]:
-        errors.append(f"panel_id values must be exactly 1..6, got {sorted(panel_ids)}")
 
     morphology = rubric.get("morphology_candidates") or {}
     primary_allowed = set(morphology.get("primary") or [])
@@ -329,6 +414,11 @@ def main() -> int:
         data = load_json_allow_fence(observation_path)
         rubric = yaml.safe_load(rubric_path.read_text(encoding="utf-8")) or {}
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        manifest = (
+            yaml.safe_load((run_dir / "manifest.yaml").read_text(encoding="utf-8")) or {}
+            if run_dir is not None
+            else None
+        )
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
@@ -339,6 +429,8 @@ def main() -> int:
     errors = schema_errors(data_without_aggregate, schema)
     rubric_error_list, warnings = rubric_errors(data_without_aggregate, rubric)
     errors.extend(rubric_error_list)
+    if manifest is not None:
+        errors.extend(manifest_errors(data_without_aggregate, manifest))
 
     if errors:
         print("Observation validation failed:", file=sys.stderr)

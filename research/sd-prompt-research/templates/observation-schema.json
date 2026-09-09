@@ -31,7 +31,8 @@
       "minLength": 1
     },
     "panel_count": {
-      "const": 6
+      "type": "integer",
+      "minimum": 1
     },
     "image_layout": {
       "type": "string",
@@ -75,8 +76,7 @@
     },
     "panels": {
       "type": "array",
-      "minItems": 6,
-      "maxItems": 6,
+      "minItems": 1,
       "items": {
         "$ref": "#/$defs/panel"
       }
@@ -164,8 +164,7 @@
       "properties": {
         "panel_id": {
           "type": "integer",
-          "minimum": 1,
-          "maximum": 6
+          "minimum": 1
         },
         "axis_values": {
           "description": "Values follow active_axis_order and the rubric enums. Contact, load, elevation, and support values must be based on directly visible evidence documented in evidence_notes; do not derive them from state or morphology.",
@@ -260,8 +259,7 @@
           "uniqueItems": true,
           "items": {
             "type": "integer",
-            "minimum": 1,
-            "maximum": 6
+            "minimum": 1
           }
         },
         "strength": {
@@ -290,8 +288,7 @@
       "properties": {
         "panel_id": {
           "type": "integer",
-          "minimum": 1,
-          "maximum": 6
+          "minimum": 1
         },
         "field": {
           "type": "string",
@@ -326,8 +323,7 @@
           "uniqueItems": true,
           "items": {
             "type": "integer",
-            "minimum": 1,
-            "maximum": 6
+            "minimum": 1
           }
         },
         "observation": {
@@ -385,8 +381,7 @@
       "type": "object",
       "additionalProperties": {
         "type": "integer",
-        "minimum": 0,
-        "maximum": 6
+        "minimum": 0
       }
     },
     "nestedCountMap": {
