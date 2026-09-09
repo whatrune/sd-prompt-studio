@@ -804,6 +804,11 @@ for (const equivalentHeading of [
   '## Bounded Artifact Dependency Consideration V1 ##',
   'Bounded Artifact Dependency Consideration V1\n---',
   'Bounded Artifact Dependency Consideration V1\n===',
+  '## Bounded Artifact Dependency Consideration V&#49;',
+  '## Bounded Artifact Dependency Consideration &#x56;1',
+  '## Bounded&#32;Artifact Dependency Consideration V1',
+  '## Bounded&Tab;Artifact Dependency Consideration V1',
+  'Bounded Artifact Dependen&#99;y Consideration V1\n---',
 ]) {
   throws(() => serializeCanonicalTaskIssueBodyV1({
     request: canonicalTaskBodyRequest({
