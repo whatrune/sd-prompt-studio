@@ -131,6 +131,12 @@ const CANONICAL_TASK_ARTIFACT_DEPENDENCY_CONSIDERATION_FIELDS = Object.freeze([
   'existing_artifact_contract_change', 'artifact_owner',
   ...CANONICAL_TASK_ARTIFACT_DEPENDENCY_CATEGORIES,
 ])
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_BINDING_FIELDS = Object.freeze([
+  'record_type', ...CANONICAL_TASK_ARTIFACT_DEPENDENCY_CONSIDERATION_FIELDS,
+])
+const NORMAL_TASK_EXECUTION_GUARDED_PREDELEGATION_GRANT_FIELDS = Object.freeze([
+  ...NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS, 'artifact_dependency_consideration',
+])
 const CANONICAL_TASK_BODY_LEGACY_GUARDED_REQUEST_FIELDS = Object.freeze([
   ...CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS, 'artifact_dependency_consideration',
 ])
@@ -661,6 +667,11 @@ const canonicalTaskArtifactDependencyConsiderationV1 = ({ consideration, authori
   })
 }
 
+const canonicalTaskArtifactDependencyBindingV1 = ({ consideration, authorizedPaths }) => Object.freeze({
+  record_type: 'bounded_artifact_dependency_consideration_v1',
+  ...canonicalTaskArtifactDependencyConsiderationV1({ consideration, authorizedPaths }),
+})
+
 const canonicalTaskArtifactDependencyMarkdownV1 = (consideration) => {
   if (consideration === undefined) return ''
   const labels = Object.freeze({
@@ -875,6 +886,14 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
       expected_base: request.expected_base,
       authorized_paths: request.authorized_paths,
       authorized_actor: request.authorized_actor,
+      ...(request.artifact_dependency_consideration === undefined
+        ? {}
+        : {
+          artifact_dependency_consideration: canonicalTaskArtifactDependencyBindingV1({
+            consideration: request.artifact_dependency_consideration,
+            authorizedPaths: request.authorized_paths,
+          }),
+        }),
       execution_identity_contract: 'BOUNDED_EXECUTION_IDENTITY_V1',
       allowed_operations: Object.freeze({
         worktree_creation: Object.freeze({
@@ -941,7 +960,10 @@ const classifyNormalTaskExecutionPredelegationV1 = (body) => {
   const operations = grant?.allowed_operations
   if (
     !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
-    !exactKeys(grant, NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS) ||
+      ![
+        NORMAL_TASK_EXECUTION_PREDELEGATION_GRANT_FIELDS,
+        NORMAL_TASK_EXECUTION_GUARDED_PREDELEGATION_GRANT_FIELDS,
+      ].some((fields) => exactKeys(grant, fields)) ||
     ![
       NORMAL_TASK_EXECUTION_LEGACY_OPERATION_FIELDS,
       NORMAL_TASK_EXECUTION_OPERATION_FIELDS,
@@ -1009,6 +1031,32 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
   const normalGrant = normalExecutionPredelegation?.allowed_changes
   const normalOperations = normalGrant?.allowed_operations
   const taskIssueClosure = normalOperations?.task_issue_closure
+  if (normalGrant?.artifact_dependency_consideration !== undefined) {
+    const binding = normalGrant.artifact_dependency_consideration
+    let expectedBinding
+    try {
+      if (!exactKeys(binding, CANONICAL_TASK_ARTIFACT_DEPENDENCY_BINDING_FIELDS)) {
+        throw new Error('artifact_dependency_binding_invalid')
+      }
+      const { record_type: _recordType, ...consideration } = binding
+      expectedBinding = canonicalTaskArtifactDependencyBindingV1({
+        consideration,
+        authorizedPaths: taskAuthority.authorized_paths,
+      })
+    } catch {
+      throw new Error('canonical_task_body_invalid')
+    }
+    const considerationMarkdown = canonicalTaskArtifactDependencyMarkdownV1(expectedBinding)
+    const considerationSuffix = `\n\n${considerationMarkdown}`
+    const callerMarkdown = markdown.endsWith(considerationSuffix)
+      ? markdown.slice(0, -considerationSuffix.length)
+      : ''
+    if (
+      binding.record_type !== 'bounded_artifact_dependency_consideration_v1' ||
+      JSON.stringify(binding) !== JSON.stringify(expectedBinding) ||
+      callerMarkdown.length === 0 || hasCanonicalTaskArtifactDependencyHeadingV1(callerMarkdown)
+    ) throw new Error('canonical_task_body_invalid')
+  }
   const expectedNormalForbiddenChanges = taskIssueClosure === undefined || taskIssueClosure.policy === 'KEEP_OPEN'
     ? NORMAL_TASK_EXECUTION_LEGACY_FORBIDDEN_CHANGES
     : NORMAL_TASK_EXECUTION_FORBIDDEN_CHANGES

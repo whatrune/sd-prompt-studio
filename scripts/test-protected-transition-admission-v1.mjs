@@ -692,6 +692,16 @@ const parsedCanonicalTaskBound = parseCanonicalTaskIssueBodyV1({
 })
 equal(parsedCanonicalTaskUnbound.task_authority.task_issue, 0)
 equal(parsedCanonicalTaskBound.task_authority.task_issue, 526)
+equal(
+  parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes
+    .artifact_dependency_consideration.record_type,
+  'bounded_artifact_dependency_consideration_v1',
+)
+equal(
+  parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes
+    .artifact_dependency_consideration.existing_artifact_contract_change,
+  false,
+)
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.task_issue, 526)
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.task_id, 'TASK-526-NORMAL-EXECUTION-PREDELEGATION')
 equal(parsedCanonicalTaskBound.normal_execution_predelegation.allowed_changes.expected_base, BASE)
@@ -745,6 +755,20 @@ equal(parseCanonicalTaskIssueBodyV1({
   body: historicalCanonicalTaskBody,
   mode: 'BOUND_FINAL',
 }).task_authority.task_issue, 525)
+throws(() => parseCanonicalTaskIssueBodyV1({
+  body: canonicalTaskBoundBody.replace(
+    '\n\n## Bounded Artifact Dependency Consideration V1\n\n- Existing canonical artifact contract change: NO',
+    '\n\n## Bounded Artifact Dependency Consideration V1\n\n- Existing canonical artifact contract change: YES',
+  ),
+  mode: 'BOUND_FINAL',
+}), /canonical_task_body_invalid/)
+throws(() => parseCanonicalTaskIssueBodyV1({
+  body: canonicalTaskBoundBody.replace(
+    /\n\n## Bounded Artifact Dependency Consideration V1[\s\S]*?(?=\n\n# Simplified Lifecycle Task Authority)/u,
+    '',
+  ),
+  mode: 'BOUND_FINAL',
+}), /canonical_task_body_invalid/)
 throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({ permitted_surface: 'PULL_REQUEST_REVIEW' }),
   mode: 'UNBOUND_CREATE',
@@ -903,11 +927,18 @@ const task711Body = serializeCanonicalTaskIssueBodyV1({
   request: task711Request,
   mode: 'UNBOUND_CREATE',
 })
+const parsedTask711Body = parseCanonicalTaskIssueBodyV1({ body: task711Body, mode: 'UNBOUND_CREATE' })
 ok(task711Body.includes('- Existing canonical artifact contract change: YES'))
 ok(task711Body.includes('- Artifact owner: "Observation v3"'))
 ok(task711Body.includes(
   '- Renderer / exporter: ["research/sd-prompt-research/scripts/render_observation_md.py"]',
 ))
+equal(
+  JSON.stringify(
+    parsedTask711Body.normal_execution_predelegation.allowed_changes.artifact_dependency_consideration,
+  ),
+  JSON.stringify({ record_type: 'bounded_artifact_dependency_consideration_v1', ...task711Consideration }),
+)
 const { renderer_exporter: _missingRenderer, ...task711WithoutRenderer } = task711Consideration
 throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({
