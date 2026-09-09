@@ -1,0 +1,114 @@
+schema_version: "3.0"
+target_concept: realized character orientation under matched production PromptTags
+blind_analysis: true
+special_values:
+  unclear: Visible geometry does not support a reliable category.
+  not_visible: The relevant region is not visible.
+axis_catalog:
+  character_orientation:
+    label: Character Orientation
+    allowed_values:
+      - strict_frontal
+      - three_quarter
+      - profile_lateral
+      - rear
+      - ambiguous
+  face_orientation:
+    label: Face Orientation
+    allowed_values:
+      - frontal
+      - three_quarter
+      - profile
+      - rear_or_hidden
+      - unclear
+  torso_orientation:
+    label: Torso Orientation
+    allowed_values:
+      - frontal
+      - three_quarter
+      - lateral
+      - rear
+      - unclear
+  face_torso_visibility:
+    label: Face And Torso Visibility
+    allowed_values:
+      - both_visible
+      - partial
+      - insufficient
+      - unclear
+  orientation_assessability:
+    label: Orientation Assessability
+    allowed_values:
+      - assessable
+      - unassessable
+      - unclear
+  ambiguity_or_artifact:
+    label: Ambiguity Or Artifact
+    allowed_values:
+      - none
+      - face_torso_mismatch
+      - orientation_ambiguous
+      - anatomy_artifact
+      - composition_artifact
+      - multiple
+active_observation_axes:
+  - character_orientation
+  - face_orientation
+  - torso_orientation
+  - face_torso_visibility
+  - orientation_assessability
+  - ambiguity_or_artifact
+contact_load:
+  enabled: true
+  fields:
+    - left_hand
+    - right_hand
+    - left_forearm
+    - right_forearm
+  allowed_values:
+    - none
+    - light
+    - supporting
+    - weight_bearing
+    - unclear
+morphology_candidates:
+  primary:
+    - character_orientation_observation
+  secondary: []
+artifact_checks:
+  - none
+  - face_torso_mismatch
+  - orientation_ambiguous
+  - anatomy_artifact
+  - composition_artifact
+  - multiple
+cross_domain_effects:
+  enabled: true
+  domains:
+    - camera
+    - composition
+    - pose
+  strength_values:
+    - weak
+    - medium
+    - strong
+    - unclear
+  effect_type_values:
+    - natural_response
+    - secondary_effect
+    - interaction
+    - artifact
+    - unclear
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  enforce_visible_evidence_policy: true
+  prompt_blind_freeze_required: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  twenty_four_images_per_condition_are_bounded_evidence_only: true
+blind_condition_label: COND-ecd79a373ae0
+run_id: CAM-042-A
