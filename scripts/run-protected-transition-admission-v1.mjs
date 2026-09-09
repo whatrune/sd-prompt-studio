@@ -13,6 +13,7 @@ import { spawnSync } from 'node:child_process'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, normalize } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { parser as parseMarkdown, RuleType as MarkdownRuleType } from 'markdown-to-jsx'
 import { parseDocument } from 'yaml'
 import {
   acquireSimplifiedPreDecisionPreflightV1,
@@ -138,9 +139,6 @@ const CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS = Object.freeze([
 ])
 const CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING = '## Bounded Artifact Dependency Consideration V1'
 const CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE = 'Bounded Artifact Dependency Consideration V1'
-const CANONICAL_TASK_ARTIFACT_DEPENDENCY_ATX_HEADING = /^[ \t]{0,3}#{1,6}[ \t]+(.*)$/u
-const CANONICAL_TASK_ARTIFACT_DEPENDENCY_SETEXT_UNDERLINE = /^[ \t]{0,3}(?:=+|-+)[ \t]*$/u
-const MARKDOWN_CHARACTER_REFERENCE = /&#(?:([0-9]{1,7})|[xX]([0-9a-f]{1,6}));|&(NewLine|Tab);/giu
 const POST_MERGE_TASK_CLOSE_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'head_branch', 'worktree_path',
   'local_main_sync_result', 'worktree_cleanup_result',
@@ -693,33 +691,30 @@ const canonicalTaskMarkdownV1 = (request) => {
   return markdown
 }
 
-const canonicalTaskMarkdownHeadingTextV1 = (value) => value
-  .replace(MARKDOWN_CHARACTER_REFERENCE, (reference, decimal, hexadecimal, named) => {
-    if (named !== undefined) return named.toLowerCase() === 'tab' ? '\t' : '\n'
-    const codePoint = Number.parseInt(decimal ?? hexadecimal, decimal === undefined ? 16 : 10)
-    if (
-      codePoint === 0 || codePoint > 0x10ffff ||
-      (codePoint >= 0xd800 && codePoint <= 0xdfff)
-    ) return reference
-    return String.fromCodePoint(codePoint)
+const canonicalTaskMarkdownHeadingTextV1 = (nodes) => nodes
+  .map((node) => {
+    if (node.type === MarkdownRuleType.htmlComment) return ''
+    if (node.type === MarkdownRuleType.text || node.type === MarkdownRuleType.codeInline) return node.text ?? ''
+    return Array.isArray(node.children) ? canonicalTaskMarkdownHeadingTextV1(node.children) : ''
   })
+  .join('')
   .trim()
-  .replace(/[ \t\n\r]+/gu, ' ')
+  .replace(/\s+/gu, ' ')
 
 const hasCanonicalTaskArtifactDependencyHeadingV1 = (markdown) => {
-  const lines = markdown.split('\n')
-  return lines.some((line, index) => {
-    const atx = line.match(CANONICAL_TASK_ARTIFACT_DEPENDENCY_ATX_HEADING)
-    if (atx !== null) {
-      const rawTitle = atx[1].replace(/[ \t]+#+[ \t]*$/u, '')
-      return canonicalTaskMarkdownHeadingTextV1(rawTitle) === CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE
-    }
-    return (
-      CANONICAL_TASK_ARTIFACT_DEPENDENCY_SETEXT_UNDERLINE.test(lines[index + 1] ?? '') &&
-      canonicalTaskMarkdownHeadingTextV1(line.replace(/^[ \t]{0,3}/u, '')) ===
-        CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE
+  const containsReservedHeading = (nodes) => nodes.some((node) => (
+    (
+      node.type === MarkdownRuleType.heading &&
+      canonicalTaskMarkdownHeadingTextV1(node.children ?? []) === CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE
+    ) || (
+      Array.isArray(node.children) && containsReservedHeading(node.children)
     )
-  })
+  ))
+  try {
+    return containsReservedHeading(parseMarkdown(markdown))
+  } catch {
+    return true
+  }
 }
 
 const canonicalTaskBodyRequestV1 = (request) => {
