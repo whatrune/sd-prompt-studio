@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from build_research_packet import uncertainty_rows  # noqa: E402
 from create_reanalysis_candidate import apply_overrides  # noqa: E402
-from finalize_observation import manifest_errors, rubric_errors, schema_errors  # noqa: E402
+from finalize_observation import compute_aggregate, manifest_errors, rubric_errors, schema_errors  # noqa: E402
 from render_observation_md import render  # noqa: E402
 
 
@@ -195,6 +195,19 @@ class ObservationPolicyTests(unittest.TestCase):
         self.assertIn("## Visual Artifacts\n\n- none observed", output)
         self.assertIn("## Prompt / Concept Leakage\n\n- not assessed", output)
         self.assertIn("## Observed Morphologies\n\n- reclined_arm_support", output)
+
+    def test_markdown_aggregate_denominator_matches_six_and_24_panel_observations(self) -> None:
+        first_axis = self.rubric["active_observation_axes"][0]
+        first_label = self.rubric["axis_catalog"][first_axis]["label"]
+        for panel_count in (6, 24):
+            with self.subTest(panel_count=panel_count):
+                data = base_observation(self.rubric, panel_count=panel_count)
+                data["computed_aggregate"] = compute_aggregate(data)
+                output = render(data, self.rubric)
+                self.assertIn(
+                    f"- {first_label}: unclear={panel_count}/{panel_count}",
+                    output,
+                )
 
     def test_packet_summary_keeps_four_observation_categories_separate(self) -> None:
         self.data["panels"][0]["primary_morphology"] = "reclined_arm_support"

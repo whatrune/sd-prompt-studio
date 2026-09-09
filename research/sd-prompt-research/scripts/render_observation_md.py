@@ -72,10 +72,13 @@ def render(data: dict[str, Any], rubric: dict[str, Any]) -> str:
     lines.extend(["## Computed Aggregate", ""])
     axis_counts = aggregate.get("axis_counts") or {}
     if axis_counts:
+        panel_count = data["panel_count"]
         for axis in axes:
             label = (catalog.get(axis) or {}).get("label", axis)
             counts = axis_counts.get(axis, {})
-            formatted = ", ".join(f"{value}={count}/6" for value, count in sorted(counts.items()))
+            formatted = ", ".join(
+                f"{value}={count}/{panel_count}" for value, count in sorted(counts.items())
+            )
             lines.append(f"- {label}: {formatted}")
     else:
         lines.append("- Not generated. Run finalize_observation.py first.")
