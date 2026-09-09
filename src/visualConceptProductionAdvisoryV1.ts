@@ -241,7 +241,7 @@ const constraintMetadata = (
       explanation: Object.freeze({ summary: effect.explanation.summary }),
       presentation: Object.freeze(effect.advisory_id === EXPECTED_HAND_ADVISORY_ID
         ? {
-            warning: 'Hand visibility may be reduced by the current pose or arm placement.',
+            warning: '“Hands behind back” may hide one or both hands behind the body, reducing complete hand visibility.',
             recommendation: 'Review current pose or arm placement.',
           }
         : {
