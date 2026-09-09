@@ -16,7 +16,8 @@ Required files:
 
 - `manifest.yaml`
 - `source/rubric.yaml`
-- Six panel images listed in `manifest.yaml`
+- The exact positive number of panel images declared by `manifest.source.panel_count`
+  and listed in `manifest.outputs.panels`
 - `templates/image-analyst-system-prompt.md`
 - `templates/observation-schema.json`
 
@@ -26,7 +27,7 @@ Required files:
 
 2. Read `templates/image-analyst-system-prompt.md`, the Run rubric, manifest, and observation schema.
 
-3. Inspect the six panel images in panel ID order.
+3. Inspect every manifest-listed panel image independently in panel ID order.
 
 4. Record only visible evidence using values allowed by the rubric.
 
@@ -45,6 +46,12 @@ Required files:
 `experiments/{domain}/{run-id}/observation.json`
 
 Do not create a downloadable JSON file or a Run-prefixed duplicate when Codex is operating in the local repository.
+
+Set `panel_count` to the exact `manifest.source.panel_count`. The `panels` array
+must contain that many entries with the contiguous integer IDs
+`1..panel_count`; every panel reference must remain inside the same universe.
+The ordered `manifest.outputs.panels` list is the panel identity source. Do not
+split a high-sample Run into artificial six-panel observations.
 
 6. Follow `instructions/codex-run-finalize.md` to validate the JSON, generate computed aggregates, update `manifest.yaml`, and finalize the Run.
 
