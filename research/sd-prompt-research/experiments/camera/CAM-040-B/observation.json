@@ -1,0 +1,785 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-040-B",
+  "blind_condition_label": "COND-R4",
+  "panel_count": 24,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "torso_orientation_to_camera",
+    "face_presentation",
+    "shoulder_presentation",
+    "hip_presentation",
+    "back_visibility",
+    "orientation_assessability",
+    "full_body_visibility",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Opaque condition COND-R4: strict whole-body lateral=7/24; orientation assessable=24/24; full body visible=24/24.",
+      "Opaque condition COND-R4: ambiguity/artifact=0/24; observations remain mapping-blind."
+    ],
+    "analysis_notes": [
+      "Observer input exposed only opaque condition IDs, opaque panel IDs, image hashes, and visible pixels; requested viewpoint, run mapping, prompts, seeds, PromptTag IDs, and emitted phrases were withheld.",
+      "The 48-panel opaque observation record was frozen before mapping disclosure at SHA-256 37413863a673587b074bce8fb97b8c8ae5c386cb394c024c54ea82cc1ecf04ec.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen observation.",
+      "Prompt compliance, paired testing, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The face turns into profile, but the torso, shoulders, and hips remain frontal; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "three_quarter",
+        "profile",
+        "oblique",
+        "oblique",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The figure presents an oblique three-quarter orientation rather than a strict lateral alignment; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "rear",
+        "partial",
+        "rear",
+        "rear",
+        "visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso presents from the rear rather than strict lateral, with visible back evidence; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "three_quarter",
+        "profile",
+        "oblique",
+        "oblique",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The figure presents an oblique three-quarter orientation rather than a strict lateral alignment; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "three_quarter",
+        "profile",
+        "oblique",
+        "oblique",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The figure presents an oblique three-quarter orientation rather than a strict lateral alignment; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "rear",
+        "rear_or_hidden",
+        "rear",
+        "rear",
+        "visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso presents from the rear rather than strict lateral, with visible back evidence; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 7,
+      "axis_values": [
+        "lateral",
+        "profile",
+        "lateral",
+        "lateral",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible torso, shoulder line, and hip line are lateral while the face is in profile; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 8,
+      "axis_values": [
+        "lateral",
+        "profile",
+        "lateral",
+        "lateral",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible torso, shoulder line, and hip line are lateral while the face is in profile; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 9,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The face turns into profile, but the torso, shoulders, and hips remain frontal; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 10,
+      "axis_values": [
+        "lateral",
+        "profile",
+        "lateral",
+        "lateral",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible torso, shoulder line, and hip line are lateral while the face is in profile; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 11,
+      "axis_values": [
+        "three_quarter",
+        "profile",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The figure presents an oblique three-quarter orientation rather than a strict lateral alignment; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 12,
+      "axis_values": [
+        "lateral",
+        "profile",
+        "lateral",
+        "lateral",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible torso, shoulder line, and hip line are lateral while the face is in profile; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 13,
+      "axis_values": [
+        "lateral",
+        "profile",
+        "lateral",
+        "lateral",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible torso, shoulder line, and hip line are lateral while the face is in profile; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 14,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The face turns into profile, but the torso, shoulders, and hips remain frontal; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 15,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The face turns into profile, but the torso, shoulders, and hips remain frontal; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 16,
+      "axis_values": [
+        "rear",
+        "partial",
+        "oblique",
+        "rear",
+        "visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The torso presents from the rear rather than strict lateral, with visible back evidence; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 17,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The face turns into profile, but the torso, shoulders, and hips remain frontal; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 18,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The face turns into profile, but the torso, shoulders, and hips remain frontal; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 19,
+      "axis_values": [
+        "three_quarter",
+        "profile",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The figure presents an oblique three-quarter orientation rather than a strict lateral alignment; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 20,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The face turns into profile, but the torso, shoulders, and hips remain frontal; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 21,
+      "axis_values": [
+        "frontal",
+        "profile",
+        "frontal",
+        "frontal",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The face turns into profile, but the torso, shoulders, and hips remain frontal; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 22,
+      "axis_values": [
+        "lateral",
+        "profile",
+        "lateral",
+        "lateral",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible torso, shoulder line, and hip line are lateral while the face is in profile; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 23,
+      "axis_values": [
+        "lateral",
+        "profile",
+        "lateral",
+        "lateral",
+        "partial",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The visible torso, shoulder line, and hip line are lateral while the face is in profile; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    },
+    {
+      "panel_id": 24,
+      "axis_values": [
+        "three_quarter",
+        "profile",
+        "oblique",
+        "oblique",
+        "not_visible",
+        "assessable",
+        "visible",
+        "none"
+      ],
+      "primary_morphology": "strict_lateral_orientation_observation",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "The figure presents an oblique three-quarter orientation rather than a strict lateral alignment; the complete figure is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "unclear",
+        "right_hand": "unclear",
+        "left_forearm": "unclear",
+        "right_forearm": "unclear"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "torso_orientation_to_camera": {
+        "frontal": 8,
+        "three_quarter": 6,
+        "rear": 3,
+        "lateral": 7
+      },
+      "face_presentation": {
+        "profile": 21,
+        "partial": 2,
+        "rear_or_hidden": 1
+      },
+      "shoulder_presentation": {
+        "frontal": 8,
+        "oblique": 7,
+        "rear": 2,
+        "lateral": 7
+      },
+      "hip_presentation": {
+        "frontal": 8,
+        "oblique": 6,
+        "rear": 3,
+        "lateral": 7
+      },
+      "back_visibility": {
+        "not_visible": 11,
+        "partial": 10,
+        "visible": 3
+      },
+      "orientation_assessability": {
+        "assessable": 24
+      },
+      "full_body_visibility": {
+        "visible": 24
+      },
+      "ambiguity_or_artifact": {
+        "none": 24
+      }
+    },
+    "primary_morphology_counts": {
+      "strict_lateral_orientation_observation": 24
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 24
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

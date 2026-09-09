@@ -1185,3 +1185,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-08T17:21:24.907Z'
   path: experiments/camera/CAM-039-B
+- run_id: CAM-040-A
+  domain: camera
+  title: CAM-040-A — side view
+  status: OBSERVED
+  updated_at: '2026-09-09T03:11:37.301Z'
+  path: experiments/camera/CAM-040-A
+- run_id: CAM-040-B
+  domain: camera
+  title: CAM-040-B — profile view
+  status: OBSERVED
+  updated_at: '2026-09-09T03:11:37.301Z'
+  path: experiments/camera/CAM-040-B
