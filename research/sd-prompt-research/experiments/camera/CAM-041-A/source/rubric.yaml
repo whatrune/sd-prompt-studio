@@ -93,8 +93,8 @@ contact_load:
   allowed_values:
     - none
     - light
-    - moderate
-    - heavy
+    - supporting
+    - weight_bearing
     - unclear
 morphology_candidates:
   primary:
