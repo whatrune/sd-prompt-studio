@@ -119,6 +119,23 @@ const CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS = Object.freeze([
 const CANONICAL_TASK_BODY_REQUEST_FIELDS = Object.freeze([
   ...CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS, 'task_issue_closure_policy',
 ])
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_CATEGORIES = Object.freeze([
+  'serializer_writer',
+  'validator_schema',
+  'renderer_exporter',
+  'registrar_indexer',
+  'current_state_production_consumer',
+])
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_CONSIDERATION_FIELDS = Object.freeze([
+  'existing_artifact_contract_change', 'artifact_owner',
+  ...CANONICAL_TASK_ARTIFACT_DEPENDENCY_CATEGORIES,
+])
+const CANONICAL_TASK_BODY_LEGACY_GUARDED_REQUEST_FIELDS = Object.freeze([
+  ...CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS, 'artifact_dependency_consideration',
+])
+const CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS = Object.freeze([
+  ...CANONICAL_TASK_BODY_REQUEST_FIELDS, 'artifact_dependency_consideration',
+])
 const POST_MERGE_TASK_CLOSE_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'head_branch', 'worktree_path',
   'local_main_sync_result', 'worktree_cleanup_result',
@@ -594,8 +611,90 @@ const canonicalTaskBodyModeV1 = (mode) => {
   return mode
 }
 
+const canonicalTaskArtifactDependencyConsiderationV1 = ({ consideration, authorizedPaths }) => {
+  if (!exactKeys(consideration, CANONICAL_TASK_ARTIFACT_DEPENDENCY_CONSIDERATION_FIELDS)) {
+    throw new Error('canonical_task_artifact_dependency_consideration_invalid')
+  }
+  const contractChange = consideration.existing_artifact_contract_change
+  const artifactOwner = consideration.artifact_owner
+  if (
+    typeof contractChange !== 'boolean' || typeof artifactOwner !== 'string' ||
+    artifactOwner.length === 0 || artifactOwner.length > 256 || artifactOwner !== artifactOwner.trim() ||
+    /[\u0000-\u001f\u007f`]/u.test(artifactOwner)
+  ) throw new Error('canonical_task_artifact_dependency_consideration_invalid')
+  const normalized = {}
+  let applicableCategoryCount = 0
+  for (const category of CANONICAL_TASK_ARTIFACT_DEPENDENCY_CATEGORIES) {
+    const value = consideration[category]
+    if (value === 'NOT_APPLICABLE') {
+      normalized[category] = value
+      continue
+    }
+    let paths
+    try {
+      paths = normalizedPaths(value)
+    } catch {
+      throw new Error('canonical_task_artifact_dependency_consideration_invalid')
+    }
+    if (paths.some((path) => !authorizedPaths.includes(path))) {
+      throw new Error('canonical_task_artifact_dependency_scope_mismatch')
+    }
+    normalized[category] = paths
+    applicableCategoryCount += 1
+  }
+  if (
+    (contractChange === false && (
+      artifactOwner !== 'NOT_APPLICABLE' || applicableCategoryCount !== 0
+    )) ||
+    (contractChange === true && (
+      artifactOwner === 'NOT_APPLICABLE' || applicableCategoryCount === 0
+    ))
+  ) throw new Error('canonical_task_artifact_dependency_consideration_invalid')
+  return Object.freeze({
+    existing_artifact_contract_change: contractChange,
+    artifact_owner: artifactOwner,
+    ...normalized,
+  })
+}
+
+const canonicalTaskArtifactDependencyMarkdownV1 = (consideration) => {
+  if (consideration === undefined) return ''
+  const labels = Object.freeze({
+    serializer_writer: 'Serializer / writer',
+    validator_schema: 'Validator / schema',
+    renderer_exporter: 'Renderer / exporter',
+    registrar_indexer: 'Registrar / indexer',
+    current_state_production_consumer: 'Current-state / production consumer',
+  })
+  return [
+    '## Bounded Artifact Dependency Consideration V1',
+    '',
+    `- Existing canonical artifact contract change: ${consideration.existing_artifact_contract_change ? 'YES' : 'NO'}`,
+    `- Artifact owner: ${JSON.stringify(consideration.artifact_owner)}`,
+    ...CANONICAL_TASK_ARTIFACT_DEPENDENCY_CATEGORIES.map(
+      (category) => `- ${labels[category]}: ${JSON.stringify(consideration[category])}`,
+    ),
+  ].join('\n')
+}
+
+const canonicalTaskMarkdownV1 = (request) => {
+  const considerationMarkdown = canonicalTaskArtifactDependencyMarkdownV1(
+    request.artifact_dependency_consideration,
+  )
+  const markdown = considerationMarkdown.length === 0
+    ? request.markdown
+    : `${request.markdown}\n\n${considerationMarkdown}`
+  if (markdown.length > 32_768) throw new Error('canonical_task_body_request_invalid')
+  return markdown
+}
+
 const canonicalTaskBodyRequestV1 = (request) => {
-  if (![CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS, CANONICAL_TASK_BODY_REQUEST_FIELDS]
+  if (![
+    CANONICAL_TASK_BODY_LEGACY_REQUEST_FIELDS,
+    CANONICAL_TASK_BODY_REQUEST_FIELDS,
+    CANONICAL_TASK_BODY_LEGACY_GUARDED_REQUEST_FIELDS,
+    CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS,
+  ]
     .some((fields) => exactKeys(request, fields))) {
     throw new Error('canonical_task_body_request_invalid')
   }
@@ -627,11 +726,22 @@ const canonicalTaskBodyRequestV1 = (request) => {
       !TASK_ISSUE_CLOSURE_POLICIES.includes(request.task_issue_closure_policy)) ||
     request.ready_allowed !== false || request.product_owner_login !== 'whatrune'
   ) throw new Error('canonical_task_body_request_invalid')
-  return Object.freeze({
+  const artifactDependencyConsideration = Object.hasOwn(request, 'artifact_dependency_consideration')
+    ? canonicalTaskArtifactDependencyConsiderationV1({
+      consideration: request.artifact_dependency_consideration,
+      authorizedPaths,
+    })
+    : undefined
+  const admitted = Object.freeze({
     ...request,
     authorized_paths: authorizedPaths,
     task_issue_closure_policy: request.task_issue_closure_policy ?? 'AUTO_CLOSE_COMPLETED',
+    ...(artifactDependencyConsideration === undefined
+      ? {}
+      : { artifact_dependency_consideration: artifactDependencyConsideration }),
   })
+  canonicalTaskMarkdownV1(admitted)
+  return admitted
 }
 
 const canonicalTaskIssueNumberV1 = ({ mode, taskIssue }) => {
@@ -946,7 +1056,7 @@ export const serializeCanonicalTaskIssueBodyV1 = ({ request, mode, taskIssue = n
     product_owner_login: admittedRequest.product_owner_login,
   })
   const body = composeCanonicalTaskIssueBodyV1({
-    markdown: admittedRequest.markdown,
+    markdown: canonicalTaskMarkdownV1(admittedRequest),
     taskAuthorityBody: serializeSimplifiedTaskAuthorityV1(taskAuthority, { binding_mode: admittedMode }),
     normalExecutionPredelegation: canonicalNormalTaskExecutionPredelegationV1({
       request: admittedRequest,
@@ -1024,6 +1134,12 @@ const assertCanonicalTaskIssueResourceV1 = ({ resource, request, taskIssue, body
 }
 
 export const publishCanonicalTaskIssueV1 = async ({ request, host }) => {
+  if (![
+    CANONICAL_TASK_BODY_LEGACY_GUARDED_REQUEST_FIELDS,
+    CANONICAL_TASK_BODY_GUARDED_REQUEST_FIELDS,
+  ].some((fields) => exactKeys(request, fields))) {
+    throw new Error('canonical_task_artifact_dependency_consideration_required')
+  }
   const admittedRequest = canonicalTaskBodyRequestV1(request)
   if (
     host === null || typeof host !== 'object' || typeof host.api !== 'function' ||
