@@ -42,7 +42,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 2
 
@@ -69,7 +69,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 3
 
@@ -96,7 +96,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 4
 
@@ -123,7 +123,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 5
 
@@ -150,7 +150,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 6
 
@@ -177,7 +177,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 7
 
@@ -204,7 +204,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 8
 
@@ -231,7 +231,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 9
 
@@ -258,7 +258,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 10
 
@@ -285,7 +285,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 11
 
@@ -312,7 +312,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 12
 
@@ -339,7 +339,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 13
 
@@ -366,7 +366,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 14
 
@@ -393,7 +393,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 15
 
@@ -420,7 +420,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 16
 
@@ -447,7 +447,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 17
 
@@ -473,8 +473,8 @@
   - The top of the head is clipped by the frame.
 - Cross-domain Effects:
   - none_observed
-- Visual Artifacts: none observed
-- Confidence: medium
+- Visual Artifacts: composition_artifact
+- Confidence: high
 
 ### Panel 18
 
@@ -501,7 +501,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 19
 
@@ -528,7 +528,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 20
 
@@ -555,7 +555,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 21
 
@@ -582,7 +582,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 22
 
@@ -609,7 +609,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 23
 
@@ -636,7 +636,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ### Panel 24
 
@@ -663,7 +663,7 @@
 - Cross-domain Effects:
   - none_observed
 - Visual Artifacts: none observed
-- Confidence: medium
+- Confidence: high
 
 ## Computed Aggregate
 
@@ -684,7 +684,7 @@
 
 ## Visual Artifacts
 
-- none observed
+- composition_artifact
 
 ## Prompt / Concept Leakage
 

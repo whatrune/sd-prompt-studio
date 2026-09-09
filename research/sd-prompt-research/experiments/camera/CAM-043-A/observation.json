@@ -62,7 +62,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -99,7 +99,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -136,7 +136,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -173,7 +173,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -210,7 +210,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -247,7 +247,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -284,7 +284,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -321,7 +321,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -358,7 +358,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -395,7 +395,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -432,7 +432,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -469,7 +469,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -506,7 +506,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -543,7 +543,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -580,7 +580,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -617,7 +617,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -652,9 +652,9 @@
       ],
       "cross_domain_effects": [],
       "artifacts": [
-        "none"
+        "composition_artifact"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -691,7 +691,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -728,7 +728,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -765,7 +765,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -802,7 +802,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -839,7 +839,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -876,7 +876,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -913,7 +913,7 @@
       "artifacts": [
         "none"
       ],
-      "confidence": "medium",
+      "confidence": "high",
       "contact_load": {
         "left_hand": "none",
         "right_hand": "none",
@@ -1108,7 +1108,8 @@
     },
     "secondary_morphology_counts": {},
     "artifact_counts": {
-      "none": 24
+      "none": 23,
+      "composition_artifact": 1
     },
     "cross_domain_effect_counts": {},
     "leakage_counts": {}
