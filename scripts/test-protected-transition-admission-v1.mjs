@@ -806,6 +806,35 @@ throws(() => parseCanonicalTaskIssueBodyV1({
     mode: 'BOUND_FINAL',
   }), /canonical_task_body_invalid/)
 }
+{
+  const firstGuardedBoundBody = serializeCanonicalTaskIssueBodyV1({
+    request: canonicalTaskBodyRequest(),
+    mode: 'BOUND_FINAL',
+    taskIssue: 715,
+  })
+  const parsedFirstGuardedBoundBody = parseCanonicalTaskIssueBodyV1({
+    body: firstGuardedBoundBody,
+    mode: 'BOUND_FINAL',
+  })
+  const coordinatedDowngrade = structuredClone(
+    parsedFirstGuardedBoundBody.normal_execution_predelegation,
+  )
+  delete coordinatedDowngrade.allowed_changes.artifact_dependency_consideration
+  coordinatedDowngrade.cumulative_scope = 'NORMAL_TASK_EXECUTION_PREDELEGATION'
+  const coordinatedDowngradeBody = firstGuardedBoundBody
+    .replace(
+      /\n\n## Bounded Artifact Dependency Consideration V1[\s\S]*?(?=\n\n# Simplified Lifecycle Task Authority)/u,
+      '',
+    )
+    .replace(
+      yamlBlock(parsedFirstGuardedBoundBody.normal_execution_predelegation),
+      yamlBlock(coordinatedDowngrade),
+    )
+  throws(() => parseCanonicalTaskIssueBodyV1({
+    body: coordinatedDowngradeBody,
+    mode: 'BOUND_FINAL',
+  }), /canonical_task_body_invalid/)
+}
 throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({ permitted_surface: 'PULL_REQUEST_REVIEW' }),
   mode: 'UNBOUND_CREATE',
@@ -976,6 +1005,25 @@ equal(
   ),
   JSON.stringify({ record_type: 'bounded_artifact_dependency_consideration_v1', ...task711Consideration }),
 )
+{
+  const ownerTokenConsideration = Object.freeze({
+    ...task711Consideration,
+    artifact_owner: 'REVIEW_AUTHORITY_PUBLICATION',
+  })
+  const ownerTokenBody = serializeCanonicalTaskIssueBodyV1({
+    request: canonicalTaskBodyRequest({
+      authorized_paths: task711Paths,
+      artifact_dependency_consideration: ownerTokenConsideration,
+    }),
+    mode: 'BOUND_FINAL',
+    taskIssue: 715,
+  })
+  equal(
+    parseCanonicalTaskIssueBodyV1({ body: ownerTokenBody, mode: 'BOUND_FINAL' })
+      .normal_execution_predelegation.allowed_changes.artifact_dependency_consideration.artifact_owner,
+    'REVIEW_AUTHORITY_PUBLICATION',
+  )
+}
 const { renderer_exporter: _missingRenderer, ...task711WithoutRenderer } = task711Consideration
 throws(() => serializeCanonicalTaskIssueBodyV1({
   request: canonicalTaskBodyRequest({

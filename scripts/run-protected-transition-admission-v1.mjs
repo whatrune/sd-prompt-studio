@@ -147,6 +147,9 @@ const CANONICAL_TASK_ARTIFACT_DEPENDENCY_HEADING = '## Bounded Artifact Dependen
 const CANONICAL_TASK_ARTIFACT_DEPENDENCY_TITLE = 'Bounded Artifact Dependency Consideration V1'
 const NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE =
   'NORMAL_TASK_EXECUTION_PREDELEGATION_WITH_BOUNDED_ARTIFACT_DEPENDENCY_CONSIDERATION_V1'
+const CANONICAL_TASK_ARTIFACT_DEPENDENCY_GUARD_FIRST_BOUND_TASK = Object.freeze({
+  'whatrune/sd-prompt-studio': 715,
+})
 const HTML_HEADING_TAG = /^h[1-6]$/iu
 const POST_MERGE_TASK_CLOSE_REQUEST_FIELDS = Object.freeze([
   'repository', 'task_issue', 'pull_request', 'exact_head', 'head_branch', 'worktree_path',
@@ -586,19 +589,18 @@ const classifyReviewPublicationTaskAssignmentsV2 = (body) => {
   if (typeof body !== 'string' || body.length === 0 || body.length > 65_536) {
     throw new Error('review_publication_authority_malformed')
   }
-  const candidates = [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)]
-    .filter((block) => block[1].includes('REVIEW_AUTHORITY_PUBLICATION'))
   const predelegations = []
   const exactAssignments = []
-  for (const candidate of candidates) {
+  for (const candidate of body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)) {
+    if (!candidate[1].includes('REVIEW_AUTHORITY_PUBLICATION')) continue
     const document = parseDocument(candidate[1], { uniqueKeys: true })
     if (document.errors.length !== 0) throw new Error('review_publication_authority_malformed')
     const assignment = document.toJS()
     const grant = assignment?.allowed_changes
-    if (
-      !exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS) ||
-      grant?.protected_action !== 'REVIEW_AUTHORITY_PUBLICATION'
-    ) throw new Error('review_publication_authority_malformed')
+    if (grant?.protected_action !== 'REVIEW_AUTHORITY_PUBLICATION') continue
+    if (!exactKeys(assignment, REVIEW_PUBLICATION_ASSIGNMENT_FIELDS)) {
+      throw new Error('review_publication_authority_malformed')
+    }
     if (exactKeys(grant, REVIEW_PUBLICATION_PREDELEGATION_GRANT_FIELDS)) {
       predelegations.push(assignment)
     } else if (
@@ -953,13 +955,19 @@ const canonicalNormalTaskExecutionPredelegationV1 = ({ request, taskIssue }) => 
 const serializeFencedYamlJsonV1 = (value) => `\`\`\`yaml\n${JSON.stringify(value, null, 2)}\n\`\`\`\n`
 
 const classifyNormalTaskExecutionPredelegationV1 = (body) => {
-  const candidates = [...body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)]
-    .filter((block) => block[1].includes('NORMAL_TASK_EXECUTION'))
+  const candidates = []
+  for (const candidate of body.matchAll(/```yaml\r?\n([\s\S]*?)\r?\n```/gu)) {
+    if (!candidate[1].includes('NORMAL_TASK_EXECUTION')) continue
+    const document = parseDocument(candidate[1], { uniqueKeys: true })
+    if (document.errors.length !== 0) throw new Error('normal_task_execution_predelegation_invalid')
+    const assignment = document.toJS()
+    if (assignment?.allowed_changes?.protected_action === 'NORMAL_TASK_EXECUTION') {
+      candidates.push(assignment)
+    }
+  }
   if (candidates.length === 0) return null
   if (candidates.length !== 1) throw new Error('normal_task_execution_predelegation_invalid')
-  const document = parseDocument(candidates[0][1], { uniqueKeys: true })
-  if (document.errors.length !== 0) throw new Error('normal_task_execution_predelegation_invalid')
-  const assignment = document.toJS()
+  const assignment = candidates[0]
   const grant = assignment?.allowed_changes
   const operations = grant?.allowed_operations
   if (
@@ -1038,7 +1046,14 @@ export const parseCanonicalTaskIssueBodyV1 = ({ body, mode }) => {
   const guardedArtifactDependencyConsideration = normalExecutionPredelegation?.cumulative_scope ===
     NORMAL_TASK_EXECUTION_GUARDED_CUMULATIVE_SCOPE
   const artifactDependencyBindingPresent = normalGrant?.artifact_dependency_consideration !== undefined
-  if (guardedArtifactDependencyConsideration !== artifactDependencyBindingPresent) {
+  const firstGuardedTaskIssue =
+    CANONICAL_TASK_ARTIFACT_DEPENDENCY_GUARD_FIRST_BOUND_TASK[taskAuthority.repository]
+  const artifactDependencyGuardRequired = admittedMode === 'BOUND_FINAL' &&
+    Number.isSafeInteger(firstGuardedTaskIssue) && taskAuthority.task_issue >= firstGuardedTaskIssue
+  if (
+    guardedArtifactDependencyConsideration !== artifactDependencyBindingPresent ||
+    (artifactDependencyGuardRequired && !guardedArtifactDependencyConsideration)
+  ) {
     throw new Error('canonical_task_body_invalid')
   }
   if (guardedArtifactDependencyConsideration) {
