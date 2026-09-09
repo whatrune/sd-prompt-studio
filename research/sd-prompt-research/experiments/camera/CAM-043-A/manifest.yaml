@@ -1,0 +1,125 @@
+schema_version: "1.0"
+run_id: CAM-043-A
+domain: camera
+condition: cowboy shot
+title: CAM-043-A — cowboy shot
+status: OBSERVED
+created_at: 2026-09-09T19:39:14.441Z
+updated_at: 2026-09-10T04:39:14+09:00
+research:
+  target_phrase: cowboy shot
+  research_question: Does the exact production standing split pose PromptTag materially interfere with
+    exact production cowboy-shot framing under a high-sample matched-seed design?
+  baseline_run_id: CAM-010-A
+  variant_label: cowboy shot
+  hypothesis_before_run: Standing-split geometry may widen composition beyond cowboy shot or be
+    cropped tightly enough that the pose cannot be realized visibly.
+prompt:
+  positive: 1girl, solo, neutral expression, front view, standing, plain fitted sleeveless top, black
+    shorts, empty seamless studio, plain floor, cowboy shot
+  negative: low quality, worst quality, blurry, deformed, bad anatomy, bad hands, extra fingers,
+    missing fingers, extra limbs, fused limbs, text, watermark, multiple people
+  changed_phrases:
+    - cowboy shot
+  fixed_phrases:
+    - 1girl
+    - solo
+    - neutral expression
+    - front view
+    - standing
+    - plain fitted sleeveless top
+    - black shorts
+    - empty seamless studio
+    - plain floor
+model:
+  checkpoint: novaAnimeXL_ilV190
+  checkpoint_sha256: fa486caafc330f133605d3c18b418d183812f14946631c6544bfb28730db6d6f
+  vae: ""
+  sampler: Euler a
+  scheduler: Automatic
+  steps: 20
+  cfg_scale: 4.5
+  width: 1024
+  height: 1024
+  batch_size: 1
+  n_iter: 1
+  enable_hr: false
+  restore_faces: false
+  tiling: false
+  seeds:
+    - 1118969067
+    - 1859517292
+    - 1659802268
+    - 243138092
+    - 1076037482
+    - 353529263
+    - 339355229
+    - 143706658
+    - 1011672496
+    - 1482461196
+    - 743763286
+    - 1346914697
+    - 29181960
+    - 496801483
+    - 1045268267
+    - 705250096
+    - 1591567468
+    - 1053678003
+    - 1246197912
+    - 1694361555
+    - 979500526
+    - 1473133352
+    - 90317960
+    - 945253778
+source:
+  sheet_file: null
+  metadata_file: source/CAM-043-A_metadata.yaml
+  sidecar_file: null
+  layout: individual_panels
+  panel_count: 24
+  original_filename: null
+outputs:
+  panels:
+    - panels/CAM-043-A_01.png
+    - panels/CAM-043-A_02.png
+    - panels/CAM-043-A_03.png
+    - panels/CAM-043-A_04.png
+    - panels/CAM-043-A_05.png
+    - panels/CAM-043-A_06.png
+    - panels/CAM-043-A_07.png
+    - panels/CAM-043-A_08.png
+    - panels/CAM-043-A_09.png
+    - panels/CAM-043-A_10.png
+    - panels/CAM-043-A_11.png
+    - panels/CAM-043-A_12.png
+    - panels/CAM-043-A_13.png
+    - panels/CAM-043-A_14.png
+    - panels/CAM-043-A_15.png
+    - panels/CAM-043-A_16.png
+    - panels/CAM-043-A_17.png
+    - panels/CAM-043-A_18.png
+    - panels/CAM-043-A_19.png
+    - panels/CAM-043-A_20.png
+    - panels/CAM-043-A_21.png
+    - panels/CAM-043-A_22.png
+    - panels/CAM-043-A_23.png
+    - panels/CAM-043-A_24.png
+  preview_file: null
+  rubric_file: source/rubric.yaml
+  observation_file: observation.md
+  observation_json: observation.json
+  research_review_file: research-review.md
+  observation_schema: templates/observation-schema.json
+  canonical_observation: observation.json
+workflow:
+  assigned_to: 研究担当ChatGPT
+  human_reviewed_by: null
+  accepted_at: null
+  notes: "Generated directly through the verified A1111 txt2img API under Task #719. Prompt-blind
+    observation was frozen before condition mapping disclosure. Results are research evidence only."
+ingested_metadata:
+  metadata_status: verified
+  source: a1111_txt2img_api
+  format: png+json
+  archive_filename: null
+  archive_sha256: null
