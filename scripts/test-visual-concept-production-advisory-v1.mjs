@@ -254,7 +254,7 @@ try {
         summary: graphContract.unmodeled_effects.find(effect => effect.effect_id === 'unmodeled.pose_body_overlap.hand_visibility').observed_effect,
       },
       presentation: {
-        warning: 'Hand visibility may be reduced by the current pose or arm placement.',
+        warning: '“Hands behind back” may hide one or both hands behind the body, reducing complete hand visibility.',
         recommendation: 'Review current pose or arm placement.',
       },
       recommendation: {
@@ -598,8 +598,8 @@ try {
   const inspectorRiskIndicator = appSource.indexOf('className="inspector-risk-indicator" aria-label="Active framing risk"')
   check(appSource.includes('const upperBodyFramingRiskEntry = visualConceptRiskEntries.find(entry=>entry.trigger_context.required_prompt_tags.length>0) ?? null') && inspectorRiskIndicator > appSource.indexOf('className="inspector-scroll" aria-label="Inspector details"') && inspectorRiskIndicator < visualSection, 'the near-top Inspector framing-risk indicator must consume the existing projection without changing disclosure state or view')
   check(appSource.includes('upperBodyFramingRiskEntry.presentation.warning') && appSource.includes('Framing risk active'), 'the near-top indicator must reuse the owner-projected warning')
-  check(!appSource.includes('Hand visibility may be reduced by the current pose or arm placement.') && !appSource.includes('Upper-body framing may widen with the current term combination.'), 'App must not become a second owner of advisory-specific presentation semantics')
-  check(runtimeSource.includes('Hand visibility may be reduced by the current pose or arm placement.') && runtimeSource.includes('Upper-body framing may widen with the current term combination.'), 'the existing advisory projector must own both bounded presentation messages')
+  check(!appSource.includes('“Hands behind back” may hide one or both hands behind the body, reducing complete hand visibility.') && !appSource.includes('Upper-body framing may widen with the current term combination.'), 'App must not become a second owner of advisory-specific presentation semantics')
+  check(runtimeSource.includes('“Hands behind back” may hide one or both hands behind the body, reducing complete hand visibility.') && runtimeSource.includes('Upper-body framing may widen with the current term combination.'), 'the existing advisory projector must own both bounded presentation messages')
   const evidenceDetails = appSource.indexOf('<details className="visual-concept-risk-advisory-details">')
   check(evidenceDetails > 0 && appSource.indexOf('Evidence details', evidenceDetails) > evidenceDetails, 'technical advisory content must use one collapsed Evidence details disclosure')
   check(appSource.indexOf('entry.explanation.summary', evidenceDetails) > evidenceDetails && appSource.indexOf('entry.recommendation.message', evidenceDetails) > evidenceDetails && appSource.indexOf('entry.recommendation.suggestion_type', evidenceDetails) > evidenceDetails, 'owner-projected evidence metrics and internal suggestion data must remain available only inside Evidence details')
