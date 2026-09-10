@@ -94,6 +94,12 @@ git worktree add .worktrees/<task> -b codex/<role>-<purpose> origin/main
 
 既存の未コミット変更がある場合、それを削除・stash・commitせず、別のclean worktreeを使用する。
 
+## Steady-State Initial Publication
+
+After authorized pre-PR implementation is complete in a dedicated branch and worktree created from the exact base, `BOOTSTRAP_PUBLICATION_OPERATOR_V1` performs the bounded initial-publication transaction: it commits the authorized change, publishes the previously absent remote branch with create-only semantics, creates a Draft PR, and inserts the initial `protected_transition_task_state_v1` block bound to the new PR, pushed HEAD, and authorized paths. Once that verified state exists, the PR proceeds under the normal protected-transition lifecycle and its usual owners.
+
+This is only the steady-state path already implemented by production. It adds no legacy or bootstrap recovery procedure, retry or repair guidance, or new orchestration semantics.
+
 ## During Work
 
 - 作業開始時と完了前に`git status --short --branch`を確認する。
