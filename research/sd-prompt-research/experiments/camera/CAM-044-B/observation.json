@@ -1,0 +1,990 @@
+{
+  "schema_version": "3.0",
+  "run_id": "CAM-044-B",
+  "blind_condition_label": "COND-8dbb070d9059",
+  "panel_count": 24,
+  "image_layout": "individual_panels",
+  "active_axis_order": [
+    "observed_framing",
+    "upper_crop_boundary",
+    "lower_crop_boundary",
+    "head_visibility",
+    "torso_visibility",
+    "pelvis_visibility",
+    "left_knee_visibility",
+    "right_knee_visibility",
+    "support_foot_visibility",
+    "raised_foot_visibility",
+    "standing_split_realization",
+    "pose_assessability",
+    "framing_assessability",
+    "ambiguity_or_artifact"
+  ],
+  "summary": {
+    "overall_visible_pattern": [
+      "Full-body composition exposes the complete figure in every panel.",
+      "One panel visibly realizes strict standing-split geometry; 23 panels do not."
+    ],
+    "analysis_notes": [
+      "Condition meaning, PromptTags, emitted phrases, prompts, seeds, and mapping were withheld.",
+      "The 48-row opaque visual record was fully serialized and frozen before mapping disclosure at SHA-256 2f07be58088d221eefcbdb3d3cd06278eecddd26ab5513c6547f96708b22b828.",
+      "Canonical run_id and seed binding was applied only after decode and did not change any frozen observation.",
+      "Prompt compliance, matched analysis, and final classification are review-derived only in research-review.md."
+    ]
+  },
+  "panels": [
+    {
+      "panel_id": 1,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 2,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "strict_standing_split",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "strict_standing_split_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knee trajectories, supporting foot, and raised foot above hip level are directly visible.",
+        "Strict standing-split geometry is assessable."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 3,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 4,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 5,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 6,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 7,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 8,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 9,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 10,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 11,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 12,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 13,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 14,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 15,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 16,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 17,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 18,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 19,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 20,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 21,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 22,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 23,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    },
+    {
+      "panel_id": 24,
+      "axis_values": [
+        "full_body",
+        "above_head",
+        "below_feet",
+        "fully_visible",
+        "fully_visible",
+        "fully_visible",
+        "visible",
+        "visible",
+        "visible",
+        "visible",
+        "not_realized",
+        "assessable",
+        "assessable",
+        "none"
+      ],
+      "primary_morphology": "upright_character_with_full_body_visible",
+      "secondary_morphologies": [],
+      "evidence_notes": [
+        "Entire head-to-feet composition is visible.",
+        "Pelvis, both knees, and both feet are directly visible.",
+        "No standing-split geometry is visibly realized."
+      ],
+      "cross_domain_effects": [],
+      "artifacts": [
+        "none"
+      ],
+      "confidence": "high",
+      "contact_load": {
+        "left_hand": "none",
+        "right_hand": "none",
+        "left_forearm": "none",
+        "right_forearm": "none"
+      }
+    }
+  ],
+  "leakage": [],
+  "uncertain": [],
+  "ontology_extension_candidates": [],
+  "cross_condition_comparison": {
+    "status": "not_performed",
+    "reason": "This file preserves condition-local prompt-blind visible evidence; mapping decode and matched comparison occur only in research-review.md after freeze.",
+    "observations": []
+  },
+  "computed_aggregate": {
+    "axis_counts": {
+      "observed_framing": {
+        "full_body": 24
+      },
+      "upper_crop_boundary": {
+        "above_head": 24
+      },
+      "lower_crop_boundary": {
+        "below_feet": 24
+      },
+      "head_visibility": {
+        "fully_visible": 24
+      },
+      "torso_visibility": {
+        "fully_visible": 24
+      },
+      "pelvis_visibility": {
+        "fully_visible": 24
+      },
+      "left_knee_visibility": {
+        "visible": 24
+      },
+      "right_knee_visibility": {
+        "visible": 24
+      },
+      "support_foot_visibility": {
+        "visible": 24
+      },
+      "raised_foot_visibility": {
+        "visible": 24
+      },
+      "standing_split_realization": {
+        "not_realized": 23,
+        "strict_standing_split": 1
+      },
+      "pose_assessability": {
+        "assessable": 24
+      },
+      "framing_assessability": {
+        "assessable": 24
+      },
+      "ambiguity_or_artifact": {
+        "none": 24
+      }
+    },
+    "primary_morphology_counts": {
+      "upright_character_with_full_body_visible": 23,
+      "strict_standing_split_with_full_body_visible": 1
+    },
+    "secondary_morphology_counts": {},
+    "artifact_counts": {
+      "none": 24
+    },
+    "cross_domain_effect_counts": {},
+    "leakage_counts": {}
+  }
+}

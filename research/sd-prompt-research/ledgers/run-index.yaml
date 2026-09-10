@@ -1233,3 +1233,15 @@ runs:
   status: OBSERVED
   updated_at: '2026-09-10T04:39:14+09:00'
   path: experiments/camera/CAM-043-B
+- run_id: CAM-044-A
+  domain: camera
+  title: CAM-044-A — full body
+  status: OBSERVED
+  updated_at: '2026-09-10T09:22:16+09:00'
+  path: experiments/camera/CAM-044-A
+- run_id: CAM-044-B
+  domain: camera
+  title: CAM-044-B — full body + standing split
+  status: OBSERVED
+  updated_at: '2026-09-10T09:22:17+09:00'
+  path: experiments/camera/CAM-044-B

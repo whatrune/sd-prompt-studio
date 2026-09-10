@@ -1,0 +1,193 @@
+schema_version: "3.0"
+target_concept: standing-split pose viability under canonical full-body framing with matched production PromptTags
+blind_analysis: true
+special_values:
+  unclear: Visible geometry does not support a reliable category.
+  not_visible: The relevant body region is outside the visible frame.
+axis_catalog:
+  observed_framing:
+    label: Observed Framing
+    allowed_values:
+      - full_body
+      - cowboy_shot
+      - upper_body
+      - close_up
+      - other
+      - ambiguous
+  upper_crop_boundary:
+    label: Upper Crop Boundary
+    allowed_values:
+      - above_head
+      - hairline
+      - forehead
+      - eyes
+      - below_eyes
+      - unknown
+  lower_crop_boundary:
+    label: Lower Crop Boundary
+    allowed_values:
+      - below_feet
+      - feet
+      - ankle
+      - lower_leg
+      - knee
+      - distal_thigh
+      - mid_thigh
+      - proximal_thigh
+      - pelvis
+      - waist
+      - chest
+      - unknown
+  head_visibility:
+    label: Head Visibility
+    allowed_values:
+      - fully_visible
+      - partially_cropped
+      - not_visible
+      - unclear
+  torso_visibility:
+    label: Torso Visibility
+    allowed_values:
+      - fully_visible
+      - partially_visible
+      - not_visible
+      - unclear
+  pelvis_visibility:
+    label: Pelvis Visibility
+    allowed_values:
+      - fully_visible
+      - partially_visible
+      - not_visible
+      - unclear
+  left_knee_visibility:
+    label: Left Knee Visibility
+    allowed_values:
+      - visible
+      - not_visible
+      - unclear
+  right_knee_visibility:
+    label: Right Knee Visibility
+    allowed_values:
+      - visible
+      - not_visible
+      - unclear
+  support_foot_visibility:
+    label: Support Foot Visibility
+    allowed_values:
+      - visible
+      - not_visible
+      - unclear
+  raised_foot_visibility:
+    label: Raised Foot Visibility
+    allowed_values:
+      - visible
+      - not_visible
+      - unclear
+  standing_split_realization:
+    label: Standing Split Realization
+    allowed_values:
+      - strict_standing_split
+      - partial_leg_raise
+      - other_visible_pose
+      - not_realized
+      - indeterminate_hidden_required_regions
+  pose_assessability:
+    label: Pose Assessability
+    allowed_values:
+      - assessable
+      - unassessable
+      - unclear
+  framing_assessability:
+    label: Framing Assessability
+    allowed_values:
+      - assessable
+      - unassessable
+      - unclear
+  ambiguity_or_artifact:
+    label: Ambiguity Or Artifact
+    allowed_values:
+      - none
+      - framing_ambiguous
+      - pose_ambiguous
+      - anatomy_artifact
+      - composition_artifact
+      - multiple
+active_observation_axes:
+  - observed_framing
+  - upper_crop_boundary
+  - lower_crop_boundary
+  - head_visibility
+  - torso_visibility
+  - pelvis_visibility
+  - left_knee_visibility
+  - right_knee_visibility
+  - support_foot_visibility
+  - raised_foot_visibility
+  - standing_split_realization
+  - pose_assessability
+  - framing_assessability
+  - ambiguity_or_artifact
+contact_load:
+  enabled: true
+  fields:
+    - left_hand
+    - right_hand
+    - left_forearm
+    - right_forearm
+  allowed_values:
+    - none
+    - light
+    - supporting
+    - weight_bearing
+    - unclear
+morphology_candidates:
+  primary:
+    - upright_character_with_full_body_visible
+    - strict_standing_split_with_full_body_visible
+  secondary: []
+artifact_checks:
+  - none
+  - anatomy_artifact
+  - composition_artifact
+  - multiple
+cross_domain_effects:
+  enabled: true
+  domains:
+    - camera
+    - composition
+    - pose
+  strength_values:
+    - weak
+    - medium
+    - strong
+    - unclear
+  effect_type_values:
+    - natural_response
+    - secondary_effect
+    - interaction
+    - artifact
+    - unclear
+framing_definitions:
+  full_body: Entire head through both feet is visible.
+  cowboy_shot: Full head and torso are visible and the lower crop boundary is at mid or distal thigh.
+  upper_body: Lower crop boundary is proximal thigh, pelvis, waist, or chest.
+  close_up: Composition is dominated by head and shoulders with lower boundary above the chest.
+  ordinal_tight_to_wide:
+    - close_up
+    - upper_body
+    - cowboy_shot
+    - full_body
+standing_split_definition: Strict realization requires directly visible pelvis, both knee trajectories, one supporting
+  leg and foot, and the other extended leg and raised foot clearly above hip level. Hidden geometry is never inferred.
+rules:
+  preserve_axis_labels_exactly: true
+  preserve_axis_order: true
+  output_all_active_axes_for_every_panel: true
+  use_allowed_values_only: true
+  visible_evidence_only: true
+  enforce_visible_evidence_policy: true
+  prompt_blind_freeze_required: true
+  analyst_must_not_assign_target_alignment: true
+  analyst_must_not_finalize_concept: true
+  twenty_four_images_per_condition_are_bounded_evidence_only: true
+blind_condition_label: COND-8dbb070d9059
